@@ -7,6 +7,7 @@ export type SquadPlayer = {
   webName: string;
   position: Position;
   club: string;
+  clubCode: number | null;
   currentPrice: number;
   isStarting: boolean;
   squadPosition: number;

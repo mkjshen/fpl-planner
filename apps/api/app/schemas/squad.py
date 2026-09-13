@@ -11,6 +11,7 @@ class SquadPlayerOut(BaseModel):
     webName: str
     position: str
     club: str
+    clubCode: int | None
     currentPrice: int
     isStarting: bool
     squadPosition: int

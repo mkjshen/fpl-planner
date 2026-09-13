@@ -1,7 +1,16 @@
+import Image from "next/image";
 import type { Position, SquadPlayer } from "@/lib/api";
 
 export function formatPrice(tenthsOfMillion: number): string {
   return `£${(tenthsOfMillion / 10).toFixed(1)}m`;
+}
+
+// Hotlinked from the official FPL site's own static assets — the same
+// shirt images fantasy.premierleague.com uses on its own squad view — not
+// a copy we host ourselves. Goalkeepers get a distinct "_1" kit variant.
+function shirtUrl(clubCode: number, position: Position): string {
+  const suffix = position === "GK" ? "_1" : "";
+  return `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${clubCode}${suffix}-66.png`;
 }
 
 export function PlayerCard({
@@ -38,6 +47,15 @@ export function PlayerCard({
         >
           {player.isCaptain ? "C" : "VC"}
         </span>
+      )}
+      {player.clubCode !== null && (
+        <Image
+          src={shirtUrl(player.clubCode, player.position)}
+          alt=""
+          width={32}
+          height={32}
+          className="mb-1 h-8 w-8 object-contain"
+        />
       )}
       <span className="w-full truncate text-xs font-semibold text-black dark:text-zinc-50">
         {player.webName}

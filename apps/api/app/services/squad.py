@@ -24,6 +24,7 @@ async def build_player_rows(
             webName=player.webName,
             position=player.position.value,
             club=club.shortName,
+            clubCode=club.code,
             currentPrice=player.currentPrice,
             isStarting=is_starting,
             squadPosition=squad_position,

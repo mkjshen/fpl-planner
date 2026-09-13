@@ -117,6 +117,7 @@ model Gameweek {
 
 model Club {
   id        Int     @id // official FPL club id
+  code      Int?    // official FPL team code — used to build shirt image URLs, distinct from id
   name      String
   shortName String
 

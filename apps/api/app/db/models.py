@@ -83,6 +83,7 @@ class Club(Base):
     __tablename__ = "Club"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[int | None] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String)
     shortName: Mapped[str] = mapped_column(String)
 

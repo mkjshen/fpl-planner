@@ -19,6 +19,7 @@ class FplEvent(BaseModel):
 
 class FplClub(BaseModel):
     id: int
+    code: int
     name: str
     short_name: str
 

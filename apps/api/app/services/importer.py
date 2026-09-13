@@ -99,11 +99,18 @@ async def _upsert_gameweeks(
 
 async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -> None:
     if bootstrap.teams:
-        club_rows = [{"id": t.id, "name": t.name, "shortName": t.short_name} for t in bootstrap.teams]
+        club_rows = [
+            {"id": t.id, "code": t.code, "name": t.name, "shortName": t.short_name}
+            for t in bootstrap.teams
+        ]
         stmt = pg_insert(Club).values(club_rows)
         stmt = stmt.on_conflict_do_update(
             index_elements=[Club.id],
-            set_={"name": stmt.excluded.name, "shortName": stmt.excluded.shortName},
+            set_={
+                "code": stmt.excluded.code,
+                "name": stmt.excluded.name,
+                "shortName": stmt.excluded.shortName,
+            },
         )
         await db.execute(stmt)
 
