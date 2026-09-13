@@ -20,6 +20,8 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  // Only set for credentials sign-up; null for OAuth-only users.
+  password      String?
   createdAt     DateTime  @default(now())
 
   accounts Account[]
@@ -63,7 +65,9 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// --- App domain models (skeleton — extended in later build steps) ---
+// --- App domain models ---
+// Scope: users, squads, transfer history (build step 1). Fixtures, advanced
+// stats, chip usage, and planning tables are added in later build steps.
 
 model FplTeam {
   id          String   @id @default(cuid())
@@ -73,7 +77,133 @@ model FplTeam {
   managerName String?
   linkedAt    DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots SquadSnapshot[]
+  transfers TransferHistory[]
 
   @@unique([userId, fplTeamId])
+}
+
+// A season's rules — kept as data since free-transfer caps, rollover limits,
+// and the chip set have changed between FPL seasons.
+model Season {
+  id                       String   @id @default(cuid())
+  label                    String   @unique // e.g. "2026/27"
+  isCurrent                Boolean  @default(false)
+  freeTransferCap          Int
+  freeTransferRolloverLimit Int
+  chipsAvailable           String[] // e.g. ["wildcard", "free_hit", "bench_boost", "triple_captain"]
+
+  gameweeks Gameweek[]
+}
+
+model Gameweek {
+  id           String   @id @default(cuid())
+  seasonId     String
+  number       Int
+  deadlineTime DateTime
+  isCurrent    Boolean  @default(false)
+  isNext       Boolean  @default(false)
+  isFinished   Boolean  @default(false)
+
+  season    Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  snapshots SquadSnapshot[]
+  transfers TransferHistory[]
+
+  @@unique([seasonId, number])
+}
+
+model Club {
+  id        Int     @id // official FPL club id
+  name      String
+  shortName String
+
+  players Player[]
+}
+
+enum Position {
+  GK
+  DEF
+  MID
+  FWD
+}
+
+model Player {
+  id           Int      @id // official FPL element id
+  clubId       Int
+  webName      String
+  fullName     String
+  position     Position
+  currentPrice Int // in tenths of a million, matching the FPL API (e.g. 105 = £10.5m)
+  status       String   @default("available")
+
+  club          Club                @relation(fields: [clubId], references: [id])
+  priceHistory  PlayerPriceHistory[]
+  squadPlayers  SquadPlayer[]
+  transfersOut  TransferHistory[]   @relation("TransferPlayerOut")
+  transfersIn   TransferHistory[]   @relation("TransferPlayerIn")
+}
+
+model PlayerPriceHistory {
+  id        String   @id @default(cuid())
+  playerId  Int
+  price     Int
+  recordedAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, recordedAt])
+}
+
+// A manager's squad as pulled from the FPL API at a given gameweek — a record
+// of what actually happened, not a plan.
+model SquadSnapshot {
+  id         String   @id @default(cuid())
+  fplTeamId  String
+  gameweekId String
+  bank       Int // in tenths of a million
+  teamValue  Int
+  capturedAt DateTime @default(now())
+
+  fplTeam FplTeam       @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
+  gameweek Gameweek     @relation(fields: [gameweekId], references: [id])
+  players  SquadPlayer[]
+
+  @@unique([fplTeamId, gameweekId])
+}
+
+model SquadPlayer {
+  id            String   @id @default(cuid())
+  snapshotId    String
+  playerId      Int
+  purchasePrice Int
+  sellingPrice  Int
+  isStarting    Boolean  @default(false)
+  squadPosition Int // 1-15, matching the FPL squad slot ordering
+  isCaptain     Boolean  @default(false)
+  isViceCaptain Boolean  @default(false)
+
+  snapshot SquadSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  player   Player        @relation(fields: [playerId], references: [id])
+
+  @@unique([snapshotId, playerId])
+}
+
+// Actual transfers as reported by the FPL API — separate from any
+// in-progress planning data added in later build steps.
+model TransferHistory {
+  id             String   @id @default(cuid())
+  fplTeamId      String
+  gameweekId     String
+  playerOutId    Int
+  playerInId     Int
+  transferCost   Int // 0 or 4 (points), per the -4 hit rule
+  executedAt     DateTime
+
+  fplTeam   FplTeam  @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
+  gameweek  Gameweek @relation(fields: [gameweekId], references: [id])
+  playerOut Player   @relation("TransferPlayerOut", fields: [playerOutId], references: [id])
+  playerIn  Player   @relation("TransferPlayerIn", fields: [playerInId], references: [id])
+
+  @@index([fplTeamId, gameweekId])
 }
