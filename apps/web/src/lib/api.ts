@@ -1,9 +1,11 @@
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000";
 
+export type Position = "GK" | "DEF" | "MID" | "FWD";
+
 export type SquadPlayer = {
   playerId: number;
   webName: string;
-  position: "GK" | "DEF" | "MID" | "FWD";
+  position: Position;
   club: string;
   currentPrice: number;
   isStarting: boolean;

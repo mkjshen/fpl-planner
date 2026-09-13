@@ -1,37 +1,79 @@
-import type { Squad, SquadPlayer } from "@/lib/api";
+import type { Position, Squad, SquadPlayer } from "@/lib/api";
 
 function formatPrice(tenthsOfMillion: number): string {
   return `£${(tenthsOfMillion / 10).toFixed(1)}m`;
 }
 
-function PlayerRow({ player }: { player: SquadPlayer }) {
+function PlayerCard({ player, muted }: { player: SquadPlayer; muted?: boolean }) {
   return (
-    <li className="flex items-center justify-between rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145]">
-      <div className="flex items-center gap-2">
-        <span className="w-10 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          {player.position}
+    <div
+      className={`relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
+        muted
+          ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
+          : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
+      }`}
+    >
+      {(player.isCaptain || player.isViceCaptain) && (
+        <span
+          className={`absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold ${
+            player.isCaptain
+              ? "bg-foreground text-background"
+              : "border border-black/[.15] bg-white text-black dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-50"
+          }`}
+        >
+          {player.isCaptain ? "C" : "VC"}
         </span>
-        <span className="font-medium text-black dark:text-zinc-50">{player.webName}</span>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{player.club}</span>
-        {player.isCaptain && (
-          <span className="rounded bg-foreground px-1.5 py-0.5 text-[0.65rem] font-semibold text-background">
-            C
-          </span>
-        )}
-        {player.isViceCaptain && (
-          <span className="rounded border border-black/[.15] px-1.5 py-0.5 text-[0.65rem] font-semibold dark:border-white/[.2]">
-            VC
-          </span>
-        )}
+      )}
+      <span className="w-full truncate text-xs font-semibold text-black dark:text-zinc-50">
+        {player.webName}
+      </span>
+      <span className="text-[0.65rem] text-zinc-500 dark:text-zinc-400">{player.club}</span>
+      <span className="mt-0.5 text-[0.65rem] font-medium text-zinc-600 dark:text-zinc-300">
+        {formatPrice(player.currentPrice)}
+      </span>
+    </div>
+  );
+}
+
+const PITCH_ROWS: Position[] = ["FWD", "MID", "DEF", "GK"];
+
+function Pitch({ starting }: { starting: SquadPlayer[] }) {
+  const byPosition = (position: Position) =>
+    starting.filter((p) => p.position === position).sort((a, b) => a.squadPosition - b.squadPosition);
+
+  const formation = (["DEF", "MID", "FWD"] as const)
+    .map((position) => byPosition(position).length)
+    .join("-");
+
+  return (
+    <div className="relative">
+      <span className="absolute top-2 left-1/2 -translate-x-1/2 rounded-full bg-black/30 px-2 py-0.5 text-xs font-medium text-white">
+        {formation}
+      </span>
+      <div
+        className="flex flex-col justify-between gap-4 rounded-xl border border-black/10 px-2 py-10 sm:px-6"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(180deg, #3d8c40 0, #3d8c40 12.5%, #439648 12.5%, #439648 25%)",
+        }}
+      >
+        {PITCH_ROWS.map((position) => (
+          <div key={position} className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
+            {byPosition(position).map((player) => (
+              <PlayerCard key={player.playerId} player={player} />
+            ))}
+          </div>
+        ))}
       </div>
-      <span className="text-zinc-600 dark:text-zinc-400">{formatPrice(player.currentPrice)}</span>
-    </li>
+    </div>
   );
 }
 
 export function SquadView({ squad }: { squad: Squad }) {
   const starting = squad.players.filter((p) => p.isStarting);
-  const bench = squad.players.filter((p) => !p.isStarting);
+  const bench = squad.players
+    .filter((p) => !p.isStarting)
+    .sort((a, b) => a.squadPosition - b.squadPosition);
 
   return (
     <div>
@@ -44,19 +86,16 @@ export function SquadView({ squad }: { squad: Squad }) {
         </p>
       </div>
 
-      <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Starting XI</h2>
-      <ul className="mt-2 flex flex-col gap-2">
-        {starting.map((player) => (
-          <PlayerRow key={player.playerId} player={player} />
-        ))}
-      </ul>
+      <div className="mt-6">
+        <Pitch starting={starting} />
+      </div>
 
       <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
-      <ul className="mt-2 flex flex-col gap-2">
+      <div className="mt-2 flex flex-wrap gap-2 sm:gap-4">
         {bench.map((player) => (
-          <PlayerRow key={player.playerId} player={player} />
+          <PlayerCard key={player.playerId} player={player} muted />
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
