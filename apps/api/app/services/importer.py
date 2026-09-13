@@ -1,0 +1,281 @@
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import (
+    Club,
+    FplTeam,
+    Gameweek,
+    Player,
+    Position,
+    Season,
+    SquadPlayer,
+    SquadSnapshot,
+    TransferHistory,
+)
+from app.schemas.fpl_api import FplBootstrap, FplEntry, FplPicksResponse, FplTransfer
+from app.services.fpl_client import FplClient, FplTeamNotFoundError
+
+ELEMENT_TYPE_TO_POSITION = {
+    1: Position.GK,
+    2: Position.DEF,
+    3: Position.MID,
+    4: Position.FWD,
+}
+
+CHIP_NAME_MAP = {
+    "wildcard": "wildcard",
+    "freehit": "free_hit",
+    "bboost": "bench_boost",
+    "3xc": "triple_captain",
+}
+
+# The FPL API doesn't expose these as data — they're game rules that have
+# changed between seasons. Verify against the live rules before trusting
+# this for anything beyond display (see CLAUDE.md).
+FREE_TRANSFER_CAP = 1
+FREE_TRANSFER_ROLLOVER_LIMIT = 5
+
+
+def _season_label(bootstrap: FplBootstrap) -> str:
+    start_year = min(e.deadline_time for e in bootstrap.events).year
+    return f"{start_year}/{str(start_year + 1)[-2:]}"
+
+
+async def _upsert_season(db: AsyncSession, bootstrap: FplBootstrap) -> Season:
+    label = _season_label(bootstrap)
+    chips_available = sorted({CHIP_NAME_MAP.get(c.name, c.name) for c in bootstrap.chips})
+
+    existing = await db.scalar(select(Season).where(Season.label == label))
+    if existing:
+        existing.isCurrent = True
+        existing.chipsAvailable = chips_available
+        return existing
+
+    season = Season(
+        label=label,
+        isCurrent=True,
+        freeTransferCap=FREE_TRANSFER_CAP,
+        freeTransferRolloverLimit=FREE_TRANSFER_ROLLOVER_LIMIT,
+        chipsAvailable=chips_available,
+    )
+    db.add(season)
+    await db.flush()
+    return season
+
+
+async def _upsert_gameweeks(
+    db: AsyncSession, season: Season, bootstrap: FplBootstrap
+) -> dict[int, Gameweek]:
+    result = await db.execute(select(Gameweek).where(Gameweek.seasonId == season.id))
+    existing_by_number = {gw.number: gw for gw in result.scalars().all()}
+
+    gameweeks: dict[int, Gameweek] = {}
+    for event in bootstrap.events:
+        deadline_time = _as_naive_utc(event.deadline_time)
+        gw = existing_by_number.get(event.id)
+        if gw:
+            gw.deadlineTime = deadline_time
+            gw.isCurrent = event.is_current
+            gw.isNext = event.is_next
+            gw.isFinished = event.finished
+        else:
+            gw = Gameweek(
+                seasonId=season.id,
+                number=event.id,
+                deadlineTime=deadline_time,
+                isCurrent=event.is_current,
+                isNext=event.is_next,
+                isFinished=event.finished,
+            )
+            db.add(gw)
+        gameweeks[event.id] = gw
+
+    await db.flush()
+    return gameweeks
+
+
+async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -> None:
+    if bootstrap.teams:
+        club_rows = [{"id": t.id, "name": t.name, "shortName": t.short_name} for t in bootstrap.teams]
+        stmt = pg_insert(Club).values(club_rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[Club.id],
+            set_={"name": stmt.excluded.name, "shortName": stmt.excluded.shortName},
+        )
+        await db.execute(stmt)
+
+    if bootstrap.elements:
+        player_rows = [
+            {
+                "id": e.id,
+                "clubId": e.team,
+                "webName": e.web_name,
+                "fullName": f"{e.first_name} {e.second_name}".strip(),
+                "position": ELEMENT_TYPE_TO_POSITION[e.element_type],
+                "currentPrice": e.now_cost,
+                "status": e.status,
+            }
+            for e in bootstrap.elements
+        ]
+        stmt = pg_insert(Player).values(player_rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[Player.id],
+            set_={
+                "clubId": stmt.excluded.clubId,
+                "webName": stmt.excluded.webName,
+                "fullName": stmt.excluded.fullName,
+                "position": stmt.excluded.position,
+                "currentPrice": stmt.excluded.currentPrice,
+                "status": stmt.excluded.status,
+            },
+        )
+        await db.execute(stmt)
+
+
+async def _upsert_fpl_team(
+    db: AsyncSession, user_id: str, fpl_team_id: int, entry: FplEntry
+) -> FplTeam:
+    fpl_team = await db.scalar(
+        select(FplTeam).where(FplTeam.userId == user_id, FplTeam.fplTeamId == fpl_team_id)
+    )
+    manager_name = f"{entry.player_first_name} {entry.player_last_name}".strip()
+    if fpl_team:
+        fpl_team.teamName = entry.name
+        fpl_team.managerName = manager_name
+    else:
+        fpl_team = FplTeam(
+            userId=user_id,
+            fplTeamId=fpl_team_id,
+            teamName=entry.name,
+            managerName=manager_name,
+        )
+        db.add(fpl_team)
+    await db.flush()
+    return fpl_team
+
+
+async def _replace_snapshot(
+    db: AsyncSession,
+    fpl_team: FplTeam,
+    gameweek: Gameweek,
+    picks: FplPicksResponse,
+) -> SquadSnapshot:
+    snapshot = await db.scalar(
+        select(SquadSnapshot).where(
+            SquadSnapshot.fplTeamId == fpl_team.id, SquadSnapshot.gameweekId == gameweek.id
+        )
+    )
+    if snapshot:
+        await db.execute(SquadPlayer.__table__.delete().where(SquadPlayer.snapshotId == snapshot.id))
+        snapshot.bank = picks.entry_history.bank
+        snapshot.teamValue = picks.entry_history.value
+    else:
+        snapshot = SquadSnapshot(
+            fplTeamId=fpl_team.id,
+            gameweekId=gameweek.id,
+            bank=picks.entry_history.bank,
+            teamValue=picks.entry_history.value,
+        )
+        db.add(snapshot)
+    await db.flush()
+
+    for pick in picks.picks:
+        db.add(
+            SquadPlayer(
+                snapshotId=snapshot.id,
+                playerId=pick.element,
+                # FPL's picks endpoint doesn't return purchase price — only
+                # current price is known until we track price-at-purchase
+                # over time via PlayerPriceHistory in a later build step.
+                purchasePrice=0,
+                sellingPrice=0,
+                isStarting=pick.position <= 11,
+                squadPosition=pick.position,
+                isCaptain=pick.is_captain,
+                isViceCaptain=pick.is_vice_captain,
+            )
+        )
+    await db.flush()
+    return snapshot
+
+
+def _as_naive_utc(value: datetime) -> datetime:
+    """Normalize a datetime to naive-UTC, rounded to milliseconds, so
+    comparisons are stable regardless of source. Two things differ between
+    a freshly-parsed FPL timestamp and one read back from the database:
+    tz-awareness (Pydantic parses FPL's "Z" suffix as UTC-aware; asyncpg
+    returns timestamptz columns converted to the session's timezone as
+    naive) and precision (Prisma's DateTime columns are TIMESTAMP(3) —
+    Postgres rounds to milliseconds at storage time, so a full-microsecond
+    Python value never matches what was actually persisted unless rounded
+    the same way first)."""
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+
+    rounded_micros = round(value.microsecond, -3)
+    if rounded_micros == 1_000_000:
+        return value.replace(microsecond=0) + timedelta(seconds=1)
+    return value.replace(microsecond=rounded_micros)
+
+
+async def _import_transfers(
+    db: AsyncSession,
+    fpl_team: FplTeam,
+    gameweeks: dict[int, Gameweek],
+    transfers: list[FplTransfer],
+) -> None:
+    existing = await db.execute(
+        select(TransferHistory.executedAt).where(TransferHistory.fplTeamId == fpl_team.id)
+    )
+    already_imported = {_as_naive_utc(row[0]) for row in existing.all()}
+
+    for transfer in transfers:
+        executed_at = _as_naive_utc(transfer.time)
+        if executed_at in already_imported:
+            continue
+        gameweek = gameweeks.get(transfer.event)
+        if gameweek is None:
+            continue
+        db.add(
+            TransferHistory(
+                fplTeamId=fpl_team.id,
+                gameweekId=gameweek.id,
+                playerOutId=transfer.element_out,
+                playerInId=transfer.element_in,
+                # FPL only reports the transfer-cost hit per gameweek, not
+                # per individual transfer — precise attribution is a
+                # transfer-planner (build step 3) concern.
+                transferCost=0,
+                executedAt=executed_at,
+            )
+        )
+    await db.flush()
+
+
+async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTeam:
+    async with FplClient() as client:
+        entry = await client.get_entry(fpl_team_id)
+        bootstrap = await client.get_bootstrap_static()
+
+        current_event_id = next(
+            (e.id for e in bootstrap.events if e.is_current), entry.current_event
+        )
+        if current_event_id is None:
+            raise FplTeamNotFoundError(fpl_team_id)
+
+        picks = await client.get_entry_picks(fpl_team_id, current_event_id)
+        transfers = await client.get_entry_transfers(fpl_team_id)
+
+    season = await _upsert_season(db, bootstrap)
+    gameweeks = await _upsert_gameweeks(db, season, bootstrap)
+    await _upsert_clubs_and_players(db, bootstrap)
+
+    fpl_team = await _upsert_fpl_team(db, user_id, fpl_team_id, entry)
+    await _replace_snapshot(db, fpl_team, gameweeks[current_event_id], picks)
+    await _import_transfers(db, fpl_team, gameweeks, transfers)
+
+    await db.commit()
+    return fpl_team
