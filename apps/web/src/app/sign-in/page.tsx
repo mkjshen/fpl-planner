@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
+import { OAuthButtons } from "@/components/oauth-buttons";
 
 async function signInAction(formData: FormData) {
   "use server";
@@ -70,6 +71,16 @@ export default async function SignInPage({
             Sign in
           </button>
         </form>
+
+        <div className="mt-6 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-500">
+          <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+          or
+          <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+        </div>
+
+        <div className="mt-6">
+          <OAuthButtons />
+        </div>
 
         <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
           Don&apos;t have an account?{" "}

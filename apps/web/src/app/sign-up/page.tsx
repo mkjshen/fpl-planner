@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { createUser, EmailInUseError } from "@/lib/users";
 import { signUpSchema } from "@/lib/validation";
+import { OAuthButtons } from "@/components/oauth-buttons";
 
 async function signUpAction(formData: FormData) {
   "use server";
@@ -112,6 +113,16 @@ export default async function SignUpPage({
             Sign up
           </button>
         </form>
+
+        <div className="mt-6 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-500">
+          <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+          or
+          <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+        </div>
+
+        <div className="mt-6">
+          <OAuthButtons />
+        </div>
 
         <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
           Already have an account?{" "}
