@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import { getSquadForUser } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
+import { SignOutButton } from "@/components/sign-out-button";
+import { Tabs } from "@/components/tabs";
 import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
 
 export default async function DashboardPage({
@@ -25,39 +26,20 @@ export default async function DashboardPage({
           <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
             Welcome, {session.user.name ?? session.user.email}
           </h1>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <button
-              type="submit"
-              className="whitespace-nowrap rounded-full border border-black/[.08] px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-            >
-              Sign out
-            </button>
-          </form>
+          <SignOutButton />
         </div>
 
         {squad ? (
           <div>
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+            <Tabs active="squad" />
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {squad.teamName} · {squad.managerName} · Gameweek {squad.gameweek} (current)
               </p>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 Bank {formatPrice(squad.bank)} · Value {formatPrice(squad.teamValue)}
               </p>
-            </div>
-
-            <div className="mt-3">
-              <Link
-                href="/dashboard/planner"
-                className="text-sm font-medium text-black underline decoration-dotted hover:decoration-solid dark:text-zinc-50"
-              >
-                Plan future gameweeks →
-              </Link>
             </div>
 
             <div className="mt-6">
