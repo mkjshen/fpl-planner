@@ -73,21 +73,19 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
     if not is_editable:
         slots = actual_slots
     else:
-        plan = await db.scalar(
-            select(LineupPlan).where(
-                LineupPlan.fplTeamId == fpl_team.id, LineupPlan.gameweekId == gameweek.id
-            )
-        )
+        plan = await _find_effective_plan(db, fpl_team, gameweek)
         if plan is None:
-            plan = await _seed_plan(db, fpl_team, gameweek, actual_slots)
-
-        result = await db.execute(
-            select(LineupPlanPlayer).where(LineupPlanPlayer.planId == plan.id)
-        )
-        slots = [
-            (lp.playerId, lp.isStarting, lp.squadPosition, lp.isCaptain, lp.isViceCaptain)
-            for lp in result.scalars().all()
-        ]
+            # No explicit edit anywhere at or before this gameweek yet —
+            # mirror the actual squad, same as the non-editable branch.
+            slots = actual_slots
+        else:
+            result = await db.execute(
+                select(LineupPlanPlayer).where(LineupPlanPlayer.planId == plan.id)
+            )
+            slots = [
+                (lp.playerId, lp.isStarting, lp.squadPosition, lp.isCaptain, lp.isViceCaptain)
+                for lp in result.scalars().all()
+            ]
 
     players = await build_player_rows(db, slots)
 
@@ -103,29 +101,19 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
     )
 
 
-async def _seed_plan(
-    db: AsyncSession,
-    fpl_team: FplTeam,
-    gameweek: Gameweek,
-    actual_slots: list[tuple[int, bool, int, bool, bool]],
-) -> LineupPlan:
-    plan = LineupPlan(fplTeamId=fpl_team.id, gameweekId=gameweek.id)
-    db.add(plan)
-    await db.flush()
-
-    for player_id, is_starting, squad_position, is_captain, is_vice_captain in actual_slots:
-        db.add(
-            LineupPlanPlayer(
-                planId=plan.id,
-                playerId=player_id,
-                isStarting=is_starting,
-                squadPosition=squad_position,
-                isCaptain=is_captain,
-                isViceCaptain=is_vice_captain,
-            )
-        )
-    await db.commit()
-    return plan
+async def _find_effective_plan(
+    db: AsyncSession, fpl_team: FplTeam, gameweek: Gameweek
+) -> LineupPlan | None:
+    """The nearest explicit plan at or before this gameweek — an explicit
+    edit to an earlier gameweek cascades forward until a later gameweek's
+    own explicit edit takes over."""
+    return await db.scalar(
+        select(LineupPlan)
+        .join(Gameweek, LineupPlan.gameweekId == Gameweek.id)
+        .where(LineupPlan.fplTeamId == fpl_team.id, Gameweek.number <= gameweek.number)
+        .order_by(Gameweek.number.desc())
+        .limit(1)
+    )
 
 
 def _validate_lineup(
