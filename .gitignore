@@ -1,0 +1,20 @@
+# Node (root-level, workspace-hoisted)
+/node_modules
+
+# Python
+apps/api/.venv
+apps/api/**/__pycache__
+*.pyc
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# Terraform
+infra/terraform/.terraform
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
