@@ -206,7 +206,7 @@ export function LineupPlanner({
           </p>
           <select
             value={selectedGameweek}
-            onChange={(e) => router.push(`/dashboard?gameweek=${e.target.value}`)}
+            onChange={(e) => router.push(`/dashboard/planner?gameweek=${e.target.value}`)}
             className="rounded-md border border-black/[.08] bg-white px-2 py-1 text-sm dark:border-white/[.145] dark:bg-black"
           >
             {gameweekOptions.map((gw) => (
