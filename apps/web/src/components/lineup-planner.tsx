@@ -213,29 +213,40 @@ export function LineupPlanner({
       </div>
 
       {confirmingResetAll && (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950">
-          <p className="text-sm font-medium text-red-800 dark:text-red-200">
-            Reset every gameweek&apos;s plan?
-          </p>
-          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-            This discards every planned lineup change for every future gameweek and reverts them
-            all to your current FPL squad. This action cannot be undone.
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={handleConfirmResetAll}
-              disabled={resettingAll}
-              className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
-            >
-              {resettingAll ? "Resetting…" : "Yes, reset everything"}
-            </button>
-            <button
-              onClick={() => setConfirmingResetAll(false)}
-              disabled={resettingAll}
-              className="rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-            >
-              Cancel
-            </button>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => !resettingAll && setConfirmingResetAll(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="reset-all-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-xl dark:border-red-900 dark:bg-zinc-950"
+          >
+            <p id="reset-all-title" className="text-base font-semibold text-red-800 dark:text-red-200">
+              Reset every gameweek&apos;s plan?
+            </p>
+            <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+              This discards every planned lineup change for every future gameweek and reverts them
+              all to your current FPL squad. This action cannot be undone.
+            </p>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={handleConfirmResetAll}
+                disabled={resettingAll}
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+              >
+                {resettingAll ? "Resetting…" : "Yes, reset everything"}
+              </button>
+              <button
+                onClick={() => setConfirmingResetAll(false)}
+                disabled={resettingAll}
+                className="rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
