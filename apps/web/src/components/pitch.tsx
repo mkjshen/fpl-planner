@@ -8,23 +8,25 @@ export function PlayerCard({
   player,
   muted,
   selected,
+  disabled,
   onClick,
 }: {
   player: SquadPlayer;
   muted?: boolean;
   selected?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }) {
   return (
     <div
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       className={`relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
         selected
           ? "border-blue-500 ring-2 ring-blue-500 dark:border-blue-400 dark:ring-blue-400"
           : muted
             ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
             : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
-      } ${onClick ? "cursor-pointer" : ""}`}
+      } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
     >
       {(player.isCaptain || player.isViceCaptain) && (
         <span
@@ -53,10 +55,12 @@ const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];
 export function Pitch({
   starting,
   selectedPlayerId,
+  disabledPlayerIds,
   onPlayerClick,
 }: {
   starting: SquadPlayer[];
   selectedPlayerId?: number | null;
+  disabledPlayerIds?: Set<number>;
   onPlayerClick?: (player: SquadPlayer) => void;
 }) {
   const byPosition = (position: Position) =>
@@ -85,6 +89,7 @@ export function Pitch({
                 key={player.playerId}
                 player={player}
                 selected={player.playerId === selectedPlayerId}
+                disabled={disabledPlayerIds?.has(player.playerId)}
                 onClick={onPlayerClick ? () => onPlayerClick(player) : undefined}
               />
             ))}

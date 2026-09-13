@@ -29,6 +29,31 @@ function validationError(players: SquadPlayer[]): string | null {
   return null;
 }
 
+function canSwap(players: SquadPlayer[], aId: number, bId: number): boolean {
+  const a = players.find((p) => p.playerId === aId);
+  const b = players.find((p) => p.playerId === bId);
+  if (!a || !b) return false;
+  // A substitution always exchanges a starter for a bench player — two
+  // players with the same status wouldn't change anything.
+  if (a.isStarting === b.isStarting) return false;
+
+  const counts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  for (const p of players) {
+    const willStart =
+      p.playerId === a.playerId ? b.isStarting : p.playerId === b.playerId ? a.isStarting : p.isStarting;
+    if (willStart) counts[p.position]++;
+  }
+  return (
+    counts.GK === 1 &&
+    counts.DEF >= 3 &&
+    counts.DEF <= 5 &&
+    counts.MID >= 2 &&
+    counts.MID <= 5 &&
+    counts.FWD >= 1 &&
+    counts.FWD <= 3
+  );
+}
+
 export function LineupPlanner({
   userId,
   lineup,
@@ -59,6 +84,14 @@ export function LineupPlanner({
   const dirty = JSON.stringify(players) !== JSON.stringify(lineup.players);
   const error = lineup.isEditable ? validationError(players) : null;
   const selectedPlayer = players.find((p) => p.playerId === selectedId) ?? null;
+  const disabledPlayerIds =
+    lineup.isEditable && selectedId !== null
+      ? new Set(
+          players
+            .filter((p) => p.playerId !== selectedId && !canSwap(players, selectedId, p.playerId))
+            .map((p) => p.playerId),
+        )
+      : new Set<number>();
 
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
@@ -162,6 +195,7 @@ export function LineupPlanner({
         <Pitch
           starting={starting}
           selectedPlayerId={lineup.isEditable ? selectedId : undefined}
+          disabledPlayerIds={disabledPlayerIds}
           onPlayerClick={lineup.isEditable ? handlePlayerClick : undefined}
         />
       </div>
@@ -192,6 +226,7 @@ export function LineupPlanner({
             player={player}
             muted
             selected={lineup.isEditable && player.playerId === selectedId}
+            disabled={disabledPlayerIds.has(player.playerId)}
             onClick={lineup.isEditable ? () => handlePlayerClick(player) : undefined}
           />
         ))}
