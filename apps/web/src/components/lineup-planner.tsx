@@ -116,12 +116,28 @@ export function LineupPlanner({
       const a = prev.find((p) => p.playerId === selectedId);
       const b = prev.find((p) => p.playerId === player.playerId);
       if (!a || !b) return prev;
+      // The incoming player takes over the outgoing player's slot entirely,
+      // captaincy included — subbing off the captain or vice-captain hands
+      // that role to whoever replaces them, rather than leaving it stuck on
+      // a benched player.
       return prev.map((p) => {
         if (p.playerId === a.playerId) {
-          return { ...p, isStarting: b.isStarting, squadPosition: b.squadPosition };
+          return {
+            ...p,
+            isStarting: b.isStarting,
+            squadPosition: b.squadPosition,
+            isCaptain: b.isCaptain,
+            isViceCaptain: b.isViceCaptain,
+          };
         }
         if (p.playerId === b.playerId) {
-          return { ...p, isStarting: a.isStarting, squadPosition: a.squadPosition };
+          return {
+            ...p,
+            isStarting: a.isStarting,
+            squadPosition: a.squadPosition,
+            isCaptain: a.isCaptain,
+            isViceCaptain: a.isViceCaptain,
+          };
         }
         return p;
       });
