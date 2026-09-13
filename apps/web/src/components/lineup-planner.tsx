@@ -33,7 +33,16 @@ function canSwap(players: SquadPlayer[], aId: number, bId: number): boolean {
   const a = players.find((p) => p.playerId === aId);
   const b = players.find((p) => p.playerId === bId);
   if (!a || !b) return false;
-  // A substitution always exchanges a starter for a bench player — two
+
+  // Two bench outfield players can always trade places — this only
+  // reorders substitute priority, not the starting lineup, so no formation
+  // check applies. The bench goalkeeper is excluded: they can only ever
+  // stand in for the starting goalkeeper, never take an outfield sub slot.
+  if (!a.isStarting && !b.isStarting && a.position !== "GK" && b.position !== "GK") {
+    return true;
+  }
+
+  // Otherwise a substitution exchanges a starter for a bench player — two
   // players with the same status wouldn't change anything.
   if (a.isStarting === b.isStarting) return false;
 
