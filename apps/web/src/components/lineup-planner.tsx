@@ -73,18 +73,24 @@ export function LineupPlanner({
     gameweekNumber: number,
     players: LineupPlayerInput[],
   ) => Promise<SaveResult>;
-  resetAllAction: (userId: string) => Promise<void>;
+  resetAllAction: (userId: string, gameweekNumber: number) => Promise<Lineup>;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
+  // The last state confirmed by the server — what "Reset" reverts to and
+  // what "dirty" is measured against, since `lineup` (the prop) stays frozen
+  // at whatever the page originally fetched even after a Save or reset-all
+  // updates things via a direct server response rather than a remount.
+  const [savedPlayers, setSavedPlayers] = useState(lineup.players);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [resettingAll, setResettingAll] = useState(false);
+  const [confirmingResetAll, setConfirmingResetAll] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const starting = players.filter((p) => p.isStarting);
   const bench = players.filter((p) => !p.isStarting).sort((a, b) => a.squadPosition - b.squadPosition);
-  const dirty = JSON.stringify(players) !== JSON.stringify(lineup.players);
+  const dirty = JSON.stringify(players) !== JSON.stringify(savedPlayers);
   const error = lineup.isEditable ? validationError(players) : null;
   const selectedPlayer = players.find((p) => p.playerId === selectedId) ?? null;
   const disabledPlayerIds =
@@ -133,19 +139,20 @@ export function LineupPlanner({
   }
 
   function handleReset() {
-    setPlayers(lineup.players);
+    setPlayers(savedPlayers);
     setSelectedId(null);
     setMessage(null);
   }
 
-  async function handleResetAll() {
-    const confirmed = window.confirm(
-      "This discards every planned lineup change for every future gameweek and reverts them all to your current FPL squad. This can't be undone. Continue?",
-    );
-    if (!confirmed) return;
+  async function handleConfirmResetAll() {
     setResettingAll(true);
-    await resetAllAction(userId);
+    const fresh = await resetAllAction(userId, selectedGameweek);
+    setPlayers(fresh.players);
+    setSavedPlayers(fresh.players);
     setResettingAll(false);
+    setConfirmingResetAll(false);
+    setSelectedId(null);
+    setMessage(null);
     router.refresh();
   }
 
@@ -167,6 +174,7 @@ export function LineupPlanner({
     setSaving(false);
     if (result.ok) {
       setPlayers(result.lineup.players);
+      setSavedPlayers(result.lineup.players);
       setMessage("Saved.");
     } else {
       setMessage(result.message);
@@ -192,7 +200,7 @@ export function LineupPlanner({
             ))}
           </select>
           <button
-            onClick={handleResetAll}
+            onClick={() => setConfirmingResetAll(true)}
             disabled={resettingAll}
             className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
@@ -203,6 +211,34 @@ export function LineupPlanner({
           Bank {formatPrice(lineup.bank)} · Value {formatPrice(lineup.teamValue)}
         </p>
       </div>
+
+      {confirmingResetAll && (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950">
+          <p className="text-sm font-medium text-red-800 dark:text-red-200">
+            Reset every gameweek&apos;s plan?
+          </p>
+          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+            This discards every planned lineup change for every future gameweek and reverts them
+            all to your current FPL squad. This action cannot be undone.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleConfirmResetAll}
+              disabled={resettingAll}
+              className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+            >
+              {resettingAll ? "Resetting…" : "Yes, reset everything"}
+            </button>
+            <button
+              onClick={() => setConfirmingResetAll(false)}
+              disabled={resettingAll}
+              className="rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {lineup.isEditable && (
         <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">

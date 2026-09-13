@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  getLineup,
   type Lineup,
   type LineupPlayerInput,
   LineupValidationError,
@@ -24,6 +25,14 @@ export async function saveLineupAction(
   }
 }
 
-export async function resetAllPlansAction(userId: string): Promise<void> {
+export async function resetAllPlansAction(
+  userId: string,
+  currentGameweekNumber: number,
+): Promise<Lineup> {
   await resetAllPlans(userId);
+  const lineup = await getLineup(userId, currentGameweekNumber);
+  if (!lineup) {
+    throw new Error("Failed to load lineup after reset");
+  }
+  return lineup;
 }
