@@ -1,21 +1,21 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
-import { getLineup, getPlannableGameweeks, getSquadForUser } from "@/lib/api";
+import { getSquadForUser } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
-import { LineupPlanner } from "@/components/lineup-planner";
-import { resetAllPlansAction, saveLineupAction } from "./actions";
+import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; gameweek?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) {
     redirect("/sign-in");
   }
 
-  const { error, gameweek } = await searchParams;
+  const { error } = await searchParams;
   const squad = await getSquadForUser(session.user.id);
 
   return (
@@ -41,55 +41,43 @@ export default async function DashboardPage({
         </div>
 
         {squad ? (
-          <DashboardLineup
-            userId={session.user.id}
-            squadGameweek={squad.gameweek}
-            requestedGameweek={gameweek}
-          />
+          <div>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {squad.teamName} · {squad.managerName} · Gameweek {squad.gameweek} (current)
+              </p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Bank {formatPrice(squad.bank)} · Value {formatPrice(squad.teamValue)}
+              </p>
+            </div>
+
+            <div className="mt-3">
+              <Link
+                href="/dashboard/planner"
+                className="text-sm font-medium text-black underline decoration-dotted hover:decoration-solid dark:text-zinc-50"
+              >
+                Plan future gameweeks →
+              </Link>
+            </div>
+
+            <div className="mt-6">
+              <Pitch starting={squad.players.filter((p) => p.isStarting)} />
+            </div>
+
+            <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
+            <div className="mt-2 flex flex-wrap gap-2 sm:gap-4">
+              {squad.players
+                .filter((p) => !p.isStarting)
+                .sort((a, b) => a.squadPosition - b.squadPosition)
+                .map((player) => (
+                  <PlayerCard key={player.playerId} player={player} muted />
+                ))}
+            </div>
+          </div>
         ) : (
           <LinkTeamForm error={error} />
         )}
       </div>
     </div>
-  );
-}
-
-async function DashboardLineup({
-  userId,
-  squadGameweek,
-  requestedGameweek,
-}: {
-  userId: string;
-  squadGameweek: number;
-  requestedGameweek?: string;
-}) {
-  const { currentGameweek, plannable } = await getPlannableGameweeks(userId);
-  const selectedGameweek = requestedGameweek
-    ? Number.parseInt(requestedGameweek, 10)
-    : (currentGameweek ?? squadGameweek);
-
-  const lineup = await getLineup(userId, selectedGameweek);
-  if (!lineup) {
-    redirect("/dashboard");
-  }
-
-  const gameweekOptions = [
-    ...(currentGameweek !== null
-      ? [{ number: currentGameweek, label: `Gameweek ${currentGameweek} (current)` }]
-      : []),
-    ...plannable.map((gw) => ({ number: gw.number, label: `Gameweek ${gw.number}` })),
-  ];
-
-  return (
-    <LineupPlanner
-      key={selectedGameweek}
-      userId={userId}
-      lineup={lineup}
-      selectedGameweek={selectedGameweek}
-      currentGameweek={currentGameweek}
-      gameweekOptions={gameweekOptions}
-      saveAction={saveLineupAction}
-      resetAllAction={resetAllPlansAction}
-    />
   );
 }
