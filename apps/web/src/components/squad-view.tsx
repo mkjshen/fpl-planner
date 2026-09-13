@@ -35,7 +35,7 @@ function PlayerCard({ player, muted }: { player: SquadPlayer; muted?: boolean })
   );
 }
 
-const PITCH_ROWS: Position[] = ["FWD", "MID", "DEF", "GK"];
+const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];
 
 function Pitch({ starting }: { starting: SquadPlayer[] }) {
   const byPosition = (position: Position) =>
