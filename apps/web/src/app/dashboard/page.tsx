@@ -1,20 +1,21 @@
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
-import { getSquadForUser } from "@/lib/api";
+import { getLineup, getPlannableGameweeks, getSquadForUser } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
-import { SquadView } from "@/components/squad-view";
+import { LineupPlanner } from "@/components/lineup-planner";
+import { saveLineupAction } from "./actions";
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; gameweek?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) {
     redirect("/sign-in");
   }
 
-  const { error } = await searchParams;
+  const { error, gameweek } = await searchParams;
   const squad = await getSquadForUser(session.user.id);
 
   return (
@@ -39,8 +40,55 @@ export default async function DashboardPage({
           </form>
         </div>
 
-        {squad ? <SquadView squad={squad} /> : <LinkTeamForm error={error} />}
+        {squad ? (
+          <DashboardLineup
+            userId={session.user.id}
+            squadGameweek={squad.gameweek}
+            requestedGameweek={gameweek}
+          />
+        ) : (
+          <LinkTeamForm error={error} />
+        )}
       </div>
     </div>
+  );
+}
+
+async function DashboardLineup({
+  userId,
+  squadGameweek,
+  requestedGameweek,
+}: {
+  userId: string;
+  squadGameweek: number;
+  requestedGameweek?: string;
+}) {
+  const { currentGameweek, plannable } = await getPlannableGameweeks(userId);
+  const selectedGameweek = requestedGameweek
+    ? Number.parseInt(requestedGameweek, 10)
+    : (currentGameweek ?? squadGameweek);
+
+  const lineup = await getLineup(userId, selectedGameweek);
+  if (!lineup) {
+    redirect("/dashboard");
+  }
+
+  const gameweekOptions = [
+    ...(currentGameweek !== null
+      ? [{ number: currentGameweek, label: `Gameweek ${currentGameweek} (current)` }]
+      : []),
+    ...plannable.map((gw) => ({ number: gw.number, label: `Gameweek ${gw.number}` })),
+  ];
+
+  return (
+    <LineupPlanner
+      key={selectedGameweek}
+      userId={userId}
+      lineup={lineup}
+      selectedGameweek={selectedGameweek}
+      currentGameweek={currentGameweek}
+      gameweekOptions={gameweekOptions}
+      saveAction={saveLineupAction}
+    />
   );
 }

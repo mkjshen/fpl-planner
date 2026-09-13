@@ -77,9 +77,10 @@ model FplTeam {
   managerName String?
   linkedAt    DateTime @default(now())
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  snapshots SquadSnapshot[]
-  transfers TransferHistory[]
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots   SquadSnapshot[]
+  transfers   TransferHistory[]
+  lineupPlans LineupPlan[]
 
   @@unique([userId, fplTeamId])
 }
@@ -106,9 +107,10 @@ model Gameweek {
   isNext       Boolean  @default(false)
   isFinished   Boolean  @default(false)
 
-  season    Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  snapshots SquadSnapshot[]
-  transfers TransferHistory[]
+  season      Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  snapshots   SquadSnapshot[]
+  transfers   TransferHistory[]
+  lineupPlans LineupPlan[]
 
   @@unique([seasonId, number])
 }
@@ -137,11 +139,12 @@ model Player {
   currentPrice Int // in tenths of a million, matching the FPL API (e.g. 105 = £10.5m)
   status       String   @default("available")
 
-  club          Club                @relation(fields: [clubId], references: [id])
-  priceHistory  PlayerPriceHistory[]
-  squadPlayers  SquadPlayer[]
-  transfersOut  TransferHistory[]   @relation("TransferPlayerOut")
-  transfersIn   TransferHistory[]   @relation("TransferPlayerIn")
+  club              Club                @relation(fields: [clubId], references: [id])
+  priceHistory      PlayerPriceHistory[]
+  squadPlayers      SquadPlayer[]
+  transfersOut      TransferHistory[]   @relation("TransferPlayerOut")
+  transfersIn       TransferHistory[]   @relation("TransferPlayerIn")
+  lineupPlanEntries LineupPlanPlayer[]
 }
 
 model PlayerPriceHistory {
@@ -206,4 +209,37 @@ model TransferHistory {
   playerIn  Player   @relation("TransferPlayerIn", fields: [playerInId], references: [id])
 
   @@index([fplTeamId, gameweekId])
+}
+
+// A hypothetical future lineup the user is planning — who starts, who's
+// benched, who captains — using the 15 players already in their squad.
+// Deliberately separate from SquadSnapshot: this is a plan, not a record of
+// what actually happened.
+model LineupPlan {
+  id         String   @id @default(cuid())
+  fplTeamId  String
+  gameweekId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  fplTeam  FplTeam            @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
+  gameweek Gameweek           @relation(fields: [gameweekId], references: [id])
+  players  LineupPlanPlayer[]
+
+  @@unique([fplTeamId, gameweekId])
+}
+
+model LineupPlanPlayer {
+  id            String  @id @default(cuid())
+  planId        String
+  playerId      Int
+  isStarting    Boolean @default(false)
+  squadPosition Int
+  isCaptain     Boolean @default(false)
+  isViceCaptain Boolean @default(false)
+
+  plan   LineupPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  player Player     @relation(fields: [playerId], references: [id])
+
+  @@unique([planId, playerId])
 }

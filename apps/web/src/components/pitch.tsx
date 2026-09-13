@@ -1,17 +1,30 @@
-import type { Position, Squad, SquadPlayer } from "@/lib/api";
+import type { Position, SquadPlayer } from "@/lib/api";
 
-function formatPrice(tenthsOfMillion: number): string {
+export function formatPrice(tenthsOfMillion: number): string {
   return `£${(tenthsOfMillion / 10).toFixed(1)}m`;
 }
 
-function PlayerCard({ player, muted }: { player: SquadPlayer; muted?: boolean }) {
+export function PlayerCard({
+  player,
+  muted,
+  selected,
+  onClick,
+}: {
+  player: SquadPlayer;
+  muted?: boolean;
+  selected?: boolean;
+  onClick?: () => void;
+}) {
   return (
     <div
+      onClick={onClick}
       className={`relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
-        muted
-          ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
-          : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
-      }`}
+        selected
+          ? "border-blue-500 ring-2 ring-blue-500 dark:border-blue-400 dark:ring-blue-400"
+          : muted
+            ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
+            : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
+      } ${onClick ? "cursor-pointer" : ""}`}
     >
       {(player.isCaptain || player.isViceCaptain) && (
         <span
@@ -37,7 +50,15 @@ function PlayerCard({ player, muted }: { player: SquadPlayer; muted?: boolean })
 
 const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];
 
-function Pitch({ starting }: { starting: SquadPlayer[] }) {
+export function Pitch({
+  starting,
+  selectedPlayerId,
+  onPlayerClick,
+}: {
+  starting: SquadPlayer[];
+  selectedPlayerId?: number | null;
+  onPlayerClick?: (player: SquadPlayer) => void;
+}) {
   const byPosition = (position: Position) =>
     starting.filter((p) => p.position === position).sort((a, b) => a.squadPosition - b.squadPosition);
 
@@ -60,40 +81,14 @@ function Pitch({ starting }: { starting: SquadPlayer[] }) {
         {PITCH_ROWS.map((position) => (
           <div key={position} className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
             {byPosition(position).map((player) => (
-              <PlayerCard key={player.playerId} player={player} />
+              <PlayerCard
+                key={player.playerId}
+                player={player}
+                selected={player.playerId === selectedPlayerId}
+                onClick={onPlayerClick ? () => onPlayerClick(player) : undefined}
+              />
             ))}
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function SquadView({ squad }: { squad: Squad }) {
-  const starting = squad.players.filter((p) => p.isStarting);
-  const bench = squad.players
-    .filter((p) => !p.isStarting)
-    .sort((a, b) => a.squadPosition - b.squadPosition);
-
-  return (
-    <div>
-      <div className="mt-1 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {squad.teamName} · {squad.managerName} · Gameweek {squad.gameweek}
-        </p>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Bank {formatPrice(squad.bank)} · Value {formatPrice(squad.teamValue)}
-        </p>
-      </div>
-
-      <div className="mt-6">
-        <Pitch starting={starting} />
-      </div>
-
-      <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
-      <div className="mt-2 flex flex-wrap gap-2 sm:gap-4">
-        {bench.map((player) => (
-          <PlayerCard key={player.playerId} player={player} muted />
         ))}
       </div>
     </div>

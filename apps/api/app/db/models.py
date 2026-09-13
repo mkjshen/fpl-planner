@@ -153,3 +153,34 @@ class TransferHistory(Base):
     executedAt: Mapped[datetime] = mapped_column(DateTime(timezone=False))
 
     fplTeam: Mapped["FplTeam"] = relationship(back_populates="transfers")
+
+
+class LineupPlan(Base):
+    __tablename__ = "LineupPlan"
+    __table_args__ = (UniqueConstraint("fplTeamId", "gameweekId"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=cuid)
+    fplTeamId: Mapped[str] = mapped_column(String, ForeignKey("FplTeam.id", ondelete="CASCADE"))
+    gameweekId: Mapped[str] = mapped_column(String, ForeignKey("Gameweek.id"))
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
+    updatedAt: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    players: Mapped[list["LineupPlanPlayer"]] = relationship(back_populates="plan")
+
+
+class LineupPlanPlayer(Base):
+    __tablename__ = "LineupPlanPlayer"
+    __table_args__ = (UniqueConstraint("planId", "playerId"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=cuid)
+    planId: Mapped[str] = mapped_column(String, ForeignKey("LineupPlan.id", ondelete="CASCADE"))
+    playerId: Mapped[int] = mapped_column(Integer, ForeignKey("Player.id"))
+    isStarting: Mapped[bool] = mapped_column(Boolean, default=False)
+    squadPosition: Mapped[int] = mapped_column(Integer)
+    isCaptain: Mapped[bool] = mapped_column(Boolean, default=False)
+    isViceCaptain: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    plan: Mapped["LineupPlan"] = relationship(back_populates="players")
+    player: Mapped["Player"] = relationship()

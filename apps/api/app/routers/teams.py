@@ -12,10 +12,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.db.models import Club, FplTeam, Gameweek, Player, SquadPlayer, SquadSnapshot
-from app.schemas.squad import ImportTeamRequest, SquadOut, SquadPlayerOut
+from app.db.models import FplTeam, Gameweek, SquadPlayer, SquadSnapshot
+from app.schemas.lineup import (
+    GameweekOut,
+    LineupOut,
+    LineupUpdateRequest,
+    PlannableGameweeksOut,
+)
+from app.schemas.squad import ImportTeamRequest, SquadOut
+from app.services import lineup as lineup_service
 from app.services.fpl_client import FplTeamNotFoundError
 from app.services.importer import import_team
+from app.services.squad import build_player_rows
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -42,13 +50,60 @@ async def get_squad_for_user(user_id: str, db: AsyncSession = Depends(get_db)) -
     generic two-segment route below would otherwise shadow this one
     (matching "by-user" as user_id) and fail int-converting the id.
     """
-    fpl_team = await db.scalar(
-        select(FplTeam).where(FplTeam.userId == user_id).order_by(FplTeam.linkedAt.desc())
-    )
-    if fpl_team is None:
-        raise HTTPException(status_code=404, detail="No linked FPL team found")
-
+    fpl_team = await _get_fpl_team_or_404(db, user_id)
     return await _load_squad(db, fpl_team.id)
+
+
+@router.get("/by-user/{user_id}/gameweeks", response_model=PlannableGameweeksOut)
+async def get_plannable_gameweeks(
+    user_id: str, db: AsyncSession = Depends(get_db)
+) -> PlannableGameweeksOut:
+    await _get_fpl_team_or_404(db, user_id)
+    current_number, gameweeks = await lineup_service.list_plannable_gameweeks(db)
+    return PlannableGameweeksOut(
+        currentGameweek=current_number,
+        plannable=[
+            GameweekOut(
+                number=gw.number,
+                deadlineTime=gw.deadlineTime,
+                isCurrent=gw.isCurrent,
+                isNext=gw.isNext,
+                isFinished=gw.isFinished,
+            )
+            for gw in gameweeks
+        ],
+    )
+
+
+@router.get("/by-user/{user_id}/lineup/{gameweek_number}", response_model=LineupOut)
+async def get_lineup(
+    user_id: str, gameweek_number: int, db: AsyncSession = Depends(get_db)
+) -> LineupOut:
+    fpl_team = await _get_fpl_team_or_404(db, user_id)
+    try:
+        return await lineup_service.get_lineup(db, fpl_team, gameweek_number)
+    except lineup_service.GameweekNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except lineup_service.LineupValidationError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+
+@router.put("/by-user/{user_id}/lineup/{gameweek_number}", response_model=LineupOut)
+async def put_lineup(
+    user_id: str,
+    gameweek_number: int,
+    payload: LineupUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> LineupOut:
+    fpl_team = await _get_fpl_team_or_404(db, user_id)
+    try:
+        return await lineup_service.save_lineup(db, fpl_team, gameweek_number, payload.players)
+    except lineup_service.GameweekNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except lineup_service.NotEditableError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except lineup_service.LineupValidationError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @router.get("/{user_id}/{fpl_team_id}/squad", response_model=SquadOut)
@@ -64,6 +119,15 @@ async def get_squad(
     return await _load_squad(db, fpl_team.id)
 
 
+async def _get_fpl_team_or_404(db: AsyncSession, user_id: str) -> FplTeam:
+    fpl_team = await db.scalar(
+        select(FplTeam).where(FplTeam.userId == user_id).order_by(FplTeam.linkedAt.desc())
+    )
+    if fpl_team is None:
+        raise HTTPException(status_code=404, detail="No linked FPL team found")
+    return fpl_team
+
+
 async def _load_squad(db: AsyncSession, fpl_team_row_id: str) -> SquadOut:
     fpl_team = await db.get(FplTeam, fpl_team_row_id)
     snapshot = await db.scalar(
@@ -76,28 +140,12 @@ async def _load_squad(db: AsyncSession, fpl_team_row_id: str) -> SquadOut:
 
     gameweek = await db.get(Gameweek, snapshot.gameweekId)
 
-    result = await db.execute(
-        select(SquadPlayer, Player, Club)
-        .join(Player, SquadPlayer.playerId == Player.id)
-        .join(Club, Player.clubId == Club.id)
-        .where(SquadPlayer.snapshotId == snapshot.id)
-        .order_by(SquadPlayer.squadPosition)
-    )
-
-    players = [
-        SquadPlayerOut(
-            playerId=player.id,
-            webName=player.webName,
-            position=player.position.value,
-            club=club.shortName,
-            currentPrice=player.currentPrice,
-            isStarting=sp.isStarting,
-            squadPosition=sp.squadPosition,
-            isCaptain=sp.isCaptain,
-            isViceCaptain=sp.isViceCaptain,
-        )
-        for sp, player, club in result.all()
+    result = await db.execute(select(SquadPlayer).where(SquadPlayer.snapshotId == snapshot.id))
+    slots = [
+        (sp.playerId, sp.isStarting, sp.squadPosition, sp.isCaptain, sp.isViceCaptain)
+        for sp in result.scalars().all()
     ]
+    players = await build_player_rows(db, slots)
 
     return SquadOut(
         fplTeamId=fpl_team.fplTeamId,
