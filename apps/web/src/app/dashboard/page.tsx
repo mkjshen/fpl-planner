@@ -3,7 +3,7 @@ import { auth, signOut } from "@/auth";
 import { getLineup, getPlannableGameweeks, getSquadForUser } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
 import { LineupPlanner } from "@/components/lineup-planner";
-import { saveLineupAction } from "./actions";
+import { resetAllPlansAction, saveLineupAction } from "./actions";
 
 export default async function DashboardPage({
   searchParams,
@@ -89,6 +89,7 @@ async function DashboardLineup({
       currentGameweek={currentGameweek}
       gameweekOptions={gameweekOptions}
       saveAction={saveLineupAction}
+      resetAllAction={resetAllPlansAction}
     />
   );
 }

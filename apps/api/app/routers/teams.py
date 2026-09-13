@@ -106,6 +106,12 @@ async def put_lineup(
         raise HTTPException(status_code=400, detail=str(error))
 
 
+@router.delete("/by-user/{user_id}/lineup", status_code=204)
+async def reset_all_plans(user_id: str, db: AsyncSession = Depends(get_db)) -> None:
+    fpl_team = await _get_fpl_team_or_404(db, user_id)
+    await lineup_service.reset_all_plans(db, fpl_team)
+
+
 @router.get("/{user_id}/{fpl_team_id}/squad", response_model=SquadOut)
 async def get_squad(
     user_id: str, fpl_team_id: int, db: AsyncSession = Depends(get_db)

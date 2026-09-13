@@ -1,6 +1,12 @@
 "use server";
 
-import { type Lineup, type LineupPlayerInput, LineupValidationError, saveLineup } from "@/lib/api";
+import {
+  type Lineup,
+  type LineupPlayerInput,
+  LineupValidationError,
+  resetAllPlans,
+  saveLineup,
+} from "@/lib/api";
 
 export async function saveLineupAction(
   userId: string,
@@ -16,4 +22,8 @@ export async function saveLineupAction(
     }
     throw error;
   }
+}
+
+export async function resetAllPlansAction(userId: string): Promise<void> {
+  await resetAllPlans(userId);
 }

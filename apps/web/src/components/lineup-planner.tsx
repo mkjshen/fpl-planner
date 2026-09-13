@@ -61,6 +61,7 @@ export function LineupPlanner({
   currentGameweek,
   gameweekOptions,
   saveAction,
+  resetAllAction,
 }: {
   userId: string;
   lineup: Lineup;
@@ -72,11 +73,13 @@ export function LineupPlanner({
     gameweekNumber: number,
     players: LineupPlayerInput[],
   ) => Promise<SaveResult>;
+  resetAllAction: (userId: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [resettingAll, setResettingAll] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const starting = players.filter((p) => p.isStarting);
@@ -135,6 +138,17 @@ export function LineupPlanner({
     setMessage(null);
   }
 
+  async function handleResetAll() {
+    const confirmed = window.confirm(
+      "This discards every planned lineup change for every future gameweek and reverts them all to your current FPL squad. This can't be undone. Continue?",
+    );
+    if (!confirmed) return;
+    setResettingAll(true);
+    await resetAllAction(userId);
+    setResettingAll(false);
+    router.refresh();
+  }
+
   async function handleSave() {
     if (error) {
       setMessage(error);
@@ -177,6 +191,13 @@ export function LineupPlanner({
               </option>
             ))}
           </select>
+          <button
+            onClick={handleResetAll}
+            disabled={resettingAll}
+            className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            {resettingAll ? "Resetting…" : "Reset all plans"}
+          </button>
         </div>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           Bank {formatPrice(lineup.bank)} · Value {formatPrice(lineup.teamValue)}

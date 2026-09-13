@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -218,3 +218,11 @@ async def save_lineup(
     await db.commit()
 
     return await get_lineup(db, fpl_team, gameweek_number)
+
+
+async def reset_all_plans(db: AsyncSession, fpl_team: FplTeam) -> None:
+    """Discard every explicit lineup edit for this team — LineupPlanPlayer
+    rows cascade-delete via the FK, so every future gameweek falls back to
+    mirroring the actual squad again."""
+    await db.execute(delete(LineupPlan).where(LineupPlan.fplTeamId == fpl_team.id))
+    await db.commit()

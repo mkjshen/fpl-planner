@@ -121,3 +121,12 @@ export async function saveLineup(
   }
   return response.json();
 }
+
+export async function resetAllPlans(userId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/teams/by-user/${userId}/lineup`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to reset plans: ${response.status}`);
+  }
+}
