@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getLineup, getPlannableGameweeks, getSquadForUser } from "@/lib/api";
 import { LineupPlanner } from "@/components/lineup-planner";
-import { SignOutButton } from "@/components/sign-out-button";
-import { Tabs } from "@/components/tabs";
 import { resetAllPlansAction, saveLineupAction } from "../actions";
 
 export default async function PlannerPage({
@@ -27,17 +25,8 @@ export default async function PlannerPage({
   return (
     <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
       <div className="w-full max-w-2xl rounded-xl border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
-            Welcome, {session.user.name ?? session.user.email}
-          </h1>
-          <SignOutButton />
-        </div>
-
-        <Tabs active="planner" />
-
         {plannable.length === 0 ? (
-          <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
             No future gameweeks left to plan this season.
           </p>
         ) : (
@@ -79,7 +68,7 @@ async function PlannerLineup({
   }));
 
   return (
-    <div className="mt-4">
+    <div>
       <LineupPlanner
         key={selectedGameweek}
         userId={userId}
