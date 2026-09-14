@@ -77,7 +77,7 @@ export default async function DashboardPage({
               <Pitch starting={squad.players.filter((p) => p.isStarting)} />
             </div>
 
-            <div className="mt-6 flex flex-wrap justify-center gap-2 sm:gap-4">
+            <div className="mt-6 flex flex-wrap justify-center gap-3 sm:gap-6">
               {squad.players
                 .filter((p) => !p.isStarting)
                 .sort((a, b) => a.squadPosition - b.squadPosition)
