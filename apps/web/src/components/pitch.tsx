@@ -72,11 +72,11 @@ export function PlayerCard({
       onClick={disabled ? undefined : onClick}
       className={`group relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
         selected
-          ? "border-primary ring-2 ring-primary dark:border-accent dark:ring-accent"
+          ? "border-primary bg-white ring-2 ring-primary dark:border-accent dark:bg-zinc-900 dark:ring-accent"
           : muted
             ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
             : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
-      } ${disabled ? "cursor-not-allowed" : onClick ? "cursor-pointer" : ""}`}
+      } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
     >
       {onRemove && (
         <button
