@@ -57,10 +57,15 @@ export function PlayerSearchResults({
   reincludePlayers?: PlayerListItem[];
 }) {
   const [query, setQuery] = useState("");
-  // null = no filter, every position shown — the default, with none of the
-  // buttons pressed. Pressing one narrows to just that position; pressing
-  // the same one again clears back to null rather than adding to a set.
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  // Defaults to whatever position actually needs filling (matching the
+  // "Transfer in a <X>" header) so its button starts pressed and the list
+  // starts narrowed to it — null (nothing pressed, every position shown)
+  // only when just browsing with nothing transferred out. This only runs
+  // once per mount, which is exactly when it should: the parent remounts
+  // this component (via `key`) every time the target changes. Pressing a
+  // button narrows to just that position; pressing the same one again
+  // clears back to null rather than adding to a set.
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(requiredPosition);
   const [players, setPlayers] = useState<PlayerListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
