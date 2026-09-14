@@ -96,6 +96,7 @@ export function LineupPlanner({
   const [resettingAll, setResettingAll] = useState(false);
   const [confirmingResetAll, setConfirmingResetAll] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<"success" | "error" | null>(null);
 
   const gameweekIndex = gameweekOptions.findIndex((gw) => gw.number === selectedGameweek);
   const previousGameweek = gameweekIndex > 0 ? gameweekOptions[gameweekIndex - 1] : null;
@@ -160,6 +161,7 @@ export function LineupPlanner({
     });
     setSelectedId(null);
     setMessage(null);
+    setMessageTone(null);
   }
 
   function setCaptain(playerId: number) {
@@ -174,6 +176,7 @@ export function LineupPlanner({
     setPlayers(savedPlayers);
     setSelectedId(null);
     setMessage(null);
+    setMessageTone(null);
   }
 
   async function handleConfirmResetAll() {
@@ -185,16 +188,19 @@ export function LineupPlanner({
     setConfirmingResetAll(false);
     setSelectedId(null);
     setMessage(null);
+    setMessageTone(null);
     router.refresh();
   }
 
   async function handleSave() {
     if (error) {
       setMessage(error);
+      setMessageTone("error");
       return;
     }
     setSaving(true);
     setMessage(null);
+    setMessageTone(null);
     const inputs: LineupPlayerInput[] = players.map((p) => ({
       playerId: p.playerId,
       isStarting: p.isStarting,
@@ -208,8 +214,10 @@ export function LineupPlanner({
       setPlayers(result.lineup.players);
       setSavedPlayers(result.lineup.players);
       setMessage("Saved.");
+      setMessageTone("success");
     } else {
       setMessage(result.message);
+      setMessageTone("error");
     }
   }
 
@@ -322,13 +330,13 @@ export function LineupPlanner({
           <span className="text-zinc-600 dark:text-zinc-400">{selectedPlayer.webName}:</span>
           <button
             onClick={() => setCaptain(selectedPlayer.playerId)}
-            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
           >
             Make captain
           </button>
           <button
             onClick={() => setViceCaptain(selectedPlayer.playerId)}
-            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
           >
             Make vice-captain
           </button>
@@ -354,7 +362,7 @@ export function LineupPlanner({
           <button
             onClick={handleSave}
             disabled={!dirty || saving}
-            className="rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-40 dark:hover:bg-[#ccc]"
+            className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -366,7 +374,17 @@ export function LineupPlanner({
             Reset
           </button>
           {message && (
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">{message}</span>
+            <span
+              className={`text-sm ${
+                messageTone === "success"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : messageTone === "error"
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-zinc-600 dark:text-zinc-400"
+              }`}
+            >
+              {message}
+            </span>
           )}
         </div>
       )}

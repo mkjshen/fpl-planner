@@ -58,11 +58,11 @@ export function LinkTeamForm({ error }: { error?: string }) {
           inputMode="numeric"
           placeholder="e.g. 12345"
           required
-          className="flex-1 rounded-md border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+          className="flex-1 rounded-md border border-black/[.08] px-3 py-2 text-sm outline-none transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
         />
         <button
           type="submit"
-          className="rounded-md bg-foreground px-5 py-2 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
         >
           Import
         </button>

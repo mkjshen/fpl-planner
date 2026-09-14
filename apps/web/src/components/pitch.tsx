@@ -31,7 +31,7 @@ export function PlayerCard({
       onClick={disabled ? undefined : onClick}
       className={`relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
         selected
-          ? "border-blue-500 ring-2 ring-blue-500 dark:border-blue-400 dark:ring-blue-400"
+          ? "border-primary ring-2 ring-primary dark:border-accent dark:ring-accent"
           : muted
             ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
             : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
@@ -41,8 +41,8 @@ export function PlayerCard({
         <span
           className={`absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold ${
             player.isCaptain
-              ? "bg-foreground text-background"
-              : "border border-black/[.15] bg-white text-black dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-50"
+              ? "bg-accent text-accent-foreground"
+              : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
           }`}
         >
           {player.isCaptain ? "C" : "VC"}
