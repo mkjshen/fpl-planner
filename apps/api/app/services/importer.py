@@ -175,21 +175,27 @@ async def _replace_snapshot(
             SquadSnapshot.fplTeamId == fpl_team.id, SquadSnapshot.gameweekId == gameweek.id
         )
     )
+    player_prices = await _load_player_prices(db, {pick.element for pick in picks.picks})
+
+    # Ours is squad current-price value only, bank tracked separately — not
+    # FPL's own entry_history.value, which bakes in each player's selling
+    # price rather than current price wherever they've risen in value, so
+    # it wouldn't stay internally consistent with how transfers move this
+    # figure (currentPrice in, currentPrice out — see save_lineup).
+    squad_value = sum(player_prices.get(pick.element, 0) for pick in picks.picks)
     if snapshot:
         await db.execute(SquadPlayer.__table__.delete().where(SquadPlayer.snapshotId == snapshot.id))
         snapshot.bank = picks.entry_history.bank
-        snapshot.teamValue = picks.entry_history.value
+        snapshot.teamValue = squad_value
     else:
         snapshot = SquadSnapshot(
             fplTeamId=fpl_team.id,
             gameweekId=gameweek.id,
             bank=picks.entry_history.bank,
-            teamValue=picks.entry_history.value,
+            teamValue=squad_value,
         )
         db.add(snapshot)
     await db.flush()
-
-    player_prices = await _load_player_prices(db, {pick.element for pick in picks.picks})
 
     for pick in picks.picks:
         # FPL's picks endpoint doesn't return purchase price — only current

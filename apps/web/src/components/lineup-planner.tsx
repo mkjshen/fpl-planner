@@ -130,12 +130,14 @@ export function LineupPlanner({
 
   // Live preview of the transfer cost of the current (possibly unsaved)
   // squad, computed the same way the backend does: diff against the saved
-  // baseline by slot, price incoming players at currentPrice and outgoing
-  // ones at their sellingPrice. freeTransfers itself never changes from
-  // edits within this gameweek — it only depends on earlier gameweeks.
-  // Team value only ever drops (or holds) from a transfer, by the outgoing
-  // player's sell-price haircut (currentPrice - sellingPrice) — buying a
-  // replacement at current price is value-neutral, so it doesn't factor in.
+  // baseline by slot. Bank moves by each outgoing player's sellingPrice
+  // minus each incoming player's currentPrice. Team value is squad
+  // current-price value only (bank is cash, not part of it), so it moves
+  // by each incoming player's currentPrice minus each outgoing player's
+  // currentPrice — buying and selling both affect it, unlike bank where
+  // only the sell-price haircut matters. freeTransfers itself never
+  // changes from edits within this gameweek — it only depends on earlier
+  // gameweeks.
   //
   // A player who's been transferred out but has no replacement picked yet
   // (transferOutId set, blanked on the pitch/bench) is still physically
@@ -145,7 +147,7 @@ export function LineupPlanner({
   const savedBySlot = new Map(savedPlayers.map((p) => [p.squadPosition, p.playerId]));
   let spend = 0;
   let proceeds = 0;
-  let valueLost = 0;
+  let valueChange = 0;
   let transfersMade = 0;
   for (const p of players) {
     if (p.playerId === transferOutId) continue;
@@ -156,17 +158,17 @@ export function LineupPlanner({
       const savedPlayer = savedPlayers.find((sp) => sp.squadPosition === p.squadPosition);
       if (savedPlayer) {
         proceeds += savedPlayer.sellingPrice;
-        valueLost += savedPlayer.currentPrice - savedPlayer.sellingPrice;
+        valueChange += p.currentPrice - savedPlayer.currentPrice;
       }
     }
   }
   if (transferOutPlayer) {
     transfersMade += 1;
     proceeds += transferOutPlayer.sellingPrice;
-    valueLost += transferOutPlayer.currentPrice - transferOutPlayer.sellingPrice;
+    valueChange -= transferOutPlayer.currentPrice;
   }
   const liveBank = savedBank + proceeds - spend;
-  const liveTeamValue = savedTeamValue - valueLost;
+  const liveTeamValue = savedTeamValue + valueChange;
   const liveTransferCost = Math.max(transfersMade - freeTransfers, 0) * 4;
 
   function handlePlayerClick(player: SquadPlayer) {

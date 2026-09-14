@@ -320,17 +320,14 @@ async def save_lineup(
     proceeds = sum(prior_by_slot[slot][6] for slot in prior_by_slot if prior_by_slot[slot][0] in outgoing_ids)
     new_bank = prior_bank + proceeds - spend
     if new_bank < 0:
-        raise LineupValidationError("Not enough bank to make this transfer")
+        raise LineupValidationError("You don't have enough funds to make this transfer")
 
-    # Team value = squad current-price value + bank. Buying at current price
-    # is value-neutral (cash converts to an asset 1:1), so only the
-    # sell-price haircut on outgoing players ever reduces it — never the
-    # full current price of whoever was sold.
-    outgoing_selling_by_id = {slot[0]: slot[6] for slot in prior_slots}
-    outgoing_value_loss = sum(
-        player_info[player_id][1] - outgoing_selling_by_id[player_id] for player_id in outgoing_ids
-    )
-    new_team_value = prior_team_value - outgoing_value_loss
+    # Team value = squad current-price value only (bank is cash, tracked
+    # separately). A transfer removes each outgoing player's current price
+    # and adds each incoming player's — `spend` already is exactly that sum
+    # for incoming, since it's also priced at currentPrice.
+    outgoing_current_value = sum(player_info[player_id][1] for player_id in outgoing_ids)
+    new_team_value = prior_team_value - outgoing_current_value + spend
 
     transfers_made = len(incoming_ids)
     free_transfers = await available_free_transfers(db, fpl_team, gameweek_number)
