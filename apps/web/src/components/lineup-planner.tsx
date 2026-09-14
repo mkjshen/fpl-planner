@@ -97,6 +97,13 @@ export function LineupPlanner({
   const [confirmingResetAll, setConfirmingResetAll] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const gameweekIndex = gameweekOptions.findIndex((gw) => gw.number === selectedGameweek);
+  const previousGameweek = gameweekIndex > 0 ? gameweekOptions[gameweekIndex - 1] : null;
+  const nextGameweek =
+    gameweekIndex >= 0 && gameweekIndex < gameweekOptions.length - 1
+      ? gameweekOptions[gameweekIndex + 1]
+      : null;
+
   const starting = players.filter((p) => p.isStarting);
   const bench = players.filter((p) => !p.isStarting).sort((a, b) => a.squadPosition - b.squadPosition);
   const dirty = JSON.stringify(players) !== JSON.stringify(savedPlayers);
@@ -213,17 +220,34 @@ export function LineupPlanner({
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {lineup.teamName} · {lineup.managerName}
           </p>
-          <select
-            value={selectedGameweek}
-            onChange={(e) => router.push(`/dashboard/planner?gameweek=${e.target.value}`)}
-            className="rounded-md border border-black/[.08] bg-white px-2 py-1 text-sm dark:border-white/[.145] dark:bg-black"
-          >
-            {gameweekOptions.map((gw) => (
-              <option key={gw.number} value={gw.number}>
-                {gw.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() =>
+                previousGameweek &&
+                router.push(`/dashboard/planner?gameweek=${previousGameweek.number}`)
+              }
+              disabled={!previousGameweek}
+              aria-label="Previous gameweek"
+              className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
+            >
+              ‹
+            </button>
+            <span className="min-w-[7rem] text-center text-sm">
+              {gameweekOptions[gameweekIndex]?.label ?? `Gameweek ${selectedGameweek}`}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                nextGameweek && router.push(`/dashboard/planner?gameweek=${nextGameweek.number}`)
+              }
+              disabled={!nextGameweek}
+              aria-label="Next gameweek"
+              className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
+            >
+              ›
+            </button>
+          </div>
           <button
             onClick={() => setConfirmingResetAll(true)}
             disabled={resettingAll}
