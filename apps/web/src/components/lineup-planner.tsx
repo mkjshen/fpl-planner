@@ -442,8 +442,7 @@ export function LineupPlanner({
           <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
             Planning gameweek {selectedGameweek}
             {currentGameweek !== null && ` (current: ${currentGameweek})`}. Click a player, then
-            click another to swap them, or select a player and choose Transfer out to bring in
-            someone new.
+            click another to swap them, or use the × on a card to transfer that player out.
           </p>
         )}
 
@@ -453,6 +452,9 @@ export function LineupPlanner({
             selectedPlayerId={lineup.isEditable ? selectedId : undefined}
             disabledPlayerIds={disabledPlayerIds}
             onPlayerClick={lineup.isEditable ? handlePlayerClick : undefined}
+            onPlayerRemove={
+              lineup.isEditable ? (player) => setTransferOutId(player.playerId) : undefined
+            }
           />
         </div>
 
@@ -494,6 +496,7 @@ export function LineupPlanner({
               selected={lineup.isEditable && player.playerId === selectedId}
               disabled={disabledPlayerIds.has(player.playerId)}
               onClick={lineup.isEditable ? () => handlePlayerClick(player) : undefined}
+              onRemove={lineup.isEditable ? () => setTransferOutId(player.playerId) : undefined}
             />
           ))}
         </div>

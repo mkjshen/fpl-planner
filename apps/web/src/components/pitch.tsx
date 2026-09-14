@@ -19,12 +19,14 @@ export function PlayerCard({
   selected,
   disabled,
   onClick,
+  onRemove,
 }: {
   player: SquadPlayer;
   muted?: boolean;
   selected?: boolean;
   disabled?: boolean;
   onClick?: () => void;
+  onRemove?: () => void;
 }) {
   return (
     <div
@@ -37,6 +39,20 @@ export function PlayerCard({
             : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
       } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
     >
+      {onRemove && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          aria-label={`Remove ${player.webName} from your team`}
+          title="Remove from team"
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+        >
+          ×
+        </button>
+      )}
       {(player.isCaptain || player.isViceCaptain) && (
         <span
           className={`absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold ${
@@ -75,11 +91,13 @@ export function Pitch({
   selectedPlayerId,
   disabledPlayerIds,
   onPlayerClick,
+  onPlayerRemove,
 }: {
   starting: SquadPlayer[];
   selectedPlayerId?: number | null;
   disabledPlayerIds?: Set<number>;
   onPlayerClick?: (player: SquadPlayer) => void;
+  onPlayerRemove?: (player: SquadPlayer) => void;
 }) {
   const byPosition = (position: Position) =>
     starting.filter((p) => p.position === position).sort((a, b) => a.squadPosition - b.squadPosition);
@@ -109,6 +127,7 @@ export function Pitch({
                 selected={player.playerId === selectedPlayerId}
                 disabled={disabledPlayerIds?.has(player.playerId)}
                 onClick={onPlayerClick ? () => onPlayerClick(player) : undefined}
+                onRemove={onPlayerRemove ? () => onPlayerRemove(player) : undefined}
               />
             ))}
           </div>
