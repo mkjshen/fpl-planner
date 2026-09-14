@@ -76,7 +76,7 @@ export function PlayerCard({
           : muted
             ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
             : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
-      } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
+      } ${disabled ? "cursor-not-allowed" : onClick ? "cursor-pointer" : ""}`}
     >
       {onRemove && (
         <button
