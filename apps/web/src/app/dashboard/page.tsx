@@ -1,8 +1,23 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getSquadForUser } from "@/lib/api";
+import { FplTeamNotFoundError, getSquadForUser, importFplTeam } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
 import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
+
+async function refreshSquadAction(userId: string, fplTeamId: number) {
+  "use server";
+
+  try {
+    await importFplTeam(userId, fplTeamId);
+  } catch (error) {
+    if (error instanceof FplTeamNotFoundError) {
+      redirect("/dashboard?error=team_not_found");
+    }
+    throw error;
+  }
+
+  redirect("/dashboard");
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -22,13 +37,29 @@ export default async function DashboardPage({
       <div className="w-full max-w-2xl rounded-xl border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950">
         {squad ? (
           <div>
+            {error === "team_not_found" && (
+              <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                Couldn&apos;t refresh — your FPL team ID no longer resolves.
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 {squad.teamName} · {squad.managerName} · Gameweek {squad.gameweek} (current)
               </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Bank {formatPrice(squad.bank)} · Value {formatPrice(squad.teamValue)}
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Bank {formatPrice(squad.bank)} · Value {formatPrice(squad.teamValue)}
+                </p>
+                <form action={refreshSquadAction.bind(null, session.user.id, squad.fplTeamId)}>
+                  <button
+                    type="submit"
+                    title="Re-pull your squad, prices, and bank from the FPL API"
+                    className="rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:border-primary hover:text-primary dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-accent dark:hover:text-accent"
+                  >
+                    Refresh squad
+                  </button>
+                </form>
+              </div>
             </div>
 
             <div className="mt-6">
