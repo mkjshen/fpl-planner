@@ -57,9 +57,10 @@ export function PlayerSearchResults({
   reincludePlayers?: PlayerListItem[];
 }) {
   const [query, setQuery] = useState("");
-  const [selectedPositions, setSelectedPositions] = useState<Set<Position>>(
-    () => new Set(ALL_POSITIONS),
-  );
+  // null = no filter, every position shown — the default, with none of the
+  // buttons pressed. Pressing one narrows to just that position; pressing
+  // the same one again clears back to null rather than adding to a set.
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [players, setPlayers] = useState<PlayerListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -67,16 +68,10 @@ export function PlayerSearchResults({
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const positionsFilter =
-    selectedPositions.size === ALL_POSITIONS.length ? undefined : [...selectedPositions];
+  const positionsFilter = selectedPosition ? [selectedPosition] : undefined;
 
-  function togglePosition(pos: Position) {
-    setSelectedPositions((prev) => {
-      const next = new Set(prev);
-      if (next.has(pos)) next.delete(pos);
-      else next.add(pos);
-      return next;
-    });
+  function selectPosition(pos: Position) {
+    setSelectedPosition((prev) => (prev === pos ? null : pos));
   }
 
   // Query text or the position filter changing starts over from the first
@@ -109,7 +104,7 @@ export function PlayerSearchResults({
       clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedPositions, userId, gameweekNumber, searchAction]);
+  }, [query, selectedPosition, userId, gameweekNumber, searchAction]);
 
   // Infinite scroll: fetch the next page once scrolled near the bottom, so
   // the list can be scrolled through in full instead of being capped and
@@ -149,7 +144,9 @@ export function PlayerSearchResults({
 
   const normalizedQuery = query.trim().toLowerCase();
   const reincludeMatches = reincludePlayers.filter(
-    (p) => selectedPositions.has(p.position) && p.webName.toLowerCase().includes(normalizedQuery),
+    (p) =>
+      (selectedPosition === null || p.position === selectedPosition) &&
+      p.webName.toLowerCase().includes(normalizedQuery),
   );
   const fetchedPlayers = players.filter(
     (p) => !reincludeMatches.some((rp) => rp.playerId === p.playerId),
@@ -169,12 +166,12 @@ export function PlayerSearchResults({
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {ALL_POSITIONS.map((pos) => {
-          const active = selectedPositions.has(pos);
+          const active = selectedPosition === pos;
           return (
             <button
               key={pos}
               type="button"
-              onClick={() => togglePosition(pos)}
+              onClick={() => selectPosition(pos)}
               aria-pressed={active}
               className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                 active

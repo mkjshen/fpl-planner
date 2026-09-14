@@ -420,7 +420,6 @@ export function LineupPlanner({
                 <span title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it.">
                   Free Transfers {freeTransfers}
                 </span>
-                <span>Transfers {transfersMade}</span>
                 {liveTransferCost > 0 && (
                   <span className="font-medium text-red-600 dark:text-red-400">
                     -{liveTransferCost} pts
