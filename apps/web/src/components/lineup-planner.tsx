@@ -574,30 +574,20 @@ export function LineupPlanner({
           />
         </div>
 
-        {lineup.isEditable && selectedPlayer && (
+        {lineup.isEditable && selectedPlayer && selectedPlayer.isStarting && (
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-black/[.06] bg-zinc-50 px-3 py-2 text-sm dark:border-white/[.08] dark:bg-white/[.03]">
             <span className="font-medium text-black dark:text-zinc-50">{selectedPlayer.webName}:</span>
-            {selectedPlayer.isStarting && (
-              <>
-                <button
-                  onClick={() => setCaptain(selectedPlayer.playerId)}
-                  className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-                >
-                  Make captain
-                </button>
-                <button
-                  onClick={() => setViceCaptain(selectedPlayer.playerId)}
-                  className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-                >
-                  Make vice-captain
-                </button>
-              </>
-            )}
             <button
-              onClick={() => handleTransferOutClick(selectedPlayer.playerId)}
-              className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-red-400 hover:bg-red-50 dark:border-white/[.145] dark:hover:border-red-500 dark:hover:bg-red-950/40"
+              onClick={() => setCaptain(selectedPlayer.playerId)}
+              className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
             >
-              Transfer out
+              Make captain
+            </button>
+            <button
+              onClick={() => setViceCaptain(selectedPlayer.playerId)}
+              className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
+            >
+              Make vice-captain
             </button>
           </div>
         )}
