@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "LineupPlan" ADD COLUMN     "bank" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "transferCost" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "transfersMade" INTEGER NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "LineupPlanPlayer" ADD COLUMN     "purchasePrice" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "sellingPrice" INTEGER NOT NULL DEFAULT 0;

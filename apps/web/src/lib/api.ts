@@ -9,6 +9,8 @@ export type SquadPlayer = {
   club: string;
   clubCode: number | null;
   currentPrice: number;
+  purchasePrice: number;
+  sellingPrice: number;
   isStarting: boolean;
   squadPosition: number;
   isCaptain: boolean;
@@ -25,7 +27,27 @@ export type Squad = {
   players: SquadPlayer[];
 };
 
-export type Lineup = Squad & { isEditable: boolean };
+export type Lineup = Squad & {
+  isEditable: boolean;
+  freeTransfers: number;
+  transferCost: number;
+  laterPlansAffected: boolean;
+};
+
+export type PlayerListItem = {
+  playerId: number;
+  webName: string;
+  position: Position;
+  club: string;
+  clubCode: number | null;
+  currentPrice: number;
+  status: string;
+};
+
+export type PlayerSearchResult = {
+  total: number;
+  players: PlayerListItem[];
+};
 
 export type GameweekSummary = {
   number: number;
@@ -119,6 +141,29 @@ export async function saveLineup(
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: string } | null;
     throw new LineupValidationError(body?.detail ?? `Failed to save lineup: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function searchPlayers(
+  userId: string,
+  gameweekNumber: number,
+  options: { position?: Position; search?: string; limit?: number; offset?: number },
+): Promise<PlayerSearchResult> {
+  const params = new URLSearchParams({
+    userId,
+    gameweekNumber: String(gameweekNumber),
+  });
+  if (options.position) params.set("position", options.position);
+  if (options.search) params.set("search", options.search);
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.offset) params.set("offset", String(options.offset));
+
+  const response = await fetch(`${API_BASE_URL}/players?${params.toString()}`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to search players: ${response.status}`);
   }
   return response.json();
 }

@@ -148,7 +148,15 @@ async def _load_squad(db: AsyncSession, fpl_team_row_id: str) -> SquadOut:
 
     result = await db.execute(select(SquadPlayer).where(SquadPlayer.snapshotId == snapshot.id))
     slots = [
-        (sp.playerId, sp.isStarting, sp.squadPosition, sp.isCaptain, sp.isViceCaptain)
+        (
+            sp.playerId,
+            sp.isStarting,
+            sp.squadPosition,
+            sp.isCaptain,
+            sp.isViceCaptain,
+            sp.purchasePrice,
+            sp.sellingPrice,
+        )
         for sp in result.scalars().all()
     ]
     players = await build_player_rows(db, slots)

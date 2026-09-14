@@ -2,8 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Lineup, LineupPlayerInput, SquadPlayer } from "@/lib/api";
+import type {
+  Lineup,
+  LineupPlayerInput,
+  PlayerListItem,
+  PlayerSearchResult,
+  Position,
+  SquadPlayer,
+} from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
+import { PlayerSearch } from "@/components/player-search";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
@@ -71,6 +79,7 @@ export function LineupPlanner({
   gameweekOptions,
   saveAction,
   resetAllAction,
+  searchAction,
 }: {
   userId: string;
   lineup: Lineup;
@@ -83,6 +92,11 @@ export function LineupPlanner({
     players: LineupPlayerInput[],
   ) => Promise<SaveResult>;
   resetAllAction: (userId: string, gameweekNumber: number) => Promise<Lineup>;
+  searchAction: (
+    userId: string,
+    gameweekNumber: number,
+    options: { position?: Position; search?: string },
+  ) => Promise<PlayerSearchResult>;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
@@ -91,7 +105,11 @@ export function LineupPlanner({
   // at whatever the page originally fetched even after a Save or reset-all
   // updates things via a direct server response rather than a remount.
   const [savedPlayers, setSavedPlayers] = useState(lineup.players);
+  const [savedBank, setSavedBank] = useState(lineup.bank);
+  const [freeTransfers, setFreeTransfers] = useState(lineup.freeTransfers);
+  const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [transferOutId, setTransferOutId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [resettingAll, setResettingAll] = useState(false);
   const [confirmingResetAll, setConfirmingResetAll] = useState(false);
@@ -110,6 +128,7 @@ export function LineupPlanner({
   const dirty = JSON.stringify(players) !== JSON.stringify(savedPlayers);
   const error = lineup.isEditable ? validationError(players) : null;
   const selectedPlayer = players.find((p) => p.playerId === selectedId) ?? null;
+  const transferOutPlayer = players.find((p) => p.playerId === transferOutId) ?? null;
   const disabledPlayerIds =
     lineup.isEditable && selectedId !== null
       ? new Set(
@@ -118,6 +137,27 @@ export function LineupPlanner({
             .map((p) => p.playerId),
         )
       : new Set<number>();
+
+  // Live preview of the transfer cost of the current (possibly unsaved)
+  // squad, computed the same way the backend does: diff against the saved
+  // baseline by slot, price incoming players at currentPrice and outgoing
+  // ones at their sellingPrice. freeTransfers itself never changes from
+  // edits within this gameweek — it only depends on earlier gameweeks.
+  const savedBySlot = new Map(savedPlayers.map((p) => [p.squadPosition, p.playerId]));
+  let spend = 0;
+  let proceeds = 0;
+  let transfersMade = 0;
+  for (const p of players) {
+    const savedId = savedBySlot.get(p.squadPosition);
+    if (savedId !== undefined && savedId !== p.playerId) {
+      transfersMade += 1;
+      spend += p.currentPrice;
+      const savedPlayer = savedPlayers.find((sp) => sp.squadPosition === p.squadPosition);
+      if (savedPlayer) proceeds += savedPlayer.sellingPrice;
+    }
+  }
+  const liveBank = savedBank + proceeds - spend;
+  const liveTransferCost = Math.max(transfersMade - freeTransfers, 0) * 4;
 
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
@@ -164,6 +204,32 @@ export function LineupPlanner({
     setMessageTone(null);
   }
 
+  function handleTransfer(outPlayerId: number, inPlayer: PlayerListItem) {
+    setPlayers((prev) =>
+      prev.map((p) => {
+        if (p.playerId !== outPlayerId) return p;
+        return {
+          playerId: inPlayer.playerId,
+          webName: inPlayer.webName,
+          position: inPlayer.position,
+          club: inPlayer.club,
+          clubCode: inPlayer.clubCode,
+          currentPrice: inPlayer.currentPrice,
+          purchasePrice: inPlayer.currentPrice,
+          sellingPrice: inPlayer.currentPrice,
+          isStarting: p.isStarting,
+          squadPosition: p.squadPosition,
+          isCaptain: p.isCaptain,
+          isViceCaptain: p.isViceCaptain,
+        };
+      }),
+    );
+    setTransferOutId(null);
+    setSelectedId(null);
+    setMessage(null);
+    setMessageTone(null);
+  }
+
   function setCaptain(playerId: number) {
     setPlayers((prev) => prev.map((p) => ({ ...p, isCaptain: p.playerId === playerId })));
   }
@@ -184,6 +250,9 @@ export function LineupPlanner({
     const fresh = await resetAllAction(userId, selectedGameweek);
     setPlayers(fresh.players);
     setSavedPlayers(fresh.players);
+    setSavedBank(fresh.bank);
+    setFreeTransfers(fresh.freeTransfers);
+    setLaterPlansAffected(false);
     setResettingAll(false);
     setConfirmingResetAll(false);
     setSelectedId(null);
@@ -213,6 +282,9 @@ export function LineupPlanner({
     if (result.ok) {
       setPlayers(result.lineup.players);
       setSavedPlayers(result.lineup.players);
+      setSavedBank(result.lineup.bank);
+      setFreeTransfers(result.lineup.freeTransfers);
+      setLaterPlansAffected(result.lineup.laterPlansAffected);
       setMessage("Saved.");
       setMessageTone("success");
     } else {
@@ -264,10 +336,41 @@ export function LineupPlanner({
             {resettingAll ? "Resetting…" : "Reset all plans"}
           </button>
         </div>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Bank {formatPrice(lineup.bank)} · Value {formatPrice(lineup.teamValue)}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <span className={liveBank < 0 ? "font-medium text-red-600 dark:text-red-400" : undefined}>
+            Bank {formatPrice(liveBank)}
+          </span>
+          <span>Value {formatPrice(lineup.teamValue)}</span>
+          {lineup.isEditable && (
+            <>
+              <span title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it.">
+                Free Transfers {freeTransfers}
+              </span>
+              <span>Transfers {transfersMade}</span>
+              {liveTransferCost > 0 && (
+                <span className="font-medium text-red-600 dark:text-red-400">
+                  -{liveTransferCost} pts
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </div>
+
+      {laterPlansAffected && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          <span>
+            Editing gameweek {selectedGameweek} may make your later planned gameweeks
+            inconsistent — review them or use Reset all plans.
+          </span>
+          <button
+            onClick={() => setLaterPlansAffected(false)}
+            className="shrink-0 font-medium text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {confirmingResetAll && (
         <div
@@ -308,11 +411,23 @@ export function LineupPlanner({
         </div>
       )}
 
+      {transferOutPlayer && (
+        <PlayerSearch
+          position={transferOutPlayer.position}
+          userId={userId}
+          gameweekNumber={selectedGameweek}
+          searchAction={searchAction}
+          onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
+          onClose={() => setTransferOutId(null)}
+        />
+      )}
+
       {lineup.isEditable && (
         <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
           Planning gameweek {selectedGameweek}
           {currentGameweek !== null && ` (current: ${currentGameweek})`}. Click a player, then
-          click another to swap them.
+          click another to swap them, or select a player and choose Transfer out to bring in
+          someone new.
         </p>
       )}
 
@@ -325,20 +440,30 @@ export function LineupPlanner({
         />
       </div>
 
-      {lineup.isEditable && selectedPlayer?.isStarting && (
-        <div className="mt-3 flex items-center gap-2 text-sm">
+      {lineup.isEditable && selectedPlayer && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="text-zinc-600 dark:text-zinc-400">{selectedPlayer.webName}:</span>
+          {selectedPlayer.isStarting && (
+            <>
+              <button
+                onClick={() => setCaptain(selectedPlayer.playerId)}
+                className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
+              >
+                Make captain
+              </button>
+              <button
+                onClick={() => setViceCaptain(selectedPlayer.playerId)}
+                className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
+              >
+                Make vice-captain
+              </button>
+            </>
+          )}
           <button
-            onClick={() => setCaptain(selectedPlayer.playerId)}
-            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
+            onClick={() => setTransferOutId(selectedPlayer.playerId)}
+            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-red-400 hover:bg-red-50 dark:border-white/[.145] dark:hover:border-red-500 dark:hover:bg-red-950/40"
           >
-            Make captain
-          </button>
-          <button
-            onClick={() => setViceCaptain(selectedPlayer.playerId)}
-            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-          >
-            Make vice-captain
+            Transfer out
           </button>
         </div>
       )}

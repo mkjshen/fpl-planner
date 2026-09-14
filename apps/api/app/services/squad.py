@@ -7,11 +7,12 @@ from app.schemas.squad import SquadPlayerOut
 
 async def build_player_rows(
     db: AsyncSession,
-    slots: list[tuple[int, bool, int, bool, bool]],
+    slots: list[tuple[int, bool, int, bool, bool, int, int]],
 ) -> list[SquadPlayerOut]:
     """Join a list of (playerId, isStarting, squadPosition, isCaptain,
-    isViceCaptain) slots — sourced from either SquadPlayer or
-    LineupPlanPlayer rows, which share this shape — against Player/Club."""
+    isViceCaptain, purchasePrice, sellingPrice) slots — sourced from either
+    SquadPlayer or LineupPlanPlayer rows, which share this shape — against
+    Player/Club."""
     player_ids = [slot[0] for slot in slots]
     result = await db.execute(
         select(Player, Club).join(Club, Player.clubId == Club.id).where(Player.id.in_(player_ids))
@@ -26,12 +27,14 @@ async def build_player_rows(
             club=club.shortName,
             clubCode=club.code,
             currentPrice=player.currentPrice,
+            purchasePrice=purchase_price,
+            sellingPrice=selling_price,
             isStarting=is_starting,
             squadPosition=squad_position,
             isCaptain=is_captain,
             isViceCaptain=is_vice_captain,
         )
-        for player_id, is_starting, squad_position, is_captain, is_vice_captain in slots
+        for player_id, is_starting, squad_position, is_captain, is_vice_captain, purchase_price, selling_price in slots
         for player, club in [by_id[player_id]]
     ]
     rows.sort(key=lambda row: row.squadPosition)

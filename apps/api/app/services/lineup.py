@@ -8,11 +8,15 @@ from app.db.models import (
     LineupPlan,
     LineupPlanPlayer,
     Player,
+    Season,
     SquadPlayer,
     SquadSnapshot,
 )
 from app.schemas.lineup import LineupOut, LineupPlayerInput
 from app.services.squad import build_player_rows
+
+Slot = tuple[int, bool, int, bool, bool, int, int]
+# (playerId, isStarting, squadPosition, isCaptain, isViceCaptain, purchasePrice, sellingPrice)
 
 
 class LineupValidationError(Exception):
@@ -44,7 +48,7 @@ async def list_plannable_gameweeks(db: AsyncSession) -> tuple[int | None, list[G
 
 async def _latest_snapshot_slots(
     db: AsyncSession, fpl_team_row_id: str
-) -> tuple[SquadSnapshot, list[tuple[int, bool, int, bool, bool]]]:
+) -> tuple[SquadSnapshot, list[Slot]]:
     snapshot = await db.scalar(
         select(SquadSnapshot)
         .where(SquadSnapshot.fplTeamId == fpl_team_row_id)
@@ -54,51 +58,19 @@ async def _latest_snapshot_slots(
         raise LineupValidationError("No squad snapshot yet — import a team first")
 
     result = await db.execute(select(SquadPlayer).where(SquadPlayer.snapshotId == snapshot.id))
-    slots = [
-        (sp.playerId, sp.isStarting, sp.squadPosition, sp.isCaptain, sp.isViceCaptain)
+    slots: list[Slot] = [
+        (
+            sp.playerId,
+            sp.isStarting,
+            sp.squadPosition,
+            sp.isCaptain,
+            sp.isViceCaptain,
+            sp.purchasePrice,
+            sp.sellingPrice,
+        )
         for sp in result.scalars().all()
     ]
     return snapshot, slots
-
-
-async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) -> LineupOut:
-    current = await get_current_gameweek(db)
-    gameweek = await db.scalar(select(Gameweek).where(Gameweek.number == gameweek_number))
-    if gameweek is None:
-        raise GameweekNotFoundError(f"Gameweek {gameweek_number} not found")
-
-    snapshot, actual_slots = await _latest_snapshot_slots(db, fpl_team.id)
-    is_editable = current is not None and gameweek.number > current.number
-
-    if not is_editable:
-        slots = actual_slots
-    else:
-        plan = await _find_effective_plan(db, fpl_team, gameweek)
-        if plan is None:
-            # No explicit edit anywhere at or before this gameweek yet —
-            # mirror the actual squad, same as the non-editable branch.
-            slots = actual_slots
-        else:
-            result = await db.execute(
-                select(LineupPlanPlayer).where(LineupPlanPlayer.planId == plan.id)
-            )
-            slots = [
-                (lp.playerId, lp.isStarting, lp.squadPosition, lp.isCaptain, lp.isViceCaptain)
-                for lp in result.scalars().all()
-            ]
-
-    players = await build_player_rows(db, slots)
-
-    return LineupOut(
-        fplTeamId=fpl_team.fplTeamId,
-        teamName=fpl_team.teamName,
-        managerName=fpl_team.managerName,
-        gameweek=gameweek.number,
-        isEditable=is_editable,
-        bank=snapshot.bank,
-        teamValue=snapshot.teamValue,
-        players=players,
-    )
 
 
 async def _find_effective_plan(
@@ -116,22 +88,141 @@ async def _find_effective_plan(
     )
 
 
-def _validate_lineup(
-    proposed: list[LineupPlayerInput], actual_player_ids: set[int], positions: dict[int, str]
-) -> None:
+async def _find_prior_plan(
+    db: AsyncSession, fpl_team: FplTeam, gameweek: Gameweek
+) -> LineupPlan | None:
+    """The nearest explicit plan strictly before this gameweek — what a new
+    save for this gameweek diffs against (never the plan being overwritten
+    at this same gameweek, if one already exists)."""
+    return await db.scalar(
+        select(LineupPlan)
+        .join(Gameweek, LineupPlan.gameweekId == Gameweek.id)
+        .where(LineupPlan.fplTeamId == fpl_team.id, Gameweek.number < gameweek.number)
+        .order_by(Gameweek.number.desc())
+        .limit(1)
+    )
+
+
+async def _plan_slots(db: AsyncSession, plan: LineupPlan) -> list[Slot]:
+    result = await db.execute(select(LineupPlanPlayer).where(LineupPlanPlayer.planId == plan.id))
+    return [
+        (
+            lp.playerId,
+            lp.isStarting,
+            lp.squadPosition,
+            lp.isCaptain,
+            lp.isViceCaptain,
+            lp.purchasePrice,
+            lp.sellingPrice,
+        )
+        for lp in result.scalars().all()
+    ]
+
+
+def _resell_price(purchase_price: int, current_price: int) -> int:
+    """FPL's public (community-documented, not officially published)
+    sell-price rule: only half of any price rise is realized on sale
+    (rounded down to the nearest tenth-of-a-million), while a price drop is
+    passed on in full."""
+    if current_price > purchase_price:
+        return purchase_price + (current_price - purchase_price) // 2
+    return current_price
+
+
+async def available_free_transfers(
+    db: AsyncSession, fpl_team: FplTeam, target_gameweek_number: int
+) -> int:
+    """Free transfers available entering `target_gameweek_number`, walking
+    forward from the current gameweek and applying each intervening
+    gameweek's planned transfer count (0 for a gameweek with no explicit
+    plan) through FPL's real rollover rule.
+
+    Simplification, disclosed in the UI: assumes exactly
+    `Season.freeTransferCap` free transfers as of the current gameweek —
+    this app doesn't replay the manager's real pre-import transfer
+    history, so a manager who legitimately banked transfers before using
+    this planner will see a lower count here than the real FPL app."""
+    current = await get_current_gameweek(db)
+    if current is None:
+        return 0
+    season = await db.get(Season, current.seasonId)
+    if season is None:
+        return 0
+
+    result = await db.execute(
+        select(Gameweek.number, LineupPlan.transfersMade)
+        .join(LineupPlan, LineupPlan.gameweekId == Gameweek.id)
+        .where(
+            LineupPlan.fplTeamId == fpl_team.id,
+            Gameweek.number > current.number,
+            Gameweek.number < target_gameweek_number,
+        )
+    )
+    transfers_by_gameweek = dict(result.all())
+
+    available = season.freeTransferCap
+    for gw_number in range(current.number + 1, target_gameweek_number):
+        made = transfers_by_gameweek.get(gw_number, 0)
+        available = min(max(available - made, 0) + 1, season.freeTransferRolloverLimit)
+    return available
+
+
+async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) -> LineupOut:
+    current = await get_current_gameweek(db)
+    gameweek = await db.scalar(select(Gameweek).where(Gameweek.number == gameweek_number))
+    if gameweek is None:
+        raise GameweekNotFoundError(f"Gameweek {gameweek_number} not found")
+
+    snapshot, actual_slots = await _latest_snapshot_slots(db, fpl_team.id)
+    is_editable = current is not None and gameweek.number > current.number
+
+    plan = await _find_effective_plan(db, fpl_team, gameweek) if is_editable else None
+    if plan is None:
+        slots = actual_slots
+        bank = snapshot.bank
+        transfer_cost = 0
+    else:
+        slots = await _plan_slots(db, plan)
+        bank = plan.bank
+        transfer_cost = plan.transferCost
+
+    players = await build_player_rows(db, slots)
+    free_transfers = (
+        await available_free_transfers(db, fpl_team, gameweek_number) if is_editable else 0
+    )
+
+    return LineupOut(
+        fplTeamId=fpl_team.fplTeamId,
+        teamName=fpl_team.teamName,
+        managerName=fpl_team.managerName,
+        gameweek=gameweek.number,
+        isEditable=is_editable,
+        bank=bank,
+        teamValue=snapshot.teamValue,
+        freeTransfers=free_transfers,
+        transferCost=transfer_cost,
+        players=players,
+    )
+
+
+def _validate_lineup(proposed: list[LineupPlayerInput], positions: dict[int, str]) -> None:
     if len(proposed) != 15:
         raise LineupValidationError("A lineup must have exactly 15 players")
 
     proposed_ids = {p.playerId for p in proposed}
     if len(proposed_ids) != 15:
         raise LineupValidationError("Duplicate player in lineup")
-    if proposed_ids != actual_player_ids:
-        raise LineupValidationError(
-            "Lineup must contain exactly the 15 players already in the squad"
-        )
 
     if sorted(p.squadPosition for p in proposed) != list(range(1, 16)):
         raise LineupValidationError("squadPosition must be a permutation of 1-15")
+
+    total_counts = {"GK": 0, "DEF": 0, "MID": 0, "FWD": 0}
+    for p in proposed:
+        total_counts[positions[p.playerId]] += 1
+    if total_counts != {"GK": 2, "DEF": 5, "MID": 5, "FWD": 3}:
+        raise LineupValidationError(
+            "Squad must have 2 goalkeepers, 5 defenders, 5 midfielders, and 3 forwards"
+        )
 
     starting = [p for p in proposed if p.isStarting]
     if len(starting) != 11:
@@ -173,15 +264,73 @@ async def save_lineup(
     if current is None or gameweek.number <= current.number:
         raise NotEditableError("Only future gameweeks can be planned")
 
-    _, actual_slots = await _latest_snapshot_slots(db, fpl_team.id)
-    actual_player_ids = {slot[0] for slot in actual_slots}
+    snapshot, actual_slots = await _latest_snapshot_slots(db, fpl_team.id)
+    prior_plan = await _find_prior_plan(db, fpl_team, gameweek)
+    if prior_plan is None:
+        prior_slots = actual_slots
+        prior_bank = snapshot.bank
+    else:
+        prior_slots = await _plan_slots(db, prior_plan)
+        prior_bank = prior_plan.bank
+
+    prior_by_slot = {slot[2]: slot for slot in prior_slots}
+    proposed_ids = {p.playerId for p in players}
+    prior_ids = {slot[0] for slot in prior_slots}
 
     player_rows = await db.execute(
-        select(Player.id, Player.position).where(Player.id.in_(actual_player_ids))
+        select(Player.id, Player.position, Player.currentPrice, Player.clubId).where(
+            Player.id.in_(proposed_ids | prior_ids)
+        )
     )
-    positions = {player_id: position.value for player_id, position in player_rows.all()}
+    player_info = {
+        player_id: (position.value, current_price, club_id)
+        for player_id, position, current_price, club_id in player_rows.all()
+    }
+    positions = {player_id: info[0] for player_id, info in player_info.items()}
 
-    _validate_lineup(players, actual_player_ids, positions)
+    _validate_lineup(players, positions)
+
+    proposed_by_slot = {p.squadPosition: p for p in players}
+    incoming_ids: set[int] = set()
+    outgoing_ids: set[int] = set()
+    for slot_number in range(1, 16):
+        prior_player_id = prior_by_slot[slot_number][0]
+        proposed_player_id = proposed_by_slot[slot_number].playerId
+        if prior_player_id == proposed_player_id:
+            continue
+        if positions[proposed_player_id] != positions[prior_player_id]:
+            raise LineupValidationError(
+                "A transfer must replace a player with one in the same position"
+            )
+        incoming_ids.add(proposed_player_id)
+        outgoing_ids.add(prior_player_id)
+
+    club_counts: dict[int, int] = {}
+    for player_id in proposed_ids:
+        club_id = player_info[player_id][2]
+        club_counts[club_id] = club_counts.get(club_id, 0) + 1
+    if any(count > 3 for count in club_counts.values()):
+        raise LineupValidationError("A squad can have at most 3 players from the same club")
+
+    spend = sum(player_info[player_id][1] for player_id in incoming_ids)
+    proceeds = sum(prior_by_slot[slot][6] for slot in prior_by_slot if prior_by_slot[slot][0] in outgoing_ids)
+    new_bank = prior_bank + proceeds - spend
+    if new_bank < 0:
+        raise LineupValidationError("Not enough bank to make this transfer")
+
+    transfers_made = len(incoming_ids)
+    free_transfers = await available_free_transfers(db, fpl_team, gameweek_number)
+    transfer_cost = max(transfers_made - free_transfers, 0) * 4
+
+    price_by_id: dict[int, tuple[int, int]] = {}
+    for player_id in proposed_ids:
+        current_price = player_info[player_id][1]
+        if player_id in incoming_ids:
+            price_by_id[player_id] = (current_price, current_price)
+        else:
+            prior_slot = next(slot for slot in prior_slots if slot[0] == player_id)
+            purchase_price = prior_slot[5]
+            price_by_id[player_id] = (purchase_price, _resell_price(purchase_price, current_price))
 
     plan = await db.scalar(
         select(LineupPlan).where(
@@ -193,6 +342,10 @@ async def save_lineup(
         db.add(plan)
         await db.flush()
 
+    plan.transfersMade = transfers_made
+    plan.transferCost = transfer_cost
+    plan.bank = new_bank
+
     rows = [
         {
             "planId": plan.id,
@@ -201,6 +354,8 @@ async def save_lineup(
             "squadPosition": p.squadPosition,
             "isCaptain": p.isCaptain,
             "isViceCaptain": p.isViceCaptain,
+            "purchasePrice": price_by_id[p.playerId][0],
+            "sellingPrice": price_by_id[p.playerId][1],
         }
         for p in players
     ]
@@ -212,12 +367,33 @@ async def save_lineup(
             "squadPosition": stmt.excluded.squadPosition,
             "isCaptain": stmt.excluded.isCaptain,
             "isViceCaptain": stmt.excluded.isViceCaptain,
+            "purchasePrice": stmt.excluded.purchasePrice,
+            "sellingPrice": stmt.excluded.sellingPrice,
         },
     )
     await db.execute(stmt)
+
+    # A previous save of this same gameweek may have included players no
+    # longer in the proposed 15 (transferred out again since) — plan rows
+    # must exactly mirror the current 15, not accumulate stale ones.
+    await db.execute(
+        delete(LineupPlanPlayer).where(
+            LineupPlanPlayer.planId == plan.id, LineupPlanPlayer.playerId.notin_(proposed_ids)
+        )
+    )
+
+    later_plan_exists = await db.scalar(
+        select(Gameweek.number)
+        .join(LineupPlan, LineupPlan.gameweekId == Gameweek.id)
+        .where(LineupPlan.fplTeamId == fpl_team.id, Gameweek.number > gameweek_number)
+        .limit(1)
+    )
+
     await db.commit()
 
-    return await get_lineup(db, fpl_team, gameweek_number)
+    result = await get_lineup(db, fpl_team, gameweek_number)
+    result.laterPlansAffected = later_plan_exists is not None
+    return result
 
 
 async def reset_all_plans(db: AsyncSession, fpl_team: FplTeam) -> None:

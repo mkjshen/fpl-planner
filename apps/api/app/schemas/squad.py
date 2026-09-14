@@ -13,6 +13,8 @@ class SquadPlayerOut(BaseModel):
     club: str
     clubCode: int | None
     currentPrice: int
+    purchasePrice: int
+    sellingPrice: int
     isStarting: bool
     squadPosition: int
     isCaptain: bool

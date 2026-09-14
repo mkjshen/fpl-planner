@@ -189,16 +189,20 @@ async def _replace_snapshot(
         db.add(snapshot)
     await db.flush()
 
+    player_prices = await _load_player_prices(db, {pick.element for pick in picks.picks})
+
     for pick in picks.picks:
+        # FPL's picks endpoint doesn't return purchase price — only current
+        # price is known. Treat "just imported" as "bought today" (the only
+        # honest basis available); this understates real profit/loss for
+        # players the manager has held since before they were tracked here.
+        price = player_prices.get(pick.element, 0)
         db.add(
             SquadPlayer(
                 snapshotId=snapshot.id,
                 playerId=pick.element,
-                # FPL's picks endpoint doesn't return purchase price — only
-                # current price is known until we track price-at-purchase
-                # over time via PlayerPriceHistory in a later build step.
-                purchasePrice=0,
-                sellingPrice=0,
+                purchasePrice=price,
+                sellingPrice=price,
                 isStarting=pick.position <= 11,
                 squadPosition=pick.position,
                 isCaptain=pick.is_captain,
@@ -207,6 +211,11 @@ async def _replace_snapshot(
         )
     await db.flush()
     return snapshot
+
+
+async def _load_player_prices(db: AsyncSession, player_ids: set[int]) -> dict[int, int]:
+    result = await db.execute(select(Player.id, Player.currentPrice).where(Player.id.in_(player_ids)))
+    return dict(result.all())
 
 
 def _as_naive_utc(value: datetime) -> datetime:

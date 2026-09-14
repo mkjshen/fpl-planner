@@ -163,6 +163,9 @@ class LineupPlan(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=cuid)
     fplTeamId: Mapped[str] = mapped_column(String, ForeignKey("FplTeam.id", ondelete="CASCADE"))
     gameweekId: Mapped[str] = mapped_column(String, ForeignKey("Gameweek.id"))
+    transfersMade: Mapped[int] = mapped_column(Integer, default=0)
+    transferCost: Mapped[int] = mapped_column(Integer, default=0)
+    bank: Mapped[int] = mapped_column(Integer, default=0)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), default=datetime.utcnow, onupdate=datetime.utcnow
@@ -182,6 +185,8 @@ class LineupPlanPlayer(Base):
     squadPosition: Mapped[int] = mapped_column(Integer)
     isCaptain: Mapped[bool] = mapped_column(Boolean, default=False)
     isViceCaptain: Mapped[bool] = mapped_column(Boolean, default=False)
+    purchasePrice: Mapped[int] = mapped_column(Integer, default=0)
+    sellingPrice: Mapped[int] = mapped_column(Integer, default=0)
 
     plan: Mapped["LineupPlan"] = relationship(back_populates="players")
     player: Mapped["Player"] = relationship()

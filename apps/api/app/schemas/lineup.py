@@ -26,6 +26,9 @@ class LineupOut(BaseModel):
     isEditable: bool
     bank: int
     teamValue: int
+    freeTransfers: int
+    transferCost: int
+    laterPlansAffected: bool = False
     players: list[SquadPlayerOut]
 
 

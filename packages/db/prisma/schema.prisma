@@ -220,8 +220,17 @@ model LineupPlan {
   id         String   @id @default(cuid())
   fplTeamId  String
   gameweekId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  // Transfer bookkeeping — set at save time. transfersMade/transferCost are
+  // 0 for a plan that only reorders the existing 15 (no transfers). bank
+  // cascades the same way LineupPlanPlayer's purchase/selling price does:
+  // it's the resulting bank after this plan's transfers, read by later
+  // gameweeks' budget checks instead of the real (current-gameweek-only)
+  // SquadSnapshot.bank.
+  transfersMade Int      @default(0)
+  transferCost  Int      @default(0) // points lost to the -4-per-transfer hit
+  bank          Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   fplTeam  FplTeam            @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
   gameweek Gameweek           @relation(fields: [gameweekId], references: [id])
@@ -238,6 +247,12 @@ model LineupPlanPlayer {
   squadPosition Int
   isCaptain     Boolean @default(false)
   isViceCaptain Boolean @default(false)
+  // Cost basis for this player within this plan — carried over unchanged
+  // from the prior effective plan (with sellingPrice recomputed against
+  // today's price) for players who weren't transferred, or set to today's
+  // currentPrice for a player just transferred in. Mirrors SquadPlayer.
+  purchasePrice Int     @default(0)
+  sellingPrice  Int     @default(0)
 
   plan   LineupPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   player Player     @relation(fields: [playerId], references: [id])

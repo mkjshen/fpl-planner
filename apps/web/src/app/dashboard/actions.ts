@@ -5,8 +5,11 @@ import {
   type Lineup,
   type LineupPlayerInput,
   LineupValidationError,
+  type PlayerSearchResult,
+  type Position,
   resetAllPlans,
   saveLineup,
+  searchPlayers,
 } from "@/lib/api";
 
 export async function saveLineupAction(
@@ -35,4 +38,12 @@ export async function resetAllPlansAction(
     throw new Error("Failed to load lineup after reset");
   }
   return lineup;
+}
+
+export async function searchPlayersAction(
+  userId: string,
+  gameweekNumber: number,
+  options: { position?: Position; search?: string },
+): Promise<PlayerSearchResult> {
+  return searchPlayers(userId, gameweekNumber, { ...options, limit: 30 });
 }
