@@ -12,7 +12,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-950">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 px-4 py-3">
+        <div className="flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Tabs />
           <div className="flex items-center gap-3">
             <span className="hidden text-sm text-zinc-600 dark:text-zinc-400 sm:inline">
