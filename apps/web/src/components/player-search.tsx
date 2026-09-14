@@ -58,8 +58,12 @@ export function PlayerSearch({
   }, [query, position, userId, gameweekNumber, searchAction]);
 
   return (
+    // Mobile: a normal centered, dimmed modal — there's no room to show the
+    // squad and this side by side. From md up: an undimmed panel pinned to
+    // the top-right of the viewport, leaving the squad fully visible (and
+    // interactive) beside it for comparison while browsing.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed top-0 right-0 bottom-0 left-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm md:top-20 md:right-4 md:bottom-4 md:left-auto md:items-start md:justify-end md:bg-transparent md:p-0 md:backdrop-blur-none"
       onClick={onClose}
     >
       <div
@@ -67,7 +71,7 @@ export function PlayerSearch({
         aria-modal="true"
         aria-label={`Transfer in a ${position}`}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[80vh] w-full max-w-md flex-col rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
+        className="flex max-h-[80vh] w-full max-w-md flex-col rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950 md:h-full md:w-80"
       >
         <div className="flex items-center justify-between gap-4">
           <p className="text-base font-semibold text-black dark:text-zinc-50">
