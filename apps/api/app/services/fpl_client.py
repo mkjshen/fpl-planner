@@ -3,6 +3,7 @@ import httpx
 from app.schemas.fpl_api import (
     FplBootstrap,
     FplEntry,
+    FplFixture,
     FplHistoryResponse,
     FplPicksResponse,
     FplTransfer,
@@ -62,3 +63,9 @@ class FplClient:
             raise FplTeamNotFoundError(fpl_team_id)
         response.raise_for_status()
         return FplHistoryResponse.model_validate(response.json())
+
+    async def get_fixtures(self) -> list[FplFixture]:
+        # The whole season's fixtures, not team-specific — no event filter.
+        response = await self._client.get("/fixtures/")
+        response.raise_for_status()
+        return [FplFixture.model_validate(item) for item in response.json()]

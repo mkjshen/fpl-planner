@@ -148,7 +148,9 @@ export function PlayerCard({
       <span className="w-full truncate text-xs font-semibold text-black dark:text-zinc-50">
         {player.webName}
       </span>
-      <span className="text-[0.65rem] text-zinc-500 dark:text-zinc-400">{player.club}</span>
+      <span className="truncate text-[0.65rem] text-zinc-500 dark:text-zinc-400">
+        {player.opponent ?? player.club}
+      </span>
       <span className="mt-0.5 text-[0.65rem] font-medium text-zinc-600 dark:text-zinc-300">
         {formatPrice(player.currentPrice)}
       </span>

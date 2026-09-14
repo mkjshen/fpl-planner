@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import (
     ChipUsage,
     Club,
+    Fixture,
     FplTeam,
     Gameweek,
     Player,
@@ -20,6 +21,7 @@ from app.schemas.fpl_api import (
     FplBootstrap,
     FplChipUsage,
     FplEntry,
+    FplFixture,
     FplPicksResponse,
     FplTransfer,
 )
@@ -314,6 +316,39 @@ async def _import_chip_usage(
     await db.flush()
 
 
+async def _upsert_fixtures(
+    db: AsyncSession, gameweeks: dict[int, Gameweek], fixtures: list[FplFixture]
+) -> None:
+    """The season's full fixture list — shared reference data, not
+    per-team, refreshed on every import the same way clubs/players are.
+    Used to show each squad player's opponent for the gameweek being
+    viewed (see squad.py's opponent lookup) instead of just their own
+    club."""
+    rows = [
+        {
+            "id": f.id,
+            "gameweekId": gameweeks[f.event].id,
+            "homeTeamId": f.team_h,
+            "awayTeamId": f.team_a,
+        }
+        for f in fixtures
+        if f.event is not None and f.event in gameweeks
+    ]
+    if not rows:
+        return
+    stmt = pg_insert(Fixture).values(rows)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[Fixture.id],
+        set_={
+            "gameweekId": stmt.excluded.gameweekId,
+            "homeTeamId": stmt.excluded.homeTeamId,
+            "awayTeamId": stmt.excluded.awayTeamId,
+        },
+    )
+    await db.execute(stmt)
+    await db.flush()
+
+
 async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTeam:
     async with FplClient() as client:
         entry = await client.get_entry(fpl_team_id)
@@ -328,10 +363,12 @@ async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTe
         picks = await client.get_entry_picks(fpl_team_id, current_event_id)
         transfers = await client.get_entry_transfers(fpl_team_id)
         history = await client.get_entry_history(fpl_team_id)
+        fixtures = await client.get_fixtures()
 
     season = await _upsert_season(db, bootstrap)
     gameweeks = await _upsert_gameweeks(db, season, bootstrap)
     await _upsert_clubs_and_players(db, bootstrap)
+    await _upsert_fixtures(db, gameweeks, fixtures)
 
     fpl_team = await _upsert_fpl_team(db, user_id, fpl_team_id, entry)
     await _replace_snapshot(db, fpl_team, gameweeks[current_event_id], picks)

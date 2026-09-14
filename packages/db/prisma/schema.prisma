@@ -113,6 +113,7 @@ model Gameweek {
   transfers   TransferHistory[]
   lineupPlans LineupPlan[]
   chipUsages  ChipUsage[]
+  fixtures    Fixture[]
 
   @@unique([seasonId, number])
 }
@@ -123,7 +124,27 @@ model Club {
   name      String
   shortName String
 
-  players Player[]
+  players      Player[]
+  homeFixtures Fixture[] @relation("FixtureHomeTeam")
+  awayFixtures Fixture[] @relation("FixtureAwayTeam")
+}
+
+// The season's full fixture list (every gameweek, not just the current
+// one) — shared reference data, refreshed the same opportunistic way as
+// clubs/players: re-upserted on every import, not on a schedule. Used to
+// show each squad player's opponent for the gameweek being viewed instead
+// of just their own club.
+model Fixture {
+  id         Int    @id // official FPL fixture id
+  gameweekId String
+  homeTeamId Int
+  awayTeamId Int
+
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
+  homeTeam Club     @relation("FixtureHomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Club     @relation("FixtureAwayTeam", fields: [awayTeamId], references: [id])
+
+  @@index([gameweekId])
 }
 
 enum Position {

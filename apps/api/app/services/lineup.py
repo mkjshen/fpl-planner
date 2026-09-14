@@ -230,7 +230,7 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         team_value = plan.teamValue
         transfer_cost = plan.transferCost
 
-    players = await build_player_rows(db, slots)
+    players = await build_player_rows(db, slots, gameweek.id)
     free_transfers = (
         await available_free_transfers(db, fpl_team, gameweek_number) if is_editable else 0
     )

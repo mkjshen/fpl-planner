@@ -100,6 +100,15 @@ class Player(Base):
     status: Mapped[str] = mapped_column(String, default="available")
 
 
+class Fixture(Base):
+    __tablename__ = "Fixture"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    gameweekId: Mapped[str] = mapped_column(String, ForeignKey("Gameweek.id", ondelete="CASCADE"))
+    homeTeamId: Mapped[int] = mapped_column(Integer, ForeignKey("Club.id"))
+    awayTeamId: Mapped[int] = mapped_column(Integer, ForeignKey("Club.id"))
+
+
 class PlayerPriceHistory(Base):
     __tablename__ = "PlayerPriceHistory"
 

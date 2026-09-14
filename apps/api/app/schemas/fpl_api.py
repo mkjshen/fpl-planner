@@ -93,3 +93,12 @@ class FplHistoryResponse(BaseModel):
     # event_transfers for the free-transfer rollover.
     current: list[FplEntryHistory]
     chips: list[FplChipUsage]
+
+
+class FplFixture(BaseModel):
+    id: int
+    # None for a fixture not yet scheduled to a gameweek (e.g. postponed,
+    # not yet rearranged) — skipped on import rather than guessed at.
+    event: int | None
+    team_h: int
+    team_a: int

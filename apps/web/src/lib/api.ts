@@ -8,6 +8,12 @@ export type SquadPlayer = {
   position: Position;
   club: string;
   clubCode: number | null;
+  // Who this player's club faces in the gameweek being viewed, formatted
+  // for display (e.g. "MUN (H)") — see PlayerCard, which shows this
+  // instead of `club`. Optional: a player just picked client-side from
+  // the transfer-in pool (not yet round-tripped through a save) doesn't
+  // have this yet — PlayerCard falls back to `club` until then.
+  opponent?: string;
   currentPrice: number;
   purchasePrice: number;
   sellingPrice: number;
