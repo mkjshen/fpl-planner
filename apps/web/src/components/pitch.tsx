@@ -81,19 +81,19 @@ export function PlayerCard({
       <button
         type="button"
         onClick={onActivate}
-        className={`flex w-24 flex-col items-center rounded-lg border-2 border-dashed px-2 py-3 text-center sm:w-28 md:w-32 ${
+        className={`flex w-20 flex-col items-center rounded-lg border-2 border-dashed px-1.5 py-2 text-center xl:w-32 xl:px-2 xl:py-3 ${
           activeBlank
             ? "border-primary dark:border-accent"
             : "border-black/[.15] dark:border-white/[.2]"
         } ${onActivate ? "cursor-pointer hover:border-black/30 dark:hover:border-white/40" : ""}`}
       >
         <div
-          className={`mb-1.5 h-10 w-10 rounded-full border-2 border-dashed ${
+          className={`mb-1 h-8 w-8 rounded-full border-2 border-dashed xl:mb-1.5 xl:h-10 xl:w-10 ${
             activeBlank ? "border-primary dark:border-accent" : "border-black/[.15] dark:border-white/[.2]"
           }`}
         />
-        <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-600">Empty</span>
-        <span className="text-xs text-zinc-400 dark:text-zinc-600">
+        <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-600 xl:text-sm">Empty</span>
+        <span className="text-[0.65rem] text-zinc-400 dark:text-zinc-600 xl:text-xs">
           {activeBlank ? "Pick a player" : "Tap to fill"}
         </span>
       </button>
@@ -103,7 +103,7 @@ export function PlayerCard({
   return (
     <div
       onClick={disabled ? undefined : onClick}
-      className={`group relative flex w-24 flex-col items-center rounded-lg border px-2 py-3 text-center shadow-sm sm:w-28 md:w-32 ${
+      className={`group relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm xl:w-32 xl:px-2 xl:py-3 ${
         selected
           ? "border-primary bg-white ring-2 ring-primary dark:border-accent dark:bg-zinc-900 dark:ring-accent"
           : muted
@@ -120,14 +120,14 @@ export function PlayerCard({
           }}
           aria-label={`Remove ${player.webName} from your team`}
           title="Remove from team"
-          className="absolute -top-2.5 -left-2.5 flex h-6 w-6 items-center justify-center rounded-full border border-black/[.15] bg-white text-xs font-bold text-zinc-500 opacity-100 transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white"
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2.5 xl:-left-2.5 xl:h-6 xl:w-6 xl:text-xs"
         >
           ×
         </button>
       )}
       {(player.isCaptain || player.isViceCaptain) && (
         <span
-          className={`absolute -top-2.5 -right-2.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+          className={`absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold xl:-top-2.5 xl:-right-2.5 xl:h-6 xl:w-6 xl:text-xs ${
             player.isCaptain
               ? "bg-accent text-accent-foreground"
               : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
@@ -142,16 +142,16 @@ export function PlayerCard({
           alt=""
           width={40}
           height={40}
-          className="mb-1.5 h-10 w-10 object-contain"
+          className="mb-1 h-8 w-8 object-contain xl:mb-1.5 xl:h-10 xl:w-10"
         />
       )}
-      <span className="w-full truncate text-sm font-semibold text-black dark:text-zinc-50">
+      <span className="w-full truncate text-xs font-semibold text-black dark:text-zinc-50 xl:text-sm">
         {player.webName}
       </span>
-      <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+      <span className="truncate text-[0.65rem] text-zinc-500 dark:text-zinc-400 xl:text-xs">
         {player.opponent ?? player.club}
       </span>
-      <span className="mt-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+      <span className="mt-0.5 text-[0.65rem] font-medium text-zinc-600 dark:text-zinc-300 xl:text-xs">
         {formatPrice(player.currentPrice)}
       </span>
     </div>
@@ -199,7 +199,7 @@ export function Pitch({
         }}
       >
         {PITCH_ROWS.map((position) => (
-          <div key={position} className="flex flex-wrap items-center justify-center gap-3 sm:gap-6">
+          <div key={position} className="flex flex-wrap items-center justify-center gap-2 xl:gap-6">
             {byPosition(position).map((player) => (
               <PlayerCard
                 key={player.playerId}
