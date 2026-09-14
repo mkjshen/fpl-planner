@@ -19,8 +19,10 @@ export function PlayerCard({
   selected,
   disabled,
   blank,
+  activeBlank,
   onClick,
   onRemove,
+  onActivate,
 }: {
   player: SquadPlayer;
   muted?: boolean;
@@ -29,18 +31,39 @@ export function PlayerCard({
   // True while this player has been transferred out but a replacement
   // hasn't been picked yet — renders an empty placeholder in their slot
   // instead of their (stale) card, matching how the real FPL transfer
-  // screen shows a blank shirt outline mid-transfer.
+  // screen shows a blank shirt outline mid-transfer. Multiple cards can be
+  // blank at once (several pending transfers-out in the same unsaved plan).
   blank?: boolean;
+  // True when this blank slot is the one the transfer-in panel is
+  // currently searching a replacement for — only meaningful when `blank`.
+  activeBlank?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
+  // Only used when `blank`: clicking an inactive blank slot switches the
+  // transfer-in panel to search a replacement for this one instead.
+  onActivate?: () => void;
 }) {
   if (blank) {
     return (
-      <div className="flex w-20 flex-col items-center rounded-lg border-2 border-dashed border-black/[.15] px-1.5 py-2 text-center sm:w-24 dark:border-white/[.2]">
-        <div className="mb-1 h-8 w-8 rounded-full border-2 border-dashed border-black/[.15] dark:border-white/[.2]" />
+      <button
+        type="button"
+        onClick={onActivate}
+        className={`flex w-20 flex-col items-center rounded-lg border-2 border-dashed px-1.5 py-2 text-center sm:w-24 ${
+          activeBlank
+            ? "border-primary dark:border-accent"
+            : "border-black/[.15] dark:border-white/[.2]"
+        } ${onActivate ? "cursor-pointer hover:border-black/30 dark:hover:border-white/40" : ""}`}
+      >
+        <div
+          className={`mb-1 h-8 w-8 rounded-full border-2 border-dashed ${
+            activeBlank ? "border-primary dark:border-accent" : "border-black/[.15] dark:border-white/[.2]"
+          }`}
+        />
         <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-600">Empty</span>
-        <span className="text-[0.65rem] text-zinc-400 dark:text-zinc-600">Pick a player</span>
-      </div>
+        <span className="text-[0.65rem] text-zinc-400 dark:text-zinc-600">
+          {activeBlank ? "Pick a player" : "Tap to fill"}
+        </span>
+      </button>
     );
   }
 
@@ -106,16 +129,20 @@ export function Pitch({
   starting,
   selectedPlayerId,
   disabledPlayerIds,
-  blankPlayerId,
+  blankPlayerIds,
+  activeBlankPlayerId,
   onPlayerClick,
   onPlayerRemove,
+  onBlankActivate,
 }: {
   starting: SquadPlayer[];
   selectedPlayerId?: number | null;
   disabledPlayerIds?: Set<number>;
-  blankPlayerId?: number | null;
+  blankPlayerIds?: Set<number>;
+  activeBlankPlayerId?: number | null;
   onPlayerClick?: (player: SquadPlayer) => void;
   onPlayerRemove?: (player: SquadPlayer) => void;
+  onBlankActivate?: (player: SquadPlayer) => void;
 }) {
   const byPosition = (position: Position) =>
     starting.filter((p) => p.position === position).sort((a, b) => a.squadPosition - b.squadPosition);
@@ -144,9 +171,11 @@ export function Pitch({
                 player={player}
                 selected={player.playerId === selectedPlayerId}
                 disabled={disabledPlayerIds?.has(player.playerId)}
-                blank={player.playerId === blankPlayerId}
+                blank={blankPlayerIds?.has(player.playerId)}
+                activeBlank={player.playerId === activeBlankPlayerId}
                 onClick={onPlayerClick ? () => onPlayerClick(player) : undefined}
                 onRemove={onPlayerRemove ? () => onPlayerRemove(player) : undefined}
+                onActivate={onBlankActivate ? () => onBlankActivate(player) : undefined}
               />
             ))}
           </div>

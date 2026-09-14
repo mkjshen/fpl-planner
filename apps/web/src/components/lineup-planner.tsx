@@ -99,7 +99,12 @@ export function LineupPlanner({
   const [freeTransfers, setFreeTransfers] = useState(lineup.freeTransfers);
   const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [transferOutId, setTransferOutId] = useState<number | null>(null);
+  // Every player currently transferred out but not yet replaced — several
+  // can be pending at once. `activeTransferOutId` is whichever one the
+  // transfer-in panel is showing right now (always one of `transferOutIds`
+  // while it's non-empty).
+  const [transferOutIds, setTransferOutIds] = useState<number[]>([]);
+  const [activeTransferOutId, setActiveTransferOutId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [resettingAll, setResettingAll] = useState(false);
   const [confirmingResetAll, setConfirmingResetAll] = useState(false);
@@ -118,7 +123,8 @@ export function LineupPlanner({
   const dirty = JSON.stringify(players) !== JSON.stringify(savedPlayers);
   const error = lineup.isEditable ? validationError(players) : null;
   const selectedPlayer = players.find((p) => p.playerId === selectedId) ?? null;
-  const transferOutPlayer = players.find((p) => p.playerId === transferOutId) ?? null;
+  const transferOutIdSet = new Set(transferOutIds);
+  const transferOutPlayer = players.find((p) => p.playerId === activeTransferOutId) ?? null;
   const disabledPlayerIds =
     lineup.isEditable && selectedId !== null
       ? new Set(
@@ -139,10 +145,10 @@ export function LineupPlanner({
   // changes from edits within this gameweek — it only depends on earlier
   // gameweeks.
   //
-  // A player who's been transferred out but has no replacement picked yet
-  // (transferOutId set, blanked on the pitch/bench) is still physically
+  // Players transferred out but with no replacement picked yet (in
+  // `transferOutIds`, blanked on the pitch/bench) are still physically
   // present in `players` — skip them in the by-slot diff below and count
-  // their removal separately, so Bank/Value/Transfers already reflect it
+  // each removal separately, so Bank/Value/Transfers already reflect them
   // before a replacement is chosen, not just after.
   const savedBySlot = new Map(savedPlayers.map((p) => [p.squadPosition, p.playerId]));
   let spend = 0;
@@ -151,7 +157,7 @@ export function LineupPlanner({
   let transfersMade = 0;
   const freedPlayerIds = new Set<number>();
   for (const p of players) {
-    if (p.playerId === transferOutId) continue;
+    if (transferOutIdSet.has(p.playerId)) continue;
     const savedId = savedBySlot.get(p.squadPosition);
     if (savedId !== undefined && savedId !== p.playerId) {
       transfersMade += 1;
@@ -164,11 +170,13 @@ export function LineupPlanner({
       }
     }
   }
-  if (transferOutPlayer) {
+  for (const outId of transferOutIds) {
+    const outPlayer = players.find((p) => p.playerId === outId);
+    if (!outPlayer) continue;
     transfersMade += 1;
-    proceeds += transferOutPlayer.sellingPrice;
-    valueChange -= transferOutPlayer.currentPrice;
-    freedPlayerIds.add(transferOutPlayer.playerId);
+    proceeds += outPlayer.sellingPrice;
+    valueChange -= outPlayer.currentPrice;
+    freedPlayerIds.add(outPlayer.playerId);
   }
   const liveBank = savedBank + proceeds - spend;
   const liveTeamValue = savedTeamValue + valueChange;
@@ -255,17 +263,38 @@ export function LineupPlanner({
         };
       }),
     );
-    setTransferOutId(null);
+    // If other transfers are still pending, hand the panel to the next one
+    // rather than leaving it empty while blank slots are still sitting there.
+    const remaining = transferOutIds.filter((id) => id !== outPlayerId);
+    setTransferOutIds(remaining);
+    setActiveTransferOutId((current) => (current === outPlayerId ? (remaining[0] ?? null) : current));
     setSelectedId(null);
     setMessage(null);
     setMessageTone(null);
   }
 
   function handleTransferOutClick(playerId: number) {
-    setTransferOutId(playerId);
+    setTransferOutIds((prev) => (prev.includes(playerId) ? prev : [...prev, playerId]));
+    setActiveTransferOutId(playerId);
     setSelectedId(null);
     setMessage(null);
     setMessageTone(null);
+  }
+
+  // Switch the transfer-in panel to an already-pending removal, e.g.
+  // clicking a blank slot that isn't the one currently being searched for.
+  function handleActivateTransferOut(playerId: number) {
+    setActiveTransferOutId(playerId);
+    setSelectedId(null);
+  }
+
+  // Cancels only the pending removal the panel is currently showing — the
+  // others stay blanked. Hands the panel to another pending one, if any.
+  function handleClearActiveTransferOut() {
+    if (activeTransferOutId === null) return;
+    const remaining = transferOutIds.filter((id) => id !== activeTransferOutId);
+    setTransferOutIds(remaining);
+    setActiveTransferOutId(remaining[0] ?? null);
   }
 
   function setCaptain(playerId: number) {
@@ -279,7 +308,8 @@ export function LineupPlanner({
   function handleReset() {
     setPlayers(savedPlayers);
     setSelectedId(null);
-    setTransferOutId(null);
+    setTransferOutIds([]);
+    setActiveTransferOutId(null);
     setMessage(null);
     setMessageTone(null);
   }
@@ -296,7 +326,8 @@ export function LineupPlanner({
     setResettingAll(false);
     setConfirmingResetAll(false);
     setSelectedId(null);
-    setTransferOutId(null);
+    setTransferOutIds([]);
+    setActiveTransferOutId(null);
     setMessage(null);
     setMessageTone(null);
     router.refresh();
@@ -459,7 +490,7 @@ export function LineupPlanner({
         {transferOutPlayer && (
           <div
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm md:hidden"
-            onClick={() => setTransferOutId(null)}
+            onClick={handleClearActiveTransferOut}
           >
             <div
               role="dialog"
@@ -471,9 +502,10 @@ export function LineupPlanner({
               <div className="flex items-center justify-between gap-4">
                 <p className="text-base font-semibold text-black dark:text-zinc-50">
                   Transfer in a {transferOutPlayer.position}
+                  {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
                 </p>
                 <button
-                  onClick={() => setTransferOutId(null)}
+                  onClick={handleClearActiveTransferOut}
                   className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                 >
                   Close
@@ -505,10 +537,14 @@ export function LineupPlanner({
             starting={starting}
             selectedPlayerId={lineup.isEditable ? selectedId : undefined}
             disabledPlayerIds={disabledPlayerIds}
-            blankPlayerId={transferOutId}
+            blankPlayerIds={transferOutIdSet}
+            activeBlankPlayerId={activeTransferOutId}
             onPlayerClick={lineup.isEditable ? handlePlayerClick : undefined}
             onPlayerRemove={
               lineup.isEditable ? (player) => handleTransferOutClick(player.playerId) : undefined
+            }
+            onBlankActivate={
+              lineup.isEditable ? (player) => handleActivateTransferOut(player.playerId) : undefined
             }
           />
         </div>
@@ -550,9 +586,13 @@ export function LineupPlanner({
               muted
               selected={lineup.isEditable && player.playerId === selectedId}
               disabled={disabledPlayerIds.has(player.playerId)}
-              blank={player.playerId === transferOutId}
+              blank={transferOutIdSet.has(player.playerId)}
+              activeBlank={player.playerId === activeTransferOutId}
               onClick={lineup.isEditable ? () => handlePlayerClick(player) : undefined}
               onRemove={lineup.isEditable ? () => handleTransferOutClick(player.playerId) : undefined}
+              onActivate={
+                lineup.isEditable ? () => handleActivateTransferOut(player.playerId) : undefined
+              }
             />
           ))}
         </div>
@@ -561,8 +601,12 @@ export function LineupPlanner({
           <div className="mt-6 flex items-center gap-3">
             <button
               onClick={handleSave}
-              disabled={!dirty || saving || transferOutId !== null}
-              title={transferOutId !== null ? "Pick a replacement or clear the transfer first" : undefined}
+              disabled={!dirty || saving || transferOutIds.length > 0}
+              title={
+                transferOutIds.length > 0
+                  ? "Pick a replacement for every transferred-out player, or clear them, first"
+                  : undefined
+              }
               className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
             >
               {saving ? "Saving…" : "Save"}
@@ -599,10 +643,11 @@ export function LineupPlanner({
           <div className="flex items-center justify-between gap-4">
             <p className="text-base font-semibold text-black dark:text-zinc-50">
               {transferOutPlayer ? `Transfer in a ${transferOutPlayer.position}` : "Transfer players"}
+              {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
             </p>
             {transferOutPlayer && (
               <button
-                onClick={() => setTransferOutId(null)}
+                onClick={handleClearActiveTransferOut}
                 className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 Clear
