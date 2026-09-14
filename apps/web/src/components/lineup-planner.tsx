@@ -149,6 +149,7 @@ export function LineupPlanner({
   let proceeds = 0;
   let valueChange = 0;
   let transfersMade = 0;
+  const freedPlayerIds = new Set<number>();
   for (const p of players) {
     if (p.playerId === transferOutId) continue;
     const savedId = savedBySlot.get(p.squadPosition);
@@ -159,6 +160,7 @@ export function LineupPlanner({
       if (savedPlayer) {
         proceeds += savedPlayer.sellingPrice;
         valueChange += p.currentPrice - savedPlayer.currentPrice;
+        freedPlayerIds.add(savedPlayer.playerId);
       }
     }
   }
@@ -166,10 +168,27 @@ export function LineupPlanner({
     transfersMade += 1;
     proceeds += transferOutPlayer.sellingPrice;
     valueChange -= transferOutPlayer.currentPrice;
+    freedPlayerIds.add(transferOutPlayer.playerId);
   }
   const liveBank = savedBank + proceeds - spend;
   const liveTeamValue = savedTeamValue + valueChange;
   const liveTransferCost = Math.max(transfersMade - freeTransfers, 0) * 4;
+
+  // Players transferred out earlier in this same unsaved session — the
+  // search pool only knows about the last *saved* squad, so without this
+  // it keeps excluding them as "owned" even after they've been freed up
+  // again in the plan being built right now.
+  const freedPlayers: PlayerListItem[] = savedPlayers
+    .filter((p) => freedPlayerIds.has(p.playerId))
+    .map((p) => ({
+      playerId: p.playerId,
+      webName: p.webName,
+      position: p.position,
+      club: p.club,
+      clubCode: p.clubCode,
+      currentPrice: p.currentPrice,
+      status: "a",
+    }));
 
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
@@ -466,6 +485,7 @@ export function LineupPlanner({
                 userId={userId}
                 gameweekNumber={selectedGameweek}
                 searchAction={searchAction}
+                reincludePlayers={freedPlayers}
                 onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
               />
             </div>
@@ -596,6 +616,7 @@ export function LineupPlanner({
               userId={userId}
               gameweekNumber={selectedGameweek}
               searchAction={searchAction}
+              reincludePlayers={freedPlayers}
               onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
             />
           ) : (

@@ -28,12 +28,20 @@ export function PlayerSearchResults({
   gameweekNumber,
   searchAction,
   onSelect,
+  reincludePlayers = [],
 }: {
   position: Position;
   userId: string;
   gameweekNumber: number;
   searchAction: SearchAction;
   onSelect: (player: PlayerListItem) => void;
+  // Players transferred out earlier in this same unsaved editing session —
+  // the backend's pool query only knows about the last *saved* squad, so it
+  // still excludes them as "owned" even though they're free again in the
+  // plan being built right now. Surfaced ahead of the fetched results
+  // (matching this position and the current search text) rather than
+  // merged into them, so they're easy to spot and get back.
+  reincludePlayers?: PlayerListItem[];
 }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<PlayerSearchResult | null>(null);
@@ -62,6 +70,15 @@ export function PlayerSearchResults({
     };
   }, [query, position, userId, gameweekNumber, searchAction]);
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const reincludeMatches = reincludePlayers.filter(
+    (p) => p.position === position && p.webName.toLowerCase().includes(normalizedQuery),
+  );
+  const fetchedPlayers = (result?.players ?? []).filter(
+    (p) => !reincludeMatches.some((rp) => rp.playerId === p.playerId),
+  );
+  const displayedPlayers = [...reincludeMatches, ...fetchedPlayers];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <input
@@ -78,13 +95,13 @@ export function PlayerSearchResults({
           <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
         ) : error ? (
           <p className="py-8 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
-        ) : !result || result.players.length === 0 ? (
+        ) : displayedPlayers.length === 0 ? (
           <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
             No matching players.
           </p>
         ) : (
           <ul className="flex flex-col gap-1">
-            {result.players.map((player) => (
+            {displayedPlayers.map((player) => (
               <li key={player.playerId}>
                 <button
                   onClick={() => onSelect(player)}
@@ -97,10 +114,16 @@ export function PlayerSearchResults({
                     <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
                       {player.club}
                     </span>
-                    {STATUS_LABELS[player.status] && (
-                      <span className="shrink-0 text-xs text-red-600 dark:text-red-400">
-                        {STATUS_LABELS[player.status]}
+                    {reincludeMatches.some((rp) => rp.playerId === player.playerId) ? (
+                      <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                        Transferred out
                       </span>
+                    ) : (
+                      STATUS_LABELS[player.status] && (
+                        <span className="shrink-0 text-xs text-red-600 dark:text-red-400">
+                          {STATUS_LABELS[player.status]}
+                        </span>
+                      )
                     )}
                   </span>
                   <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
@@ -113,9 +136,10 @@ export function PlayerSearchResults({
         )}
       </div>
 
-      {result && result.total > result.players.length && !loading && (
+      {result && result.total + reincludeMatches.length > displayedPlayers.length && !loading && (
         <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          Showing {result.players.length} of {result.total} — refine your search to see more.
+          Showing {displayedPlayers.length} of {result.total + reincludeMatches.length} — refine
+          your search to see more.
         </p>
       )}
     </div>
