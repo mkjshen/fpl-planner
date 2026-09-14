@@ -40,12 +40,14 @@ export function PlayerSearchResults({
   // "Status and deviations" section). Players of any other position still
   // show up here for browsing, just disabled: picking one wouldn't be a
   // legal transfer, only a full multi-transfer squad rebalance would be,
-  // which this app doesn't support.
-  requiredPosition: Position;
+  // which this app doesn't support. `null` (with `onSelect` omitted) means
+  // there's no player transferred out yet — the list is still browsable,
+  // just nothing in it can be picked until one is.
+  requiredPosition: Position | null;
   userId: string;
   gameweekNumber: number;
   searchAction: SearchAction;
-  onSelect: (player: PlayerListItem) => void;
+  onSelect?: (player: PlayerListItem) => void;
   // Players transferred out earlier in this same unsaved editing session —
   // the backend's pool query only knows about the last *saved* squad, so it
   // still excludes them as "owned" even though they're free again in the
@@ -199,17 +201,19 @@ export function PlayerSearchResults({
           <>
             <ul className="flex flex-col gap-1">
               {displayedPlayers.map((player) => {
-                const selectable = player.position === requiredPosition;
+                const selectable = requiredPosition !== null && player.position === requiredPosition;
                 const isReincluded = reincludeMatches.some((rp) => rp.playerId === player.playerId);
                 return (
                   <li key={player.playerId}>
                     <button
-                      onClick={selectable ? () => onSelect(player) : undefined}
+                      onClick={selectable ? () => onSelect?.(player) : undefined}
                       disabled={!selectable}
                       title={
                         selectable
                           ? undefined
-                          : `Can't replace a ${requiredPosition} with a ${player.position} — same-position swaps only`
+                          : requiredPosition === null
+                            ? "Transfer a player out first to bring someone in"
+                            : `Can't replace a ${requiredPosition} with a ${player.position} — same-position swaps only`
                       }
                       className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                         selectable

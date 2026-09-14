@@ -654,22 +654,19 @@ export function LineupPlanner({
               </button>
             )}
           </div>
-          {transferOutPlayer ? (
-            <PlayerSearchResults
-              key={transferOutPlayer.playerId}
-              requiredPosition={transferOutPlayer.position}
-              userId={userId}
-              gameweekNumber={selectedGameweek}
-              searchAction={searchAction}
-              reincludePlayers={freedPlayers}
-              onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
-            />
-          ) : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Select a squad player, then choose Transfer out to see same-position replacements
-              here.
-            </p>
-          )}
+          <PlayerSearchResults
+            key={transferOutPlayer?.playerId ?? "browse"}
+            requiredPosition={transferOutPlayer?.position ?? null}
+            userId={userId}
+            gameweekNumber={selectedGameweek}
+            searchAction={searchAction}
+            reincludePlayers={freedPlayers}
+            onSelect={
+              transferOutPlayer
+                ? (inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)
+                : undefined
+            }
+          />
         </div>
       )}
     </div>
