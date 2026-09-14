@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PlayerListItem, PlayerSearchResult, Position } from "@/lib/api";
 import { formatPrice } from "@/components/pitch";
 
@@ -14,26 +14,34 @@ const STATUS_LABELS: Record<string, string> = {
   u: "Unavailable",
 };
 
+const ALL_POSITIONS: Position[] = ["GK", "DEF", "MID", "FWD"];
+
 export type SearchAction = (
   userId: string,
   gameweekNumber: number,
-  options: { position?: Position; search?: string },
+  options: { positions?: Position[]; search?: string; offset?: number },
 ) => Promise<PlayerSearchResult>;
 
 // The search box + results list only — no modal/panel chrome, so it can be
 // dropped into either a mobile modal or the always-visible desktop side
 // panel. Pass a `key` that changes with the target player so switching
-// targets remounts this with a fresh search box instead of carrying over
-// stale query text.
+// targets remounts this with a fresh search box and position filter
+// instead of carrying over stale state from the last one.
 export function PlayerSearchResults({
-  position,
+  requiredPosition,
   userId,
   gameweekNumber,
   searchAction,
   onSelect,
   reincludePlayers = [],
 }: {
-  position: Position;
+  // The only position that can actually complete this transfer — a
+  // same-position-only rule enforced by the backend (see CLAUDE.md's
+  // "Status and deviations" section). Players of any other position still
+  // show up here for browsing, just disabled: picking one wouldn't be a
+  // legal transfer, only a full multi-transfer squad rebalance would be,
+  // which this app doesn't support.
+  requiredPosition: Position;
   userId: string;
   gameweekNumber: number;
   searchAction: SearchAction;
@@ -42,23 +50,50 @@ export function PlayerSearchResults({
   // the backend's pool query only knows about the last *saved* squad, so it
   // still excludes them as "owned" even though they're free again in the
   // plan being built right now. Surfaced ahead of the fetched results
-  // (matching this position and the current search text) rather than
+  // (matching the position filter and current search text) rather than
   // merged into them, so they're easy to spot and get back.
   reincludePlayers?: PlayerListItem[];
 }) {
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState<PlayerSearchResult | null>(null);
+  const [selectedPositions, setSelectedPositions] = useState<Set<Position>>(
+    () => new Set(ALL_POSITIONS),
+  );
+  const [players, setPlayers] = useState<PlayerListItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  const positionsFilter =
+    selectedPositions.size === ALL_POSITIONS.length ? undefined : [...selectedPositions];
+
+  function togglePosition(pos: Position) {
+    setSelectedPositions((prev) => {
+      const next = new Set(prev);
+      if (next.has(pos)) next.delete(pos);
+      else next.add(pos);
+      return next;
+    });
+  }
+
+  // Query text or the position filter changing starts over from the first
+  // page — the debounce is really only needed for typing, but reusing it
+  // for a position toggle too keeps this to one code path.
   useEffect(() => {
     let cancelled = false;
     const timeout = setTimeout(() => {
       setLoading(true);
       setError(null);
-      searchAction(userId, gameweekNumber, { position, search: query || undefined })
+      searchAction(userId, gameweekNumber, {
+        positions: positionsFilter,
+        search: query || undefined,
+        offset: 0,
+      })
         .then((res) => {
-          if (!cancelled) setResult(res);
+          if (cancelled) return;
+          setPlayers(res.players);
+          setTotal(res.total);
         })
         .catch(() => {
           if (!cancelled) setError("Couldn't load players. Try again.");
@@ -71,13 +106,50 @@ export function PlayerSearchResults({
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [query, position, userId, gameweekNumber, searchAction]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, selectedPositions, userId, gameweekNumber, searchAction]);
+
+  // Infinite scroll: fetch the next page once scrolled near the bottom, so
+  // the list can be scrolled through in full instead of being capped and
+  // requiring a narrower search to see more. A plain scroll listener
+  // (checking proximity to the bottom) rather than IntersectionObserver —
+  // simpler to reason about and doesn't depend on the sentinel ever
+  // actually being painted into view.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+
+    function maybeLoadMore() {
+      if (!root || loading || loadingMore || players.length >= total) return;
+      const nearBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 300;
+      if (!nearBottom) return;
+      setLoadingMore(true);
+      searchAction(userId, gameweekNumber, {
+        positions: positionsFilter,
+        search: query || undefined,
+        offset: players.length,
+      })
+        .then((res) => {
+          setPlayers((prev) => [...prev, ...res.players]);
+          setTotal(res.total);
+        })
+        .catch(() => setError("Couldn't load more players."))
+        .finally(() => setLoadingMore(false));
+    }
+
+    root.addEventListener("scroll", maybeLoadMore);
+    // Also check right away — the first page alone might already leave
+    // room to scroll less than 300px, or not fill the panel at all.
+    maybeLoadMore();
+    return () => root.removeEventListener("scroll", maybeLoadMore);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players.length, total, loading, loadingMore]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const reincludeMatches = reincludePlayers.filter(
-    (p) => p.position === position && p.webName.toLowerCase().includes(normalizedQuery),
+    (p) => selectedPositions.has(p.position) && p.webName.toLowerCase().includes(normalizedQuery),
   );
-  const fetchedPlayers = (result?.players ?? []).filter(
+  const fetchedPlayers = players.filter(
     (p) => !reincludeMatches.some((rp) => rp.playerId === p.playerId),
   );
   const displayedPlayers = [...reincludeMatches, ...fetchedPlayers];
@@ -93,7 +165,28 @@ export function PlayerSearchResults({
         className="rounded-md border border-black/[.08] px-3 py-2 text-sm outline-none transition-colors focus:border-primary dark:border-white/[.145] dark:bg-black dark:focus:border-accent"
       />
 
-      <div className="mt-4 flex-1 overflow-y-auto">
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {ALL_POSITIONS.map((pos) => {
+          const active = selectedPositions.has(pos);
+          return (
+            <button
+              key={pos}
+              type="button"
+              onClick={() => togglePosition(pos)}
+              aria-pressed={active}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                active
+                  ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
+                  : "border-black/[.08] text-zinc-500 hover:border-black/20 dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/30"
+              }`}
+            >
+              {pos}
+            </button>
+          );
+        })}
+      </div>
+
+      <div ref={scrollRef} className="mt-3 flex-1 overflow-y-auto">
         {loading ? (
           <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
         ) : error ? (
@@ -103,48 +196,65 @@ export function PlayerSearchResults({
             No matching players.
           </p>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {displayedPlayers.map((player) => (
-              <li key={player.playerId}>
-                <button
-                  onClick={() => onSelect(player)}
-                  className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-medium text-black dark:text-zinc-50">
-                      {player.webName}
-                    </span>
-                    <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
-                      {player.club}
-                    </span>
-                    {reincludeMatches.some((rp) => rp.playerId === player.playerId) ? (
-                      <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                        Transferred out
-                      </span>
-                    ) : (
-                      STATUS_LABELS[player.status] && (
-                        <span className="shrink-0 text-xs text-red-600 dark:text-red-400">
-                          {STATUS_LABELS[player.status]}
+          <>
+            <ul className="flex flex-col gap-1">
+              {displayedPlayers.map((player) => {
+                const selectable = player.position === requiredPosition;
+                const isReincluded = reincludeMatches.some((rp) => rp.playerId === player.playerId);
+                return (
+                  <li key={player.playerId}>
+                    <button
+                      onClick={selectable ? () => onSelect(player) : undefined}
+                      disabled={!selectable}
+                      title={
+                        selectable
+                          ? undefined
+                          : `Can't replace a ${requiredPosition} with a ${player.position} — same-position swaps only`
+                      }
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                        selectable
+                          ? "cursor-pointer hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
+                          : "cursor-not-allowed opacity-40"
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="w-9 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+                          {player.position}
                         </span>
-                      )
-                    )}
-                  </span>
-                  <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
-                    {formatPrice(player.currentPrice)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                        <span className="truncate font-medium text-black dark:text-zinc-50">
+                          {player.webName}
+                        </span>
+                        <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
+                          {player.club}
+                        </span>
+                        {isReincluded ? (
+                          <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                            Transferred out
+                          </span>
+                        ) : (
+                          STATUS_LABELS[player.status] && (
+                            <span className="shrink-0 text-xs text-red-600 dark:text-red-400">
+                              {STATUS_LABELS[player.status]}
+                            </span>
+                          )
+                        )}
+                      </span>
+                      <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
+                        {formatPrice(player.currentPrice)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {loadingMore && (
+              <p className="py-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                Loading more…
+              </p>
+            )}
+          </>
         )}
       </div>
-
-      {result && result.total + reincludeMatches.length > displayedPlayers.length && !loading && (
-        <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          Showing {displayedPlayers.length} of {result.total + reincludeMatches.length} — refine
-          your search to see more.
-        </p>
-      )}
     </div>
   );
 }

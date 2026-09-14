@@ -19,7 +19,7 @@ async def search_players(
     db: AsyncSession,
     fpl_team: FplTeam,
     gameweek_number: int,
-    position: str | None,
+    positions: list[str] | None,
     search: str | None,
     limit: int,
     offset: int,
@@ -35,8 +35,8 @@ async def search_players(
     # gameweek, so they're only hidden from the default browse list, not
     # from a search that's specifically looking for them by name.
     filters = [Player.status != "u"]
-    if position:
-        filters.append(Player.position == Position(position))
+    if positions:
+        filters.append(Player.position.in_([Position(p) for p in positions]))
     if search:
         filters.append(Player.webName.ilike(f"%{search}%"))
     else:

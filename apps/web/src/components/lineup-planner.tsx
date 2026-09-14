@@ -513,7 +513,7 @@ export function LineupPlanner({
               </div>
               <PlayerSearchResults
                 key={transferOutPlayer.playerId}
-                position={transferOutPlayer.position}
+                requiredPosition={transferOutPlayer.position}
                 userId={userId}
                 gameweekNumber={selectedGameweek}
                 searchAction={searchAction}
@@ -639,7 +639,7 @@ export function LineupPlanner({
           out" first) so the squad and the pool of available replacements
           can be compared side by side the whole time you're planning. */}
       {lineup.isEditable && (
-        <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-black/[.08] pl-6 dark:border-white/[.145] md:flex">
+        <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-black/[.08] pl-6 dark:border-white/[.145] md:sticky md:top-8 md:flex md:h-[calc(100vh-4rem)]">
           <div className="flex items-center justify-between gap-4">
             <p className="text-base font-semibold text-black dark:text-zinc-50">
               {transferOutPlayer ? `Transfer in a ${transferOutPlayer.position}` : "Transfer players"}
@@ -657,7 +657,7 @@ export function LineupPlanner({
           {transferOutPlayer ? (
             <PlayerSearchResults
               key={transferOutPlayer.playerId}
-              position={transferOutPlayer.position}
+              requiredPosition={transferOutPlayer.position}
               userId={userId}
               gameweekNumber={selectedGameweek}
               searchAction={searchAction}

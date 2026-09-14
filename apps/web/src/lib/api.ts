@@ -148,13 +148,16 @@ export async function saveLineup(
 export async function searchPlayers(
   userId: string,
   gameweekNumber: number,
-  options: { position?: Position; search?: string; limit?: number; offset?: number },
+  options: { positions?: Position[]; search?: string; limit?: number; offset?: number },
 ): Promise<PlayerSearchResult> {
   const params = new URLSearchParams({
     userId,
     gameweekNumber: String(gameweekNumber),
   });
-  if (options.position) params.set("position", options.position);
+  // Omitted entirely (not sent as an empty list) means "every position" —
+  // the backend treats a missing filter and an empty one the same way, but
+  // being explicit here avoids relying on that.
+  for (const position of options.positions ?? []) params.append("position", position);
   if (options.search) params.set("search", options.search);
   if (options.limit) params.set("limit", String(options.limit));
   if (options.offset) params.set("offset", String(options.offset));

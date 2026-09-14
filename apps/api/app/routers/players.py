@@ -22,7 +22,9 @@ router = APIRouter(prefix="/players", tags=["players"])
 async def list_players(
     userId: str,
     gameweekNumber: int,
-    position: str | None = None,
+    # Repeatable (?position=DEF&position=FWD) — zero or more positions to
+    # include; omitted entirely means every position, not none.
+    position: list[str] | None = Query(default=None),
     search: str | None = None,
     limit: int = Query(default=30, le=100),
     offset: int = Query(default=0, ge=0),

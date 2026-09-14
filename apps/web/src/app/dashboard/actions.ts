@@ -43,7 +43,7 @@ export async function resetAllPlansAction(
 export async function searchPlayersAction(
   userId: string,
   gameweekNumber: number,
-  options: { position?: Position; search?: string },
+  options: { positions?: Position[]; search?: string; offset?: number },
 ): Promise<PlayerSearchResult> {
   return searchPlayers(userId, gameweekNumber, { ...options, limit: 30 });
 }
