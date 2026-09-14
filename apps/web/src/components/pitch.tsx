@@ -18,6 +18,7 @@ export function PlayerCard({
   muted,
   selected,
   disabled,
+  blank,
   onClick,
   onRemove,
 }: {
@@ -25,9 +26,24 @@ export function PlayerCard({
   muted?: boolean;
   selected?: boolean;
   disabled?: boolean;
+  // True while this player has been transferred out but a replacement
+  // hasn't been picked yet — renders an empty placeholder in their slot
+  // instead of their (stale) card, matching how the real FPL transfer
+  // screen shows a blank shirt outline mid-transfer.
+  blank?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
 }) {
+  if (blank) {
+    return (
+      <div className="flex w-20 flex-col items-center rounded-lg border-2 border-dashed border-black/[.15] px-1.5 py-2 text-center sm:w-24 dark:border-white/[.2]">
+        <div className="mb-1 h-8 w-8 rounded-full border-2 border-dashed border-black/[.15] dark:border-white/[.2]" />
+        <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-600">Empty</span>
+        <span className="text-[0.65rem] text-zinc-400 dark:text-zinc-600">Pick a player</span>
+      </div>
+    );
+  }
+
   return (
     <div
       onClick={disabled ? undefined : onClick}
@@ -90,12 +106,14 @@ export function Pitch({
   starting,
   selectedPlayerId,
   disabledPlayerIds,
+  blankPlayerId,
   onPlayerClick,
   onPlayerRemove,
 }: {
   starting: SquadPlayer[];
   selectedPlayerId?: number | null;
   disabledPlayerIds?: Set<number>;
+  blankPlayerId?: number | null;
   onPlayerClick?: (player: SquadPlayer) => void;
   onPlayerRemove?: (player: SquadPlayer) => void;
 }) {
@@ -126,6 +144,7 @@ export function Pitch({
                 player={player}
                 selected={player.playerId === selectedPlayerId}
                 disabled={disabledPlayerIds?.has(player.playerId)}
+                blank={player.playerId === blankPlayerId}
                 onClick={onPlayerClick ? () => onPlayerClick(player) : undefined}
                 onRemove={onPlayerRemove ? () => onPlayerRemove(player) : undefined}
               />
