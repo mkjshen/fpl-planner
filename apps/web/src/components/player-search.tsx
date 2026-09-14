@@ -57,15 +57,17 @@ export function PlayerSearchResults({
   reincludePlayers?: PlayerListItem[];
 }) {
   const [query, setQuery] = useState("");
-  // Defaults to whatever position actually needs filling (matching the
-  // "Transfer in a <X>" header) so its button starts pressed and the list
-  // starts narrowed to it — null (nothing pressed, every position shown)
-  // only when just browsing with nothing transferred out. This only runs
-  // once per mount, which is exactly when it should: the parent remounts
-  // this component (via `key`) every time the target changes. Pressing a
-  // button narrows to just that position; pressing the same one again
-  // clears back to null rather than adding to a set.
-  const [selectedPosition, setSelectedPosition] = useState<Position | null>(requiredPosition);
+  // Empty = no filter, every position shown, nothing pressed — the default
+  // when just browsing with nothing transferred out. Seeded with whatever
+  // position actually needs filling (matching the "Transfer in a <X>"
+  // header) so its button starts pressed and the list starts narrowed to
+  // it; this only runs once per mount, which is exactly when it should —
+  // the parent remounts this component (via `key`) every time the target
+  // changes. Any number of positions can be pressed at once — each click
+  // just toggles that one in or out of the set.
+  const [selectedPositions, setSelectedPositions] = useState<Set<Position>>(
+    () => new Set(requiredPosition ? [requiredPosition] : []),
+  );
   const [players, setPlayers] = useState<PlayerListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -73,10 +75,15 @@ export function PlayerSearchResults({
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  const positionsFilter = selectedPosition ? [selectedPosition] : undefined;
+  const positionsFilter = selectedPositions.size > 0 ? [...selectedPositions] : undefined;
 
-  function selectPosition(pos: Position) {
-    setSelectedPosition((prev) => (prev === pos ? null : pos));
+  function togglePosition(pos: Position) {
+    setSelectedPositions((prev) => {
+      const next = new Set(prev);
+      if (next.has(pos)) next.delete(pos);
+      else next.add(pos);
+      return next;
+    });
   }
 
   // Query text or the position filter changing starts over from the first
@@ -109,7 +116,7 @@ export function PlayerSearchResults({
       clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedPosition, userId, gameweekNumber, searchAction]);
+  }, [query, selectedPositions, userId, gameweekNumber, searchAction]);
 
   // Infinite scroll: fetch the next page once scrolled near the bottom, so
   // the list can be scrolled through in full instead of being capped and
@@ -150,7 +157,7 @@ export function PlayerSearchResults({
   const normalizedQuery = query.trim().toLowerCase();
   const reincludeMatches = reincludePlayers.filter(
     (p) =>
-      (selectedPosition === null || p.position === selectedPosition) &&
+      (selectedPositions.size === 0 || selectedPositions.has(p.position)) &&
       p.webName.toLowerCase().includes(normalizedQuery),
   );
   const fetchedPlayers = players.filter(
@@ -171,12 +178,12 @@ export function PlayerSearchResults({
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {ALL_POSITIONS.map((pos) => {
-          const active = selectedPosition === pos;
+          const active = selectedPositions.has(pos);
           return (
             <button
               key={pos}
               type="button"
-              onClick={() => selectPosition(pos)}
+              onClick={() => togglePosition(pos)}
               aria-pressed={active}
               className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                 active
