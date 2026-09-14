@@ -3,40 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
-import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
+import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
-
-function StatChip({
-  label,
-  value,
-  negative,
-  title,
-}: {
-  label: string;
-  value: string;
-  negative?: boolean;
-  title?: string;
-}) {
-  return (
-    <div
-      title={title}
-      className="rounded-lg border border-black/[.08] bg-black/[.02] px-3 py-1.5 dark:border-white/[.145] dark:bg-white/[.03]"
-    >
-      <p className="text-[0.65rem] font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-        {label}
-      </p>
-      <p
-        className={`text-sm font-semibold ${
-          negative ? "text-red-600 dark:text-red-400" : "text-black dark:text-zinc-50"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
 
 function validationError(players: SquadPlayer[]): string | null {
   const starting = players.filter((p) => p.isStarting);

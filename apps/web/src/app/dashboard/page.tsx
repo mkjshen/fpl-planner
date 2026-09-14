@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FplTeamNotFoundError, getSquadForUser, importFplTeam } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
-import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
+import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 
 async function refreshSquadAction(userId: string, fplTeamId: number) {
   "use server";
@@ -42,24 +42,35 @@ export default async function DashboardPage({
                 Couldn&apos;t refresh — your FPL team ID no longer resolves.
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {squad.teamName} · {squad.managerName} · Gameweek {squad.gameweek} (current)
-              </p>
-              <div className="flex items-center gap-3">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Bank {formatPrice(squad.bank)} · Value {formatPrice(squad.teamValue)}
+            <div className="border-b border-black/[.08] pb-4 dark:border-white/[.145]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-lg font-semibold text-black dark:text-zinc-50">
+                    {squad.teamName}
+                  </h1>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{squad.managerName}</p>
+                </div>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Gameweek {squad.gameweek} (current)
                 </p>
-                <form action={refreshSquadAction.bind(null, session.user.id, squad.fplTeamId)}>
-                  <button
-                    type="submit"
-                    title="Re-pull your squad, prices, and bank from the FPL API"
-                    className="rounded-md border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:border-primary hover:text-primary dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-accent dark:hover:text-accent"
-                  >
-                    Refresh squad
-                  </button>
-                </form>
               </div>
+
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <StatChip label="Bank" value={formatPrice(squad.bank)} />
+                <StatChip label="Value" value={formatPrice(squad.teamValue)} />
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              <form action={refreshSquadAction.bind(null, session.user.id, squad.fplTeamId)}>
+                <button
+                  type="submit"
+                  title="Re-pull your squad, prices, and bank from the FPL API"
+                  className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                >
+                  Refresh squad
+                </button>
+              </form>
             </div>
 
             <div className="mt-6">

@@ -5,6 +5,39 @@ export function formatPrice(tenthsOfMillion: number): string {
   return `£${(tenthsOfMillion / 10).toFixed(1)}m`;
 }
 
+// A single bordered "label over value" stat card — used for Bank/Value/Free
+// Transfers/Cost on both the Squad and Planner headers, so the two stay
+// visually consistent.
+export function StatChip({
+  label,
+  value,
+  negative,
+  title,
+}: {
+  label: string;
+  value: string;
+  negative?: boolean;
+  title?: string;
+}) {
+  return (
+    <div
+      title={title}
+      className="rounded-lg border border-black/[.08] bg-black/[.02] px-3 py-1.5 dark:border-white/[.145] dark:bg-white/[.03]"
+    >
+      <p className="text-[0.65rem] font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+        {label}
+      </p>
+      <p
+        className={`text-sm font-semibold ${
+          negative ? "text-red-600 dark:text-red-400" : "text-black dark:text-zinc-50"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 // Hotlinked from the official FPL site's own static assets — the same
 // shirt images fantasy.premierleague.com uses on its own squad view — not
 // a copy we host ourselves. Goalkeepers get a distinct "_1" kit variant.
