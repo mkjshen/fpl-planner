@@ -344,7 +344,7 @@ export function LineupPlanner({
       )}
 
       <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
-      <div className="mt-2 flex flex-wrap gap-2 sm:gap-4">
+      <div className="mt-2 flex flex-wrap justify-center gap-2 sm:gap-4">
         {bench.map((player) => (
           <PlayerCard
             key={player.playerId}
