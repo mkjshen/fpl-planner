@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import type { PlayerListItem, PlayerSearchResult, Position } from "@/lib/api";
 import { formatPrice } from "@/components/pitch";
 
+// "d" (doubtful) isn't labeled — a doubtful player still has a real chance
+// of playing, so it's not worth flagging the way a confirmed injury,
+// suspension, or (never returned by the search API at all) unavailability
+// is.
 const STATUS_LABELS: Record<string, string> = {
   i: "Injured",
   s: "Suspended",
-  d: "Doubtful",
   u: "Unavailable",
 };
 

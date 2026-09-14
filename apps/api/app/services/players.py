@@ -29,11 +29,18 @@ async def search_players(
         raise GameweekNotFoundError(f"Gameweek {gameweek_number} not found")
     owned_ids = await _owned_player_ids(db, fpl_team, gameweek)
 
-    filters = []
+    # Unavailable (status "u", e.g. left the league) players are useless as
+    # a transfer target — excluded even from an explicit name search.
+    # Injured/suspended ("i"/"s") can still come back before a future
+    # gameweek, so they're only hidden from the default browse list, not
+    # from a search that's specifically looking for them by name.
+    filters = [Player.status != "u"]
     if position:
         filters.append(Player.position == Position(position))
     if search:
         filters.append(Player.webName.ilike(f"%{search}%"))
+    else:
+        filters.append(Player.status.notin_(["i", "s"]))
     if owned_ids:
         filters.append(Player.id.notin_(owned_ids))
 
