@@ -435,7 +435,7 @@ export function LineupPlanner({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             <StatChip label="Bank" value={formatPrice(liveBank)} negative={liveBank < 0} />
             <StatChip label="Value" value={formatPrice(liveTeamValue)} />
             {lineup.isEditable && (
