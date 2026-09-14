@@ -556,8 +556,7 @@ export function LineupPlanner({
           </div>
         )}
 
-        <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Starting XI</h2>
-        <div className="mt-2">
+        <div className="mt-6">
           <Pitch
             starting={starting}
             selectedPlayerId={lineup.isEditable ? selectedId : undefined}
@@ -592,8 +591,7 @@ export function LineupPlanner({
           </div>
         )}
 
-        <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
-        <div className="mt-2 flex flex-wrap justify-center gap-2 sm:gap-4">
+        <div className="mt-6 flex flex-wrap justify-center gap-2 sm:gap-4">
           {bench.map((player) => (
             <PlayerCard
               key={player.playerId}
