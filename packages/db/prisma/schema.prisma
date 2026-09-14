@@ -229,6 +229,12 @@ model LineupPlan {
   transfersMade Int      @default(0)
   transferCost  Int      @default(0) // points lost to the -4-per-transfer hit
   bank          Int      @default(0)
+  // Squad current-price value + bank, cascading the same way bank does.
+  // A transfer only ever lowers this (or leaves it unchanged) relative to
+  // the prior effective plan: buying at current price is value-neutral —
+  // the drop equals exactly the sell-price haircut on whoever was sold
+  // (currentPrice - sellingPrice), never the sold player's full price.
+  teamValue     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

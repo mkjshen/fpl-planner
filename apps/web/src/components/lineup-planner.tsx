@@ -95,6 +95,7 @@ export function LineupPlanner({
   // updates things via a direct server response rather than a remount.
   const [savedPlayers, setSavedPlayers] = useState(lineup.players);
   const [savedBank, setSavedBank] = useState(lineup.bank);
+  const [savedTeamValue, setSavedTeamValue] = useState(lineup.teamValue);
   const [freeTransfers, setFreeTransfers] = useState(lineup.freeTransfers);
   const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -132,9 +133,13 @@ export function LineupPlanner({
   // baseline by slot, price incoming players at currentPrice and outgoing
   // ones at their sellingPrice. freeTransfers itself never changes from
   // edits within this gameweek — it only depends on earlier gameweeks.
+  // Team value only ever drops (or holds) from a transfer, by the outgoing
+  // player's sell-price haircut (currentPrice - sellingPrice) — buying a
+  // replacement at current price is value-neutral, so it doesn't factor in.
   const savedBySlot = new Map(savedPlayers.map((p) => [p.squadPosition, p.playerId]));
   let spend = 0;
   let proceeds = 0;
+  let valueLost = 0;
   let transfersMade = 0;
   for (const p of players) {
     const savedId = savedBySlot.get(p.squadPosition);
@@ -142,10 +147,14 @@ export function LineupPlanner({
       transfersMade += 1;
       spend += p.currentPrice;
       const savedPlayer = savedPlayers.find((sp) => sp.squadPosition === p.squadPosition);
-      if (savedPlayer) proceeds += savedPlayer.sellingPrice;
+      if (savedPlayer) {
+        proceeds += savedPlayer.sellingPrice;
+        valueLost += savedPlayer.currentPrice - savedPlayer.sellingPrice;
+      }
     }
   }
   const liveBank = savedBank + proceeds - spend;
+  const liveTeamValue = savedTeamValue - valueLost;
   const liveTransferCost = Math.max(transfersMade - freeTransfers, 0) * 4;
 
   function handlePlayerClick(player: SquadPlayer) {
@@ -240,6 +249,7 @@ export function LineupPlanner({
     setPlayers(fresh.players);
     setSavedPlayers(fresh.players);
     setSavedBank(fresh.bank);
+    setSavedTeamValue(fresh.teamValue);
     setFreeTransfers(fresh.freeTransfers);
     setLaterPlansAffected(false);
     setResettingAll(false);
@@ -272,6 +282,7 @@ export function LineupPlanner({
       setPlayers(result.lineup.players);
       setSavedPlayers(result.lineup.players);
       setSavedBank(result.lineup.bank);
+      setSavedTeamValue(result.lineup.teamValue);
       setFreeTransfers(result.lineup.freeTransfers);
       setLaterPlansAffected(result.lineup.laterPlansAffected);
       setMessage("Saved.");
@@ -330,7 +341,7 @@ export function LineupPlanner({
             <span className={liveBank < 0 ? "font-medium text-red-600 dark:text-red-400" : undefined}>
               Bank {formatPrice(liveBank)}
             </span>
-            <span>Value {formatPrice(lineup.teamValue)}</span>
+            <span>Value {formatPrice(liveTeamValue)}</span>
             {lineup.isEditable && (
               <>
                 <span title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it.">

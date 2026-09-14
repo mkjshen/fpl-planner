@@ -166,6 +166,7 @@ class LineupPlan(Base):
     transfersMade: Mapped[int] = mapped_column(Integer, default=0)
     transferCost: Mapped[int] = mapped_column(Integer, default=0)
     bank: Mapped[int] = mapped_column(Integer, default=0)
+    teamValue: Mapped[int] = mapped_column(Integer, default=0)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), default=datetime.utcnow, onupdate=datetime.utcnow

@@ -180,10 +180,12 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
     if plan is None:
         slots = actual_slots
         bank = snapshot.bank
+        team_value = snapshot.teamValue
         transfer_cost = 0
     else:
         slots = await _plan_slots(db, plan)
         bank = plan.bank
+        team_value = plan.teamValue
         transfer_cost = plan.transferCost
 
     players = await build_player_rows(db, slots)
@@ -198,7 +200,7 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         gameweek=gameweek.number,
         isEditable=is_editable,
         bank=bank,
-        teamValue=snapshot.teamValue,
+        teamValue=team_value,
         freeTransfers=free_transfers,
         transferCost=transfer_cost,
         players=players,
@@ -269,9 +271,11 @@ async def save_lineup(
     if prior_plan is None:
         prior_slots = actual_slots
         prior_bank = snapshot.bank
+        prior_team_value = snapshot.teamValue
     else:
         prior_slots = await _plan_slots(db, prior_plan)
         prior_bank = prior_plan.bank
+        prior_team_value = prior_plan.teamValue
 
     prior_by_slot = {slot[2]: slot for slot in prior_slots}
     proposed_ids = {p.playerId for p in players}
@@ -318,6 +322,16 @@ async def save_lineup(
     if new_bank < 0:
         raise LineupValidationError("Not enough bank to make this transfer")
 
+    # Team value = squad current-price value + bank. Buying at current price
+    # is value-neutral (cash converts to an asset 1:1), so only the
+    # sell-price haircut on outgoing players ever reduces it — never the
+    # full current price of whoever was sold.
+    outgoing_selling_by_id = {slot[0]: slot[6] for slot in prior_slots}
+    outgoing_value_loss = sum(
+        player_info[player_id][1] - outgoing_selling_by_id[player_id] for player_id in outgoing_ids
+    )
+    new_team_value = prior_team_value - outgoing_value_loss
+
     transfers_made = len(incoming_ids)
     free_transfers = await available_free_transfers(db, fpl_team, gameweek_number)
     transfer_cost = max(transfers_made - free_transfers, 0) * 4
@@ -345,6 +359,7 @@ async def save_lineup(
     plan.transfersMade = transfers_made
     plan.transferCost = transfer_cost
     plan.bank = new_bank
+    plan.teamValue = new_team_value
 
     rows = [
         {
