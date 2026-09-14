@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
+    ChipUsage,
     Club,
     FplTeam,
     Gameweek,
@@ -15,7 +16,13 @@ from app.db.models import (
     SquadSnapshot,
     TransferHistory,
 )
-from app.schemas.fpl_api import FplBootstrap, FplEntry, FplPicksResponse, FplTransfer
+from app.schemas.fpl_api import (
+    FplBootstrap,
+    FplChipUsage,
+    FplEntry,
+    FplPicksResponse,
+    FplTransfer,
+)
 from app.services.fpl_client import FplClient, FplTeamNotFoundError
 
 ELEMENT_TYPE_TO_POSITION = {
@@ -277,6 +284,36 @@ async def _import_transfers(
     await db.flush()
 
 
+async def _import_chip_usage(
+    db: AsyncSession,
+    fpl_team: FplTeam,
+    gameweeks: dict[int, Gameweek],
+    chips: list[FplChipUsage],
+) -> None:
+    """Which chip (if any) the manager actually played in each past
+    gameweek — needed to get the free-transfer rollover right, since a
+    Wildcard/Free Hit gameweek doesn't consume or roll the saved free
+    transfer the way a normal gameweek does (see available_free_transfers)."""
+    rows = [
+        {
+            "fplTeamId": fpl_team.id,
+            "gameweekId": gameweeks[chip.event].id,
+            "chip": CHIP_NAME_MAP.get(chip.name, chip.name),
+        }
+        for chip in chips
+        if chip.event in gameweeks
+    ]
+    if not rows:
+        return
+    stmt = pg_insert(ChipUsage).values(rows)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[ChipUsage.fplTeamId, ChipUsage.gameweekId],
+        set_={"chip": stmt.excluded.chip},
+    )
+    await db.execute(stmt)
+    await db.flush()
+
+
 async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTeam:
     async with FplClient() as client:
         entry = await client.get_entry(fpl_team_id)
@@ -290,6 +327,7 @@ async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTe
 
         picks = await client.get_entry_picks(fpl_team_id, current_event_id)
         transfers = await client.get_entry_transfers(fpl_team_id)
+        history = await client.get_entry_history(fpl_team_id)
 
     season = await _upsert_season(db, bootstrap)
     gameweeks = await _upsert_gameweeks(db, season, bootstrap)
@@ -298,6 +336,7 @@ async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTe
     fpl_team = await _upsert_fpl_team(db, user_id, fpl_team_id, entry)
     await _replace_snapshot(db, fpl_team, gameweeks[current_event_id], picks)
     await _import_transfers(db, fpl_team, gameweeks, transfers)
+    await _import_chip_usage(db, fpl_team, gameweeks, history.chips)
 
     await db.commit()
     return fpl_team

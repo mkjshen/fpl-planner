@@ -81,6 +81,7 @@ model FplTeam {
   snapshots   SquadSnapshot[]
   transfers   TransferHistory[]
   lineupPlans LineupPlan[]
+  chipUsages  ChipUsage[]
 
   @@unique([userId, fplTeamId])
 }
@@ -111,6 +112,7 @@ model Gameweek {
   snapshots   SquadSnapshot[]
   transfers   TransferHistory[]
   lineupPlans LineupPlan[]
+  chipUsages  ChipUsage[]
 
   @@unique([seasonId, number])
 }
@@ -210,6 +212,24 @@ model TransferHistory {
   playerIn  Player   @relation("TransferPlayerIn", fields: [playerInId], references: [id])
 
   @@index([fplTeamId, gameweekId])
+}
+
+// Which chip (if any) a manager actually played in a given gameweek, per
+// the FPL API's own history endpoint. Only used so far to get the
+// free-transfer rollover right — a Wildcard or Free Hit gameweek doesn't
+// consume or roll the manager's saved free transfer at all, unlike a
+// normal gameweek. Actually *using* a chip in this planner is a later
+// build step (see CLAUDE.md); this only records real past usage.
+model ChipUsage {
+  id         String @id @default(cuid())
+  fplTeamId  String
+  gameweekId String
+  chip       String // e.g. "wildcard", "free_hit", "bench_boost", "triple_captain"
+
+  fplTeam  FplTeam  @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
+  gameweek Gameweek @relation(fields: [gameweekId], references: [id])
+
+  @@unique([fplTeamId, gameweekId])
 }
 
 // A hypothetical future lineup the user is planning — who starts, who's

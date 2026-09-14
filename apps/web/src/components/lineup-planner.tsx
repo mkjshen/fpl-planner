@@ -163,48 +163,45 @@ export function LineupPlanner({
       : new Set<number>();
 
   // Live preview of the transfer cost of the current (possibly unsaved)
-  // squad, computed the same way the backend does: diff against the saved
-  // baseline by slot. Bank moves by each outgoing player's sellingPrice
-  // minus each incoming player's currentPrice. Team value is squad
-  // current-price value only (bank is cash, not part of it), so it moves
-  // by each incoming player's currentPrice minus each outgoing player's
-  // currentPrice — buying and selling both affect it, unlike bank where
-  // only the sell-price haircut matters. freeTransfers itself never
-  // changes from edits within this gameweek — it only depends on earlier
-  // gameweeks.
+  // squad, computed the same way the backend does: a transfer is about
+  // squad *membership*, not which numbered slot a player sits in.
+  // Comparing who occupies each squadPosition would also flag a pure
+  // substitution (starting XI <-> bench, which reassigns squadPosition
+  // between two players already on the squad) as if it were a transfer —
+  // only players who actually left or joined the 15 should count. Bank
+  // moves by each outgoing player's sellingPrice minus each incoming
+  // player's currentPrice. Team value is squad current-price value only
+  // (bank is cash, not part of it), so it moves by each incoming player's
+  // currentPrice minus each outgoing player's currentPrice — buying and
+  // selling both affect it, unlike bank where only the sell-price haircut
+  // matters. freeTransfers itself never changes from edits within this
+  // gameweek — it only depends on earlier gameweeks.
   //
   // Players transferred out but with no replacement picked yet (in
   // `transferOutIds`, blanked on the pitch/bench) are still physically
-  // present in `players` — skip them in the by-slot diff below and count
-  // each removal separately, so Bank/Value/Transfers already reflect them
-  // before a replacement is chosen, not just after.
-  const savedBySlot = new Map(savedPlayers.map((p) => [p.squadPosition, p.playerId]));
+  // present in `players` — excluded from "effectively in the squad" below
+  // so they already count as outgoing before a replacement is chosen, not
+  // just after.
+  const savedIds = new Set(savedPlayers.map((p) => p.playerId));
+  const effectiveCurrentIds = new Set(
+    players.filter((p) => !transferOutIdSet.has(p.playerId)).map((p) => p.playerId),
+  );
   let spend = 0;
   let proceeds = 0;
   let valueChange = 0;
   let transfersMade = 0;
   const freedPlayerIds = new Set<number>();
   for (const p of players) {
-    if (transferOutIdSet.has(p.playerId)) continue;
-    const savedId = savedBySlot.get(p.squadPosition);
-    if (savedId !== undefined && savedId !== p.playerId) {
-      transfersMade += 1;
-      spend += p.currentPrice;
-      const savedPlayer = savedPlayers.find((sp) => sp.squadPosition === p.squadPosition);
-      if (savedPlayer) {
-        proceeds += savedPlayer.sellingPrice;
-        valueChange += p.currentPrice - savedPlayer.currentPrice;
-        freedPlayerIds.add(savedPlayer.playerId);
-      }
-    }
+    if (transferOutIdSet.has(p.playerId) || savedIds.has(p.playerId)) continue;
+    spend += p.currentPrice;
+    valueChange += p.currentPrice;
   }
-  for (const outId of transferOutIds) {
-    const outPlayer = players.find((p) => p.playerId === outId);
-    if (!outPlayer) continue;
+  for (const sp of savedPlayers) {
+    if (effectiveCurrentIds.has(sp.playerId)) continue;
     transfersMade += 1;
-    proceeds += outPlayer.sellingPrice;
-    valueChange -= outPlayer.currentPrice;
-    freedPlayerIds.add(outPlayer.playerId);
+    proceeds += sp.sellingPrice;
+    valueChange -= sp.currentPrice;
+    freedPlayerIds.add(sp.playerId);
   }
   const liveBank = savedBank + proceeds - spend;
   const liveTeamValue = savedTeamValue + valueChange;
@@ -443,7 +440,7 @@ export function LineupPlanner({
                 <StatChip
                   label="Free Transfers"
                   value={String(freeTransfers)}
-                  title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it."
+                  title="Free transfers available entering this gameweek, computed from your real FPL transfer history and chip usage."
                 />
                 {liveTransferCost > 0 && (
                   <StatChip label="Cost" value={`-${liveTransferCost} pts`} negative />

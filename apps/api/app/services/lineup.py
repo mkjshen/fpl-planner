@@ -1,8 +1,11 @@
-from sqlalchemy import delete, select
+from collections import Counter
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
+    ChipUsage,
     FplTeam,
     Gameweek,
     LineupPlan,
@@ -11,6 +14,7 @@ from app.db.models import (
     Season,
     SquadPlayer,
     SquadSnapshot,
+    TransferHistory,
 )
 from app.schemas.lineup import LineupOut, LineupPlayerInput
 from app.services.squad import build_player_rows
@@ -129,25 +133,64 @@ def _resell_price(purchase_price: int, current_price: int) -> int:
     return current_price
 
 
+async def _real_transfers_by_gameweek(db: AsyncSession, fpl_team: FplTeam) -> dict[int, int]:
+    """How many real FPL transfers the manager actually made in each past
+    gameweek, from the imported transfer history — this is real activity
+    from before (or outside of) this planner, unlike LineupPlan.transfersMade
+    which only covers plans saved here."""
+    result = await db.execute(
+        select(Gameweek.number, func.count(TransferHistory.id))
+        .join(TransferHistory, TransferHistory.gameweekId == Gameweek.id)
+        .where(TransferHistory.fplTeamId == fpl_team.id)
+        .group_by(Gameweek.number)
+    )
+    return dict(result.all())
+
+
+async def _chip_gameweeks(db: AsyncSession, fpl_team: FplTeam) -> set[int]:
+    """Gameweeks where a Wildcard or Free Hit was played. Those gameweeks'
+    transfers are free and don't touch the free-transfer rollover at all —
+    the saved free transfer just carries over unchanged, unlike a normal
+    gameweek where it's spent down and/or incremented."""
+    result = await db.execute(
+        select(Gameweek.number)
+        .join(ChipUsage, ChipUsage.gameweekId == Gameweek.id)
+        .where(ChipUsage.fplTeamId == fpl_team.id, ChipUsage.chip.in_(["wildcard", "free_hit"]))
+    )
+    return {row[0] for row in result.all()}
+
+
 async def available_free_transfers(
     db: AsyncSession, fpl_team: FplTeam, target_gameweek_number: int
 ) -> int:
-    """Free transfers available entering `target_gameweek_number`, walking
-    forward from the current gameweek and applying each intervening
-    gameweek's planned transfer count (0 for a gameweek with no explicit
-    plan) through FPL's real rollover rule.
+    """Free transfers available entering `target_gameweek_number`.
 
-    Simplification, disclosed in the UI: assumes exactly
-    `Season.freeTransferCap` free transfers as of the current gameweek —
-    this app doesn't replay the manager's real pre-import transfer
-    history, so a manager who legitimately banked transfers before using
-    this planner will see a lower count here than the real FPL app."""
+    Replays FPL's real rollover rule (min(cap, max(0, available - made) + 1)
+    per gameweek, each Wildcard/Free Hit gameweek left untouched) twice,
+    back to back:
+    1. From gameweek 2 (free transfers don't exist in gameweek 1 — there's
+       no prior squad yet) through the current gameweek, using the
+       manager's actual imported transfer history — this is real activity
+       from the live FPL API, not assumed.
+    2. From the current gameweek through `target_gameweek_number`, using
+       this planner's own saved LineupPlan transfer counts (0 for a
+       gameweek with no explicit plan)."""
     current = await get_current_gameweek(db)
     if current is None:
         return 0
     season = await db.get(Season, current.seasonId)
     if season is None:
         return 0
+
+    available = season.freeTransferCap
+    if current.number > 2:
+        real_transfers = await _real_transfers_by_gameweek(db, fpl_team)
+        chip_gameweeks = await _chip_gameweeks(db, fpl_team)
+        for gw_number in range(2, current.number):
+            if gw_number in chip_gameweeks:
+                continue
+            made = real_transfers.get(gw_number, 0)
+            available = min(max(available - made, 0) + 1, season.freeTransferRolloverLimit)
 
     result = await db.execute(
         select(Gameweek.number, LineupPlan.transfersMade)
@@ -160,7 +203,6 @@ async def available_free_transfers(
     )
     transfers_by_gameweek = dict(result.all())
 
-    available = season.freeTransferCap
     for gw_number in range(current.number + 1, target_gameweek_number):
         made = transfers_by_gameweek.get(gw_number, 0)
         available = min(max(available - made, 0) + 1, season.freeTransferRolloverLimit)
@@ -294,20 +336,21 @@ async def save_lineup(
 
     _validate_lineup(players, positions)
 
-    proposed_by_slot = {p.squadPosition: p for p in players}
-    incoming_ids: set[int] = set()
-    outgoing_ids: set[int] = set()
-    for slot_number in range(1, 16):
-        prior_player_id = prior_by_slot[slot_number][0]
-        proposed_player_id = proposed_by_slot[slot_number].playerId
-        if prior_player_id == proposed_player_id:
-            continue
-        if positions[proposed_player_id] != positions[prior_player_id]:
-            raise LineupValidationError(
-                "A transfer must replace a player with one in the same position"
-            )
-        incoming_ids.add(proposed_player_id)
-        outgoing_ids.add(prior_player_id)
+    # A transfer is about squad *membership*, not which numbered slot a
+    # player sits in — comparing prior_slots to `players` slot-by-slot
+    # would also flag a pure substitution (starting XI <-> bench, which
+    # reassigns squadPosition between two players already on the squad) as
+    # if it were a transfer. Only players who actually left or joined the
+    # 15 count.
+    outgoing_ids = prior_ids - proposed_ids
+    incoming_ids = proposed_ids - prior_ids
+
+    outgoing_positions = Counter(positions[player_id] for player_id in outgoing_ids)
+    incoming_positions = Counter(positions[player_id] for player_id in incoming_ids)
+    if outgoing_positions != incoming_positions:
+        raise LineupValidationError(
+            "A transfer must replace a player with one in the same position"
+        )
 
     club_counts: dict[int, int] = {}
     for player_id in proposed_ids:

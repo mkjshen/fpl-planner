@@ -1,6 +1,12 @@
 import httpx
 
-from app.schemas.fpl_api import FplBootstrap, FplEntry, FplPicksResponse, FplTransfer
+from app.schemas.fpl_api import (
+    FplBootstrap,
+    FplEntry,
+    FplHistoryResponse,
+    FplPicksResponse,
+    FplTransfer,
+)
 
 BASE_URL = "https://fantasy.premierleague.com/api"
 
@@ -49,3 +55,10 @@ class FplClient:
             raise FplTeamNotFoundError(fpl_team_id)
         response.raise_for_status()
         return [FplTransfer.model_validate(item) for item in response.json()]
+
+    async def get_entry_history(self, fpl_team_id: int) -> FplHistoryResponse:
+        response = await self._client.get(f"/entry/{fpl_team_id}/history/")
+        if response.status_code == 404:
+            raise FplTeamNotFoundError(fpl_team_id)
+        response.raise_for_status()
+        return FplHistoryResponse.model_validate(response.json())

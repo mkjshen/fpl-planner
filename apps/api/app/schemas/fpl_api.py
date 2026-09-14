@@ -80,3 +80,16 @@ class FplTransfer(BaseModel):
     element_out: int
     event: int
     time: datetime
+
+
+class FplChipUsage(BaseModel):
+    name: str
+    event: int
+
+
+class FplHistoryResponse(BaseModel):
+    # `current` entries carry more fields (points, rank, ...) than
+    # FplEntryHistory declares — Pydantic ignores the rest, we only need
+    # event_transfers for the free-transfer rollover.
+    current: list[FplEntryHistory]
+    chips: list[FplChipUsage]

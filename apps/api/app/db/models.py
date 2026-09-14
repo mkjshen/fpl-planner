@@ -156,6 +156,16 @@ class TransferHistory(Base):
     fplTeam: Mapped["FplTeam"] = relationship(back_populates="transfers")
 
 
+class ChipUsage(Base):
+    __tablename__ = "ChipUsage"
+    __table_args__ = (UniqueConstraint("fplTeamId", "gameweekId"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=cuid)
+    fplTeamId: Mapped[str] = mapped_column(String, ForeignKey("FplTeam.id", ondelete="CASCADE"))
+    gameweekId: Mapped[str] = mapped_column(String, ForeignKey("Gameweek.id"))
+    chip: Mapped[str] = mapped_column(String)
+
+
 class LineupPlan(Base):
     __tablename__ = "LineupPlan"
     __table_args__ = (UniqueConstraint("fplTeamId", "gameweekId"),)
