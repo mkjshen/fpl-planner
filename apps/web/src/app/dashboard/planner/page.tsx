@@ -20,7 +20,7 @@ export default async function PlannerPage({
   }
 
   const { gameweek } = await searchParams;
-  const { currentGameweek, plannable } = await getPlannableGameweeks(session.user.id);
+  const { plannable } = await getPlannableGameweeks(session.user.id);
 
   return (
     <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
@@ -32,7 +32,6 @@ export default async function PlannerPage({
         ) : (
           <PlannerLineup
             userId={session.user.id}
-            currentGameweek={currentGameweek}
             plannable={plannable}
             requestedGameweek={gameweek}
           />
@@ -44,12 +43,10 @@ export default async function PlannerPage({
 
 async function PlannerLineup({
   userId,
-  currentGameweek,
   plannable,
   requestedGameweek,
 }: {
   userId: string;
-  currentGameweek: number | null;
   plannable: { number: number }[];
   requestedGameweek?: string;
 }) {
@@ -74,7 +71,6 @@ async function PlannerLineup({
         userId={userId}
         lineup={lineup}
         selectedGameweek={selectedGameweek}
-        currentGameweek={currentGameweek}
         gameweekOptions={gameweekOptions}
         saveAction={saveLineupAction}
         resetAllAction={resetAllPlansAction}

@@ -98,7 +98,6 @@ export function LineupPlanner({
   userId,
   lineup,
   selectedGameweek,
-  currentGameweek,
   gameweekOptions,
   saveAction,
   resetAllAction,
@@ -107,7 +106,6 @@ export function LineupPlanner({
   userId: string;
   lineup: Lineup;
   selectedGameweek: number;
-  currentGameweek: number | null;
   gameweekOptions: { number: number; label: string }[];
   saveAction: (
     userId: string,
@@ -437,31 +435,32 @@ export function LineupPlanner({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
-              <StatChip label="Bank" value={formatPrice(liveBank)} negative={liveBank < 0} />
-              <StatChip label="Value" value={formatPrice(liveTeamValue)} />
-              {lineup.isEditable && (
-                <>
-                  <StatChip
-                    label="Free Transfers"
-                    value={String(freeTransfers)}
-                    title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it."
-                  />
-                  {liveTransferCost > 0 && (
-                    <StatChip label="Cost" value={`-${liveTransferCost} pts`} negative />
-                  )}
-                </>
-              )}
-            </div>
-            <button
-              onClick={() => setConfirmingResetAll(true)}
-              disabled={resettingAll}
-              className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
-            >
-              {resettingAll ? "Resetting…" : "Reset all plans"}
-            </button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <StatChip label="Bank" value={formatPrice(liveBank)} negative={liveBank < 0} />
+            <StatChip label="Value" value={formatPrice(liveTeamValue)} />
+            {lineup.isEditable && (
+              <>
+                <StatChip
+                  label="Free Transfers"
+                  value={String(freeTransfers)}
+                  title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it."
+                />
+                {liveTransferCost > 0 && (
+                  <StatChip label="Cost" value={`-${liveTransferCost} pts`} negative />
+                )}
+              </>
+            )}
           </div>
+        </div>
+
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={() => setConfirmingResetAll(true)}
+            disabled={resettingAll}
+            className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            {resettingAll ? "Resetting…" : "Reset all plans"}
+          </button>
         </div>
 
         {laterPlansAffected && (
@@ -554,14 +553,6 @@ export function LineupPlanner({
                 onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
               />
             </div>
-          </div>
-        )}
-
-        {lineup.isEditable && (
-          <div className="mt-4 rounded-md border border-black/[.06] bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-white/[.08] dark:bg-white/[.03] dark:text-zinc-400">
-            Planning gameweek {selectedGameweek}
-            {currentGameweek !== null && ` (current: ${currentGameweek})`}. Click a player, then
-            click another to swap them, or use the × on a card to transfer that player out.
           </div>
         )}
 
