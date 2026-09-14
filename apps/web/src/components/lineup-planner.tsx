@@ -2,16 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type {
-  Lineup,
-  LineupPlayerInput,
-  PlayerListItem,
-  PlayerSearchResult,
-  Position,
-  SquadPlayer,
-} from "@/lib/api";
+import type { Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard } from "@/components/pitch";
-import { PlayerSearch } from "@/components/player-search";
+import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
@@ -92,11 +85,7 @@ export function LineupPlanner({
     players: LineupPlayerInput[],
   ) => Promise<SaveResult>;
   resetAllAction: (userId: string, gameweekNumber: number) => Promise<Lineup>;
-  searchAction: (
-    userId: string,
-    gameweekNumber: number,
-    options: { position?: Position; search?: string },
-  ) => Promise<PlayerSearchResult>;
+  searchAction: SearchAction;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
@@ -294,222 +283,286 @@ export function LineupPlanner({
   }
 
   return (
-    <div>
-      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {lineup.teamName} · {lineup.managerName}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() =>
-                previousGameweek &&
-                router.push(`/dashboard/planner?gameweek=${previousGameweek.number}`)
-              }
-              disabled={!previousGameweek}
-              aria-label="Previous gameweek"
-              className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
-            >
-              ‹
-            </button>
-            <span className="min-w-[7rem] text-center text-sm">
-              {gameweekOptions[gameweekIndex]?.label ?? `Gameweek ${selectedGameweek}`}
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                nextGameweek && router.push(`/dashboard/planner?gameweek=${nextGameweek.number}`)
-              }
-              disabled={!nextGameweek}
-              aria-label="Next gameweek"
-              className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
-            >
-              ›
-            </button>
-          </div>
-          <button
-            onClick={() => setConfirmingResetAll(true)}
-            disabled={resettingAll}
-            className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
-          >
-            {resettingAll ? "Resetting…" : "Reset all plans"}
-          </button>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-          <span className={liveBank < 0 ? "font-medium text-red-600 dark:text-red-400" : undefined}>
-            Bank {formatPrice(liveBank)}
-          </span>
-          <span>Value {formatPrice(lineup.teamValue)}</span>
-          {lineup.isEditable && (
-            <>
-              <span title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it.">
-                Free Transfers {freeTransfers}
-              </span>
-              <span>Transfers {transfersMade}</span>
-              {liveTransferCost > 0 && (
-                <span className="font-medium text-red-600 dark:text-red-400">
-                  -{liveTransferCost} pts
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {laterPlansAffected && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-          <span>
-            Editing gameweek {selectedGameweek} may make your later planned gameweeks
-            inconsistent — review them or use Reset all plans.
-          </span>
-          <button
-            onClick={() => setLaterPlansAffected(false)}
-            className="shrink-0 font-medium text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {confirmingResetAll && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-          onClick={() => !resettingAll && setConfirmingResetAll(false)}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="reset-all-title"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-xl dark:border-red-900 dark:bg-zinc-950"
-          >
-            <p id="reset-all-title" className="text-base font-semibold text-red-800 dark:text-red-200">
-              Reset every gameweek&apos;s plan?
+    <div className="flex flex-col gap-6 md:flex-row">
+      <div className="min-w-0 flex-1">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {lineup.teamName} · {lineup.managerName}
             </p>
-            <p className="mt-2 text-sm text-red-700 dark:text-red-300">
-              This discards every planned lineup change for every future gameweek and reverts them
-              all to your current FPL squad. This action cannot be undone.
-            </p>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="flex items-center gap-1">
               <button
-                onClick={handleConfirmResetAll}
-                disabled={resettingAll}
-                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+                type="button"
+                onClick={() =>
+                  previousGameweek &&
+                  router.push(`/dashboard/planner?gameweek=${previousGameweek.number}`)
+                }
+                disabled={!previousGameweek}
+                aria-label="Previous gameweek"
+                className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
               >
-                {resettingAll ? "Resetting…" : "Yes, reset everything"}
+                ‹
               </button>
+              <span className="min-w-[7rem] text-center text-sm">
+                {gameweekOptions[gameweekIndex]?.label ?? `Gameweek ${selectedGameweek}`}
+              </span>
               <button
-                onClick={() => setConfirmingResetAll(false)}
-                disabled={resettingAll}
-                className="rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                type="button"
+                onClick={() =>
+                  nextGameweek && router.push(`/dashboard/planner?gameweek=${nextGameweek.number}`)
+                }
+                disabled={!nextGameweek}
+                aria-label="Next gameweek"
+                className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
               >
-                Cancel
+                ›
               </button>
             </div>
+            <button
+              onClick={() => setConfirmingResetAll(true)}
+              disabled={resettingAll}
+              className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
+            >
+              {resettingAll ? "Resetting…" : "Reset all plans"}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+            <span className={liveBank < 0 ? "font-medium text-red-600 dark:text-red-400" : undefined}>
+              Bank {formatPrice(liveBank)}
+            </span>
+            <span>Value {formatPrice(lineup.teamValue)}</span>
+            {lineup.isEditable && (
+              <>
+                <span title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it.">
+                  Free Transfers {freeTransfers}
+                </span>
+                <span>Transfers {transfersMade}</span>
+                {liveTransferCost > 0 && (
+                  <span className="font-medium text-red-600 dark:text-red-400">
+                    -{liveTransferCost} pts
+                  </span>
+                )}
+              </>
+            )}
           </div>
         </div>
-      )}
 
-      {transferOutPlayer && (
-        <PlayerSearch
-          position={transferOutPlayer.position}
-          userId={userId}
-          gameweekNumber={selectedGameweek}
-          searchAction={searchAction}
-          onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
-          onClose={() => setTransferOutId(null)}
-        />
-      )}
-
-      {lineup.isEditable && (
-        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-          Planning gameweek {selectedGameweek}
-          {currentGameweek !== null && ` (current: ${currentGameweek})`}. Click a player, then
-          click another to swap them, or select a player and choose Transfer out to bring in
-          someone new.
-        </p>
-      )}
-
-      <div className="mt-6">
-        <Pitch
-          starting={starting}
-          selectedPlayerId={lineup.isEditable ? selectedId : undefined}
-          disabledPlayerIds={disabledPlayerIds}
-          onPlayerClick={lineup.isEditable ? handlePlayerClick : undefined}
-        />
-      </div>
-
-      {lineup.isEditable && selectedPlayer && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-zinc-600 dark:text-zinc-400">{selectedPlayer.webName}:</span>
-          {selectedPlayer.isStarting && (
-            <>
-              <button
-                onClick={() => setCaptain(selectedPlayer.playerId)}
-                className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-              >
-                Make captain
-              </button>
-              <button
-                onClick={() => setViceCaptain(selectedPlayer.playerId)}
-                className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-              >
-                Make vice-captain
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => setTransferOutId(selectedPlayer.playerId)}
-            className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-red-400 hover:bg-red-50 dark:border-white/[.145] dark:hover:border-red-500 dark:hover:bg-red-950/40"
-          >
-            Transfer out
-          </button>
-        </div>
-      )}
-
-      <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
-      <div className="mt-2 flex flex-wrap justify-center gap-2 sm:gap-4">
-        {bench.map((player) => (
-          <PlayerCard
-            key={player.playerId}
-            player={player}
-            muted
-            selected={lineup.isEditable && player.playerId === selectedId}
-            disabled={disabledPlayerIds.has(player.playerId)}
-            onClick={lineup.isEditable ? () => handlePlayerClick(player) : undefined}
-          />
-        ))}
-      </div>
-
-      {lineup.isEditable && (
-        <div className="mt-6 flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={!dirty || saving}
-            className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
-            onClick={handleReset}
-            disabled={!dirty || saving}
-            className="rounded-full border border-black/[.08] px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-          >
-            Reset
-          </button>
-          {message && (
-            <span
-              className={`text-sm ${
-                messageTone === "success"
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : messageTone === "error"
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-zinc-600 dark:text-zinc-400"
-              }`}
-            >
-              {message}
+        {laterPlansAffected && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            <span>
+              Editing gameweek {selectedGameweek} may make your later planned gameweeks
+              inconsistent — review them or use Reset all plans.
             </span>
+            <button
+              onClick={() => setLaterPlansAffected(false)}
+              className="shrink-0 font-medium text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {confirmingResetAll && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+            onClick={() => !resettingAll && setConfirmingResetAll(false)}
+          >
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="reset-all-title"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-xl dark:border-red-900 dark:bg-zinc-950"
+            >
+              <p id="reset-all-title" className="text-base font-semibold text-red-800 dark:text-red-200">
+                Reset every gameweek&apos;s plan?
+              </p>
+              <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+                This discards every planned lineup change for every future gameweek and reverts them
+                all to your current FPL squad. This action cannot be undone.
+              </p>
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={handleConfirmResetAll}
+                  disabled={resettingAll}
+                  className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+                >
+                  {resettingAll ? "Resetting…" : "Yes, reset everything"}
+                </button>
+                <button
+                  onClick={() => setConfirmingResetAll(false)}
+                  disabled={resettingAll}
+                  className="rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Below md there's no room for the squad and the transfer picker
+            side by side, so it falls back to a centered, dimmed modal. */}
+        {transferOutPlayer && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm md:hidden"
+            onClick={() => setTransferOutId(null)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Transfer in a ${transferOutPlayer.position}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-base font-semibold text-black dark:text-zinc-50">
+                  Transfer in a {transferOutPlayer.position}
+                </p>
+                <button
+                  onClick={() => setTransferOutId(null)}
+                  className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                >
+                  Close
+                </button>
+              </div>
+              <PlayerSearchResults
+                key={transferOutPlayer.playerId}
+                position={transferOutPlayer.position}
+                userId={userId}
+                gameweekNumber={selectedGameweek}
+                searchAction={searchAction}
+                onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
+              />
+            </div>
+          </div>
+        )}
+
+        {lineup.isEditable && (
+          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+            Planning gameweek {selectedGameweek}
+            {currentGameweek !== null && ` (current: ${currentGameweek})`}. Click a player, then
+            click another to swap them, or select a player and choose Transfer out to bring in
+            someone new.
+          </p>
+        )}
+
+        <div className="mt-6">
+          <Pitch
+            starting={starting}
+            selectedPlayerId={lineup.isEditable ? selectedId : undefined}
+            disabledPlayerIds={disabledPlayerIds}
+            onPlayerClick={lineup.isEditable ? handlePlayerClick : undefined}
+          />
+        </div>
+
+        {lineup.isEditable && selectedPlayer && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-zinc-600 dark:text-zinc-400">{selectedPlayer.webName}:</span>
+            {selectedPlayer.isStarting && (
+              <>
+                <button
+                  onClick={() => setCaptain(selectedPlayer.playerId)}
+                  className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
+                >
+                  Make captain
+                </button>
+                <button
+                  onClick={() => setViceCaptain(selectedPlayer.playerId)}
+                  className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
+                >
+                  Make vice-captain
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setTransferOutId(selectedPlayer.playerId)}
+              className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-red-400 hover:bg-red-50 dark:border-white/[.145] dark:hover:border-red-500 dark:hover:bg-red-950/40"
+            >
+              Transfer out
+            </button>
+          </div>
+        )}
+
+        <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Bench</h2>
+        <div className="mt-2 flex flex-wrap justify-center gap-2 sm:gap-4">
+          {bench.map((player) => (
+            <PlayerCard
+              key={player.playerId}
+              player={player}
+              muted
+              selected={lineup.isEditable && player.playerId === selectedId}
+              disabled={disabledPlayerIds.has(player.playerId)}
+              onClick={lineup.isEditable ? () => handlePlayerClick(player) : undefined}
+            />
+          ))}
+        </div>
+
+        {lineup.isEditable && (
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={handleReset}
+              disabled={!dirty || saving}
+              className="rounded-full border border-black/[.08] px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+            >
+              Reset
+            </button>
+            {message && (
+              <span
+                className={`text-sm ${
+                  messageTone === "success"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : messageTone === "error"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-zinc-600 dark:text-zinc-400"
+                }`}
+              >
+                {message}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Always visible from md up (not gated behind clicking "Transfer
+          out" first) so the squad and the pool of available replacements
+          can be compared side by side the whole time you're planning. */}
+      {lineup.isEditable && (
+        <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-black/[.08] pl-6 dark:border-white/[.145] md:flex">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-base font-semibold text-black dark:text-zinc-50">
+              {transferOutPlayer ? `Transfer in a ${transferOutPlayer.position}` : "Transfer players"}
+            </p>
+            {transferOutPlayer && (
+              <button
+                onClick={() => setTransferOutId(null)}
+                className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {transferOutPlayer ? (
+            <PlayerSearchResults
+              key={transferOutPlayer.playerId}
+              position={transferOutPlayer.position}
+              userId={userId}
+              gameweekNumber={selectedGameweek}
+              searchAction={searchAction}
+              onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
+            />
+          ) : (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Select a squad player, then choose Transfer out to see same-position replacements
+              here.
+            </p>
           )}
         </div>
       )}
