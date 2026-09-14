@@ -8,6 +8,36 @@ import { PlayerSearchResults, type SearchAction } from "@/components/player-sear
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
+function StatChip({
+  label,
+  value,
+  negative,
+  title,
+}: {
+  label: string;
+  value: string;
+  negative?: boolean;
+  title?: string;
+}) {
+  return (
+    <div
+      title={title}
+      className="rounded-lg border border-black/[.08] bg-black/[.02] px-3 py-1.5 dark:border-white/[.145] dark:bg-white/[.03]"
+    >
+      <p className="text-[0.65rem] font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+        {label}
+      </p>
+      <p
+        className={`text-sm font-semibold ${
+          negative ? "text-red-600 dark:text-red-400" : "text-black dark:text-zinc-50"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function validationError(players: SquadPlayer[]): string | null {
   const starting = players.filter((p) => p.isStarting);
   if (starting.length !== 11) return "Starting lineup must have exactly 11 players";
@@ -369,12 +399,15 @@ export function LineupPlanner({
   return (
     <div className="flex flex-col gap-6 md:flex-row">
       <div className="min-w-0 flex-1">
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {lineup.teamName} · {lineup.managerName}
-            </p>
-            <div className="flex items-center gap-1">
+        <div className="border-b border-black/[.08] pb-4 dark:border-white/[.145]">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-lg font-semibold text-black dark:text-zinc-50">
+                {lineup.teamName}
+              </h1>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">{lineup.managerName}</p>
+            </div>
+            <div className="flex items-center gap-1 rounded-full border border-black/[.08] bg-black/[.02] p-1 dark:border-white/[.145] dark:bg-white/[.03]">
               <button
                 type="button"
                 onClick={() =>
@@ -383,11 +416,11 @@ export function LineupPlanner({
                 }
                 disabled={!previousGameweek}
                 aria-label="Previous gameweek"
-                className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
+                className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
               >
                 ‹
               </button>
-              <span className="min-w-[7rem] text-center text-sm">
+              <span className="min-w-[7rem] text-center text-sm font-medium text-black dark:text-zinc-50">
                 {gameweekOptions[gameweekIndex]?.label ?? `Gameweek ${selectedGameweek}`}
               </span>
               <button
@@ -397,10 +430,29 @@ export function LineupPlanner({
                 }
                 disabled={!nextGameweek}
                 aria-label="Next gameweek"
-                className="rounded-md border border-black/[.08] px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-30 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-[#1a1a1a] dark:disabled:hover:bg-transparent"
+                className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
               >
                 ›
               </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              <StatChip label="Bank" value={formatPrice(liveBank)} negative={liveBank < 0} />
+              <StatChip label="Value" value={formatPrice(liveTeamValue)} />
+              {lineup.isEditable && (
+                <>
+                  <StatChip
+                    label="Free Transfers"
+                    value={String(freeTransfers)}
+                    title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it."
+                  />
+                  {liveTransferCost > 0 && (
+                    <StatChip label="Cost" value={`-${liveTransferCost} pts`} negative />
+                  )}
+                </>
+              )}
             </div>
             <button
               onClick={() => setConfirmingResetAll(true)}
@@ -409,24 +461,6 @@ export function LineupPlanner({
             >
               {resettingAll ? "Resetting…" : "Reset all plans"}
             </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-            <span className={liveBank < 0 ? "font-medium text-red-600 dark:text-red-400" : undefined}>
-              Bank {formatPrice(liveBank)}
-            </span>
-            <span>Value {formatPrice(liveTeamValue)}</span>
-            {lineup.isEditable && (
-              <>
-                <span title="Free transfers available entering this gameweek. Assumes 1 as of today — this planner doesn't replay transfer history from before you started using it.">
-                  Free Transfers {freeTransfers}
-                </span>
-                {liveTransferCost > 0 && (
-                  <span className="font-medium text-red-600 dark:text-red-400">
-                    -{liveTransferCost} pts
-                  </span>
-                )}
-              </>
-            )}
           </div>
         </div>
 
@@ -498,7 +532,7 @@ export function LineupPlanner({
               onClick={(e) => e.stopPropagation()}
               className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4 border-b border-black/[.08] pb-3 dark:border-white/[.145]">
                 <p className="text-base font-semibold text-black dark:text-zinc-50">
                   Transfer in a {transferOutPlayer.position}
                   {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
@@ -524,14 +558,15 @@ export function LineupPlanner({
         )}
 
         {lineup.isEditable && (
-          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="mt-4 rounded-md border border-black/[.06] bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-white/[.08] dark:bg-white/[.03] dark:text-zinc-400">
             Planning gameweek {selectedGameweek}
             {currentGameweek !== null && ` (current: ${currentGameweek})`}. Click a player, then
             click another to swap them, or use the × on a card to transfer that player out.
-          </p>
+          </div>
         )}
 
-        <div className="mt-6">
+        <h2 className="mt-6 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Starting XI</h2>
+        <div className="mt-2">
           <Pitch
             starting={starting}
             selectedPlayerId={lineup.isEditable ? selectedId : undefined}
@@ -549,8 +584,8 @@ export function LineupPlanner({
         </div>
 
         {lineup.isEditable && selectedPlayer && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-zinc-600 dark:text-zinc-400">{selectedPlayer.webName}:</span>
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-black/[.06] bg-zinc-50 px-3 py-2 text-sm dark:border-white/[.08] dark:bg-white/[.03]">
+            <span className="font-medium text-black dark:text-zinc-50">{selectedPlayer.webName}:</span>
             {selectedPlayer.isStarting && (
               <>
                 <button
@@ -597,7 +632,7 @@ export function LineupPlanner({
         </div>
 
         {lineup.isEditable && (
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
             <button
               onClick={handleSave}
               disabled={!dirty || saving || transferOutIds.length > 0}
@@ -639,7 +674,7 @@ export function LineupPlanner({
           can be compared side by side the whole time you're planning. */}
       {lineup.isEditable && (
         <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-black/[.08] pl-6 dark:border-white/[.145] md:sticky md:top-8 md:flex md:h-[calc(100vh-4rem)]">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4 border-b border-black/[.08] pb-3 dark:border-white/[.145]">
             <p className="text-base font-semibold text-black dark:text-zinc-50">
               {transferOutPlayer ? `Transfer in a ${transferOutPlayer.position}` : "Transfer players"}
               {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
