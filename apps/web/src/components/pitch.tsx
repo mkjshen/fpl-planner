@@ -31,7 +31,7 @@ export function PlayerCard({
   return (
     <div
       onClick={disabled ? undefined : onClick}
-      className={`relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
+      className={`group relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm sm:w-24 ${
         selected
           ? "border-primary ring-2 ring-primary dark:border-accent dark:ring-accent"
           : muted
@@ -48,7 +48,7 @@ export function PlayerCard({
           }}
           aria-label={`Remove ${player.webName} from your team`}
           title="Remove from team"
-          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white"
         >
           ×
         </button>
