@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  type Chip,
   getLineup,
   type Lineup,
   type LineupPlayerInput,
@@ -16,9 +17,10 @@ export async function saveLineupAction(
   userId: string,
   gameweekNumber: number,
   players: LineupPlayerInput[],
+  chip: Chip | null = null,
 ): Promise<{ ok: true; lineup: Lineup } | { ok: false; message: string }> {
   try {
-    const lineup = await saveLineup(userId, gameweekNumber, players);
+    const lineup = await saveLineup(userId, gameweekNumber, players, chip);
     return { ok: true, lineup };
   } catch (error) {
     if (error instanceof LineupValidationError) {

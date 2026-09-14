@@ -38,7 +38,17 @@ export type Lineup = Squad & {
   freeTransfers: number;
   transferCost: number;
   laterPlansAffected: boolean;
+  // The chip activated on this specific gameweek's own saved plan, if any —
+  // never a chip inherited from an earlier cascaded plan.
+  chipUsed: Chip | null;
+  // Uses left this season for each chip this season offers, keyed by chip
+  // name. A chip already active on the viewed gameweek can show 0 here
+  // while still being the selected option — compare against `chipUsed`
+  // before treating a chip as unavailable.
+  chipsRemaining: Partial<Record<Chip, number>>;
 };
+
+export type Chip = "wildcard" | "free_hit" | "bench_boost" | "triple_captain";
 
 export type PlayerListItem = {
   playerId: number;
@@ -135,13 +145,14 @@ export async function saveLineup(
   userId: string,
   gameweekNumber: number,
   players: LineupPlayerInput[],
+  chip: Chip | null = null,
 ): Promise<Lineup> {
   const response = await fetch(
     `${API_BASE_URL}/teams/by-user/${userId}/lineup/${gameweekNumber}`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ players }),
+      body: JSON.stringify({ players, chip }),
     },
   );
   if (!response.ok) {

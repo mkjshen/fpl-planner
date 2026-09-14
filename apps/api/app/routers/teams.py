@@ -97,7 +97,9 @@ async def put_lineup(
 ) -> LineupOut:
     fpl_team = await _get_fpl_team_or_404(db, user_id)
     try:
-        return await lineup_service.save_lineup(db, fpl_team, gameweek_number, payload.players)
+        return await lineup_service.save_lineup(
+            db, fpl_team, gameweek_number, payload.players, payload.chip
+        )
     except lineup_service.GameweekNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error))
     except lineup_service.NotEditableError as error:

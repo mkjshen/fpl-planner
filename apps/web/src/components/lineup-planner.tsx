@@ -2,13 +2,34 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
+import type { Chip, Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
+// Mirrors the backend's TRANSFER_FREE_CHIPS (apps/api/app/services/lineup.py)
+// — Wildcard and Free Hit waive the -4 hit and the same-position-swap
+// restriction for this gameweek; Bench Boost and Triple Captain don't touch
+// transfers, only scoring, which this app doesn't simulate.
+const TRANSFER_FREE_CHIPS: ReadonlySet<Chip> = new Set(["wildcard", "free_hit"]);
+
+const CHIP_LABELS: Record<Chip, string> = {
+  wildcard: "Wildcard",
+  free_hit: "Free Hit",
+  bench_boost: "Bench Boost",
+  triple_captain: "Triple Captain",
+};
+
+const ALL_CHIPS: Chip[] = ["wildcard", "free_hit", "bench_boost", "triple_captain"];
+
 function validationError(players: SquadPlayer[]): string | null {
+  const totals = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+  for (const p of players) totals[p.position]++;
+  if (totals.GK !== 2 || totals.DEF !== 5 || totals.MID !== 5 || totals.FWD !== 3) {
+    return "Squad must have 2 goalkeepers, 5 defenders, 5 midfielders, and 3 forwards";
+  }
+
   const starting = players.filter((p) => p.isStarting);
   if (starting.length !== 11) return "Starting lineup must have exactly 11 players";
 
@@ -81,6 +102,7 @@ export function LineupPlanner({
     userId: string,
     gameweekNumber: number,
     players: LineupPlayerInput[],
+    chip: Chip | null,
   ) => Promise<SaveResult>;
   resetAllAction: (userId: string, gameweekNumber: number) => Promise<Lineup>;
   searchAction: SearchAction;
@@ -95,6 +117,12 @@ export function LineupPlanner({
   const [savedBank, setSavedBank] = useState(lineup.bank);
   const [savedTeamValue, setSavedTeamValue] = useState(lineup.teamValue);
   const [freeTransfers, setFreeTransfers] = useState(lineup.freeTransfers);
+  // The chip proposed for this gameweek — like `players`, this is working
+  // state that only takes effect on Save; `savedChip` (what Reset reverts
+  // to and `dirty` compares against) mirrors `savedPlayers`'s role.
+  const [chip, setChip] = useState<Chip | null>(lineup.chipUsed);
+  const [savedChip, setSavedChip] = useState<Chip | null>(lineup.chipUsed);
+  const [chipsRemaining, setChipsRemaining] = useState(lineup.chipsRemaining);
   const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   // Every player currently transferred out but not yet replaced — several
@@ -118,8 +146,11 @@ export function LineupPlanner({
 
   const starting = players.filter((p) => p.isStarting);
   const bench = players.filter((p) => !p.isStarting).sort((a, b) => a.squadPosition - b.squadPosition);
-  const dirty = JSON.stringify(players) !== JSON.stringify(savedPlayers);
+  const dirty = JSON.stringify(players) !== JSON.stringify(savedPlayers) || chip !== savedChip;
   const error = lineup.isEditable ? validationError(players) : null;
+  const chipIsTransferFree = chip !== null && TRANSFER_FREE_CHIPS.has(chip);
+  const transferPanelTitle = (target: SquadPlayer | null) =>
+    target ? (chipIsTransferFree ? "Transfer in any player" : `Transfer in a ${target.position}`) : "Transfer players";
   const selectedPlayer = players.find((p) => p.playerId === selectedId) ?? null;
   const transferOutIdSet = new Set(transferOutIds);
   const transferOutPlayer = players.find((p) => p.playerId === activeTransferOutId) ?? null;
@@ -175,7 +206,9 @@ export function LineupPlanner({
   }
   const liveBank = savedBank + proceeds - spend;
   const liveTeamValue = savedTeamValue + valueChange;
-  const liveTransferCost = Math.max(transfersMade - freeTransfers, 0) * 4;
+  const liveTransferCost = chipIsTransferFree
+    ? 0
+    : Math.max(transfersMade - freeTransfers, 0) * 4;
 
   // Players transferred out earlier in this same unsaved session — the
   // search pool only knows about the last *saved* squad, so without this
@@ -302,6 +335,7 @@ export function LineupPlanner({
 
   function handleReset() {
     setPlayers(savedPlayers);
+    setChip(savedChip);
     setSelectedId(null);
     setTransferOutIds([]);
     setActiveTransferOutId(null);
@@ -317,6 +351,9 @@ export function LineupPlanner({
     setSavedBank(fresh.bank);
     setSavedTeamValue(fresh.teamValue);
     setFreeTransfers(fresh.freeTransfers);
+    setChip(fresh.chipUsed);
+    setSavedChip(fresh.chipUsed);
+    setChipsRemaining(fresh.chipsRemaining);
     setLaterPlansAffected(false);
     setResettingAll(false);
     setConfirmingResetAll(false);
@@ -344,7 +381,7 @@ export function LineupPlanner({
       isCaptain: p.isCaptain,
       isViceCaptain: p.isViceCaptain,
     }));
-    const result = await saveAction(userId, selectedGameweek, inputs);
+    const result = await saveAction(userId, selectedGameweek, inputs, chip);
     setSaving(false);
     if (result.ok) {
       setPlayers(result.lineup.players);
@@ -352,6 +389,9 @@ export function LineupPlanner({
       setSavedBank(result.lineup.bank);
       setSavedTeamValue(result.lineup.teamValue);
       setFreeTransfers(result.lineup.freeTransfers);
+      setChip(result.lineup.chipUsed);
+      setSavedChip(result.lineup.chipUsed);
+      setChipsRemaining(result.lineup.chipsRemaining);
       setLaterPlansAffected(result.lineup.laterPlansAffected);
       setMessage("Saved.");
       setMessageTone("success");
@@ -359,6 +399,12 @@ export function LineupPlanner({
       setMessage(result.message);
       setMessageTone("error");
     }
+  }
+
+  function toggleChip(target: Chip) {
+    setChip((prev) => (prev === target ? null : target));
+    setMessage(null);
+    setMessageTone(null);
   }
 
   return (
@@ -418,7 +464,55 @@ export function LineupPlanner({
               </>
             )}
           </div>
+
+          {lineup.isEditable && (
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              {ALL_CHIPS.map((c) => {
+                const active = chip === c;
+                const left = chipsRemaining[c] ?? 0;
+                const selectable = active || left > 0;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => selectable && toggleChip(c)}
+                    disabled={!selectable}
+                    title={
+                      selectable
+                        ? active
+                          ? `Click to remove ${CHIP_LABELS[c]} from this gameweek`
+                          : `${left} use${left === 1 ? "" : "s"} left this season`
+                        : "No uses left this season"
+                    }
+                    aria-pressed={active}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
+                        : selectable
+                          ? "border-black/[.08] text-zinc-500 hover:border-black/20 dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/30"
+                          : "cursor-not-allowed border-black/[.08] text-zinc-300 dark:border-white/[.1] dark:text-zinc-600"
+                    }`}
+                  >
+                    {CHIP_LABELS[c]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
+
+        {chip && (
+          <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm text-primary dark:border-accent/30 dark:bg-accent/5 dark:text-accent">
+            {chip === "wildcard" &&
+              "Wildcard active — transfers are unlimited and free this gameweek, and this squad carries forward as normal."}
+            {chip === "free_hit" &&
+              "Free Hit active — transfers are unlimited and free this gameweek, but your squad reverts back automatically next gameweek."}
+            {chip === "bench_boost" &&
+              "Bench Boost active — your bench's points will count this gameweek too (scoring isn't simulated here, this is just a record of the choice)."}
+            {chip === "triple_captain" &&
+              "Triple Captain active — your captain's points will be tripled instead of doubled this gameweek (scoring isn't simulated here, this is just a record of the choice)."}
+          </div>
+        )}
 
         <div className="mt-4 flex justify-center">
           <button
@@ -494,13 +588,13 @@ export function LineupPlanner({
             <div
               role="dialog"
               aria-modal="true"
-              aria-label={`Transfer in a ${transferOutPlayer.position}`}
+              aria-label={transferPanelTitle(transferOutPlayer)}
               onClick={(e) => e.stopPropagation()}
               className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
             >
               <div className="flex items-center justify-between gap-4 border-b border-black/[.08] pb-3 dark:border-white/[.145]">
                 <p className="text-base font-semibold text-black dark:text-zinc-50">
-                  Transfer in a {transferOutPlayer.position}
+                  {transferPanelTitle(transferOutPlayer)}
                   {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
                 </p>
                 <button
@@ -513,6 +607,7 @@ export function LineupPlanner({
               <PlayerSearchResults
                 key={transferOutPlayer.playerId}
                 requiredPosition={transferOutPlayer.position}
+                anyPosition={chipIsTransferFree}
                 userId={userId}
                 gameweekNumber={selectedGameweek}
                 searchAction={searchAction}
@@ -622,7 +717,7 @@ export function LineupPlanner({
         <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-black/[.08] pl-6 dark:border-white/[.145] md:sticky md:top-8 md:flex md:h-[calc(100vh-4rem)]">
           <div className="flex items-center justify-between gap-4 border-b border-black/[.08] pb-3 dark:border-white/[.145]">
             <p className="text-base font-semibold text-black dark:text-zinc-50">
-              {transferOutPlayer ? `Transfer in a ${transferOutPlayer.position}` : "Transfer players"}
+              {transferPanelTitle(transferOutPlayer)}
               {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
             </p>
             {transferOutPlayer && (
@@ -637,6 +732,7 @@ export function LineupPlanner({
           <PlayerSearchResults
             key={transferOutPlayer?.playerId ?? "browse"}
             requiredPosition={transferOutPlayer?.position ?? null}
+            anyPosition={chipIsTransferFree}
             userId={userId}
             gameweekNumber={selectedGameweek}
             searchAction={searchAction}

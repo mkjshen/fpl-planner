@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
+    ChipAllowance,
     ChipUsage,
     FplTeam,
     Gameweek,
@@ -21,6 +22,21 @@ from app.services.squad import build_player_rows
 
 Slot = tuple[int, bool, int, bool, bool, int, int]
 # (playerId, isStarting, squadPosition, isCaptain, isViceCaptain, purchasePrice, sellingPrice)
+
+VALID_CHIPS = {"wildcard", "free_hit", "bench_boost", "triple_captain"}
+# Wildcard and Free Hit both waive the -4-per-transfer hit for the gameweek
+# they're played on — real FPL treats them identically for transfer
+# purposes, differing only in whether the resulting squad carries forward
+# (Wildcard does, Free Hit reverts — see _find_prior_plan). A same-position
+# swap restriction doesn't need waiving here: no such check exists in
+# save_lineup — it's algebraically implied by _validate_lineup's fixed
+# 2 GK/5 DEF/5 MID/3 FWD composition check and was removed as dead code (see
+# save_lineup's comment at the outgoing/incoming diff). What actually limits
+# a normal save to one-for-one same-position transfers is the frontend's
+# transfer flow, not anything here. Bench Boost and Triple Captain don't
+# touch transfers at all; they only affect scoring, which this app doesn't
+# simulate, so they're purely a recorded/displayed choice.
+TRANSFER_FREE_CHIPS = {"wildcard", "free_hit"}
 
 
 class LineupValidationError(Exception):
@@ -82,14 +98,22 @@ async def _find_effective_plan(
 ) -> LineupPlan | None:
     """The nearest explicit plan at or before this gameweek — an explicit
     edit to an earlier gameweek cascades forward until a later gameweek's
-    own explicit edit takes over."""
-    return await db.scalar(
+    own explicit edit takes over. A Free Hit plan is the exception: it's
+    only ever real for the gameweek it was played on, so it's skipped when
+    cascading into a *later* gameweek with no plan of its own (this
+    gameweek's own plan is still returned as-is, Free Hit or not)."""
+    result = await db.execute(
         select(LineupPlan)
         .join(Gameweek, LineupPlan.gameweekId == Gameweek.id)
         .where(LineupPlan.fplTeamId == fpl_team.id, Gameweek.number <= gameweek.number)
         .order_by(Gameweek.number.desc())
-        .limit(1)
     )
+    plans = result.scalars().all()
+    if not plans:
+        return None
+    if plans[0].gameweekId == gameweek.id:
+        return plans[0]
+    return next((p for p in plans if p.chipUsed != "free_hit"), None)
 
 
 async def _find_prior_plan(
@@ -97,14 +121,16 @@ async def _find_prior_plan(
 ) -> LineupPlan | None:
     """The nearest explicit plan strictly before this gameweek — what a new
     save for this gameweek diffs against (never the plan being overwritten
-    at this same gameweek, if one already exists)."""
-    return await db.scalar(
+    at this same gameweek, if one already exists). Free Hit plans are
+    skipped the same way as in _find_effective_plan — a Free Hit squad
+    never becomes the baseline for another gameweek's transfers."""
+    result = await db.execute(
         select(LineupPlan)
         .join(Gameweek, LineupPlan.gameweekId == Gameweek.id)
         .where(LineupPlan.fplTeamId == fpl_team.id, Gameweek.number < gameweek.number)
         .order_by(Gameweek.number.desc())
-        .limit(1)
     )
+    return next((p for p in result.scalars().all() if p.chipUsed != "free_hit"), None)
 
 
 async def _plan_slots(db: AsyncSession, plan: LineupPlan) -> list[Slot]:
@@ -193,7 +219,7 @@ async def available_free_transfers(
             available = min(max(available - made, 0) + 1, season.freeTransferRolloverLimit)
 
     result = await db.execute(
-        select(Gameweek.number, LineupPlan.transfersMade)
+        select(Gameweek.number, LineupPlan.transfersMade, LineupPlan.chipUsed)
         .join(LineupPlan, LineupPlan.gameweekId == Gameweek.id)
         .where(
             LineupPlan.fplTeamId == fpl_team.id,
@@ -201,12 +227,51 @@ async def available_free_transfers(
             Gameweek.number < target_gameweek_number,
         )
     )
-    transfers_by_gameweek = dict(result.all())
+    plans_by_gameweek = {row[0]: (row[1], row[2]) for row in result.all()}
 
     for gw_number in range(current.number + 1, target_gameweek_number):
-        made = transfers_by_gameweek.get(gw_number, 0)
+        made, chip_used = plans_by_gameweek.get(gw_number, (0, None))
+        if chip_used in TRANSFER_FREE_CHIPS:
+            continue
         available = min(max(available - made, 0) + 1, season.freeTransferRolloverLimit)
     return available
+
+
+async def _chip_allowances(db: AsyncSession, season_id: str) -> dict[str, int]:
+    result = await db.execute(
+        select(ChipAllowance.chip, ChipAllowance.count).where(ChipAllowance.seasonId == season_id)
+    )
+    return dict(result.all())
+
+
+async def _chip_usage_counts(db: AsyncSession, fpl_team: FplTeam) -> dict[str, int]:
+    """How many times each chip has already been spent this season — real
+    history plus every other gameweek's currently-planned usage (a chip can
+    only be planned once across all of a team's saved plans, same as real
+    FPL only lets you play each instance once)."""
+    counts: Counter = Counter()
+    real = await db.execute(select(ChipUsage.chip).where(ChipUsage.fplTeamId == fpl_team.id))
+    counts.update(row[0] for row in real.all())
+    planned = await db.execute(
+        select(LineupPlan.chipUsed).where(
+            LineupPlan.fplTeamId == fpl_team.id, LineupPlan.chipUsed.isnot(None)
+        )
+    )
+    counts.update(row[0] for row in planned.all())
+    return dict(counts)
+
+
+async def chips_remaining(db: AsyncSession, fpl_team: FplTeam, season_id: str) -> dict[str, int]:
+    """Uses left this season for each chip this season actually offers, counting
+    every gameweek's currently-planned usage — including whichever gameweek is
+    being viewed right now, if it has one active. A chip already active on the
+    viewed gameweek can therefore show 0 remaining while still being the
+    selected option there; callers comparing against `chipUsed` (as the
+    planner UI does) should treat "selected here" as always allowed regardless
+    of this count."""
+    allowances = await _chip_allowances(db, season_id)
+    used = await _chip_usage_counts(db, fpl_team)
+    return {chip: max(count - used.get(chip, 0), 0) for chip, count in allowances.items()}
 
 
 async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) -> LineupOut:
@@ -224,16 +289,23 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         bank = snapshot.bank
         team_value = snapshot.teamValue
         transfer_cost = 0
+        chip_used = None
     else:
         slots = await _plan_slots(db, plan)
         bank = plan.bank
         team_value = plan.teamValue
         transfer_cost = plan.transferCost
+        # Only report a chip when this is the gameweek's *own* saved plan —
+        # a cascaded earlier plan's chip (Bench Boost, say) never applies to
+        # a later gameweek it just happens to still be supplying the squad
+        # for.
+        chip_used = plan.chipUsed if plan.gameweekId == gameweek.id else None
 
     players = await build_player_rows(db, slots, gameweek.id)
     free_transfers = (
         await available_free_transfers(db, fpl_team, gameweek_number) if is_editable else 0
     )
+    chips_remaining_map = await chips_remaining(db, fpl_team, current.seasonId) if current else {}
 
     return LineupOut(
         fplTeamId=fpl_team.fplTeamId,
@@ -245,6 +317,8 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         teamValue=team_value,
         freeTransfers=free_transfers,
         transferCost=transfer_cost,
+        chipUsed=chip_used,
+        chipsRemaining=chips_remaining_map,
         players=players,
     )
 
@@ -299,7 +373,11 @@ def _validate_lineup(proposed: list[LineupPlayerInput], positions: dict[int, str
 
 
 async def save_lineup(
-    db: AsyncSession, fpl_team: FplTeam, gameweek_number: int, players: list[LineupPlayerInput]
+    db: AsyncSession,
+    fpl_team: FplTeam,
+    gameweek_number: int,
+    players: list[LineupPlayerInput],
+    chip: str | None = None,
 ) -> LineupOut:
     current = await get_current_gameweek(db)
     gameweek = await db.scalar(select(Gameweek).where(Gameweek.number == gameweek_number))
@@ -336,6 +414,25 @@ async def save_lineup(
 
     _validate_lineup(players, positions)
 
+    # Checked after squad-shape validation, not before: a request that's
+    # both structurally invalid and over its chip budget should report the
+    # more fundamental error, not an incidental one about chip allowance.
+    if chip is not None:
+        if chip not in VALID_CHIPS:
+            raise LineupValidationError(f"Unknown chip: {chip}")
+        season = await db.get(Season, current.seasonId)
+        if season is None or chip not in season.chipsAvailable:
+            raise LineupValidationError(f"{chip.replace('_', ' ')} isn't offered this season")
+        existing_chip = await db.scalar(
+            select(LineupPlan.chipUsed).where(
+                LineupPlan.fplTeamId == fpl_team.id, LineupPlan.gameweekId == gameweek.id
+            )
+        )
+        if chip != existing_chip:
+            remaining = await chips_remaining(db, fpl_team, season.id)
+            if remaining.get(chip, 0) <= 0:
+                raise LineupValidationError(f"No {chip.replace('_', ' ')} uses left this season")
+
     # A transfer is about squad *membership*, not which numbered slot a
     # player sits in — comparing prior_slots to `players` slot-by-slot
     # would also flag a pure substitution (starting XI <-> bench, which
@@ -345,12 +442,15 @@ async def save_lineup(
     outgoing_ids = prior_ids - proposed_ids
     incoming_ids = proposed_ids - prior_ids
 
-    outgoing_positions = Counter(positions[player_id] for player_id in outgoing_ids)
-    incoming_positions = Counter(positions[player_id] for player_id in incoming_ids)
-    if outgoing_positions != incoming_positions:
-        raise LineupValidationError(
-            "A transfer must replace a player with one in the same position"
-        )
+    # No separate "must replace with the same position" check is needed
+    # here: _validate_lineup above already requires the proposed 15 to be
+    # exactly 2 GK/5 DEF/5 MID/3 FWD, and the prior squad satisfies the same
+    # invariant by construction — so outgoing and incoming players already
+    # match position-for-position in aggregate, algebraically, no matter how
+    # many players changed in this save. What actually gated a same-position
+    # transfer-planner UI down to one-for-one swaps was the frontend's
+    # transfer flow, not this. A Wildcard/Free Hit-driven full squad rebuild
+    # (arbitrarily many simultaneous swaps) was already legal backend-side.
 
     club_counts: dict[int, int] = {}
     for player_id in proposed_ids:
@@ -373,8 +473,11 @@ async def save_lineup(
     new_team_value = prior_team_value - outgoing_current_value + spend
 
     transfers_made = len(incoming_ids)
-    free_transfers = await available_free_transfers(db, fpl_team, gameweek_number)
-    transfer_cost = max(transfers_made - free_transfers, 0) * 4
+    if chip in TRANSFER_FREE_CHIPS:
+        transfer_cost = 0
+    else:
+        free_transfers = await available_free_transfers(db, fpl_team, gameweek_number)
+        transfer_cost = max(transfers_made - free_transfers, 0) * 4
 
     price_by_id: dict[int, tuple[int, int]] = {}
     for player_id in proposed_ids:
@@ -398,6 +501,7 @@ async def save_lineup(
 
     plan.transfersMade = transfers_made
     plan.transferCost = transfer_cost
+    plan.chipUsed = chip
     plan.bank = new_bank
     plan.teamValue = new_team_value
 

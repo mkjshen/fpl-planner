@@ -96,7 +96,25 @@ model Season {
   freeTransferRolloverLimit Int
   chipsAvailable           String[] // e.g. ["wildcard", "free_hit", "bench_boost", "triple_captain"]
 
-  gameweeks Gameweek[]
+  gameweeks      Gameweek[]
+  chipAllowances ChipAllowance[]
+}
+
+// How many times each chip type can be used this season — the FPL API's
+// bootstrap-static "chips" list has one entry per usage *window* (e.g. two
+// separate "wildcard" entries for its first-half/second-half windows), so
+// the count of entries sharing a name is the real per-season allowance.
+// Deliberately not modeling each window's own start/stop gameweek range —
+// see CLAUDE.md's "Status and deviations" section.
+model ChipAllowance {
+  id       String @id @default(cuid())
+  seasonId String
+  chip     String
+  count    Int
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, chip])
 }
 
 model Gameweek {
@@ -269,6 +287,13 @@ model LineupPlan {
   // SquadSnapshot.bank.
   transfersMade Int      @default(0)
   transferCost  Int      @default(0) // points lost to the -4-per-transfer hit
+  // The chip activated for this specific gameweek's plan, if any — e.g.
+  // "wildcard", "free_hit", "bench_boost", "triple_captain". Null for a
+  // gameweek with no chip planned. Wildcard/Free Hit relax the "transfers
+  // must replace a player with one of the same position" rule and skip the
+  // -4 hit entirely for this plan; Free Hit's squad also doesn't carry
+  // forward as the baseline for the next gameweek (see _find_prior_plan).
+  chipUsed      String?
   bank          Int      @default(0)
   // Squad current-price value only — bank is cash, tracked separately, not
   // part of this. Cascades the same way bank does: a transfer removes the

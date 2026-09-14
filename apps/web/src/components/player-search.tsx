@@ -29,6 +29,7 @@ export type SearchAction = (
 // instead of carrying over stale state from the last one.
 export function PlayerSearchResults({
   requiredPosition,
+  anyPosition = false,
   userId,
   gameweekNumber,
   searchAction,
@@ -37,13 +38,16 @@ export function PlayerSearchResults({
 }: {
   // The only position that can actually complete this transfer — a
   // same-position-only rule enforced by the backend (see CLAUDE.md's
-  // "Status and deviations" section). Players of any other position still
-  // show up here for browsing, just disabled: picking one wouldn't be a
-  // legal transfer, only a full multi-transfer squad rebalance would be,
-  // which this app doesn't support. `null` (with `onSelect` omitted) means
-  // there's no player transferred out yet — the list is still browsable,
-  // just nothing in it can be picked until one is.
+  // "Status and deviations" section) unless `anyPosition` is set. Players
+  // of any other position still show up here for browsing, just disabled:
+  // picking one wouldn't be a legal transfer. `null` (with `onSelect`
+  // omitted) means there's no player transferred out yet — the list is
+  // still browsable, just nothing in it can be picked until one is.
   requiredPosition: Position | null;
+  // Wildcard/Free Hit lift the same-position restriction entirely for this
+  // gameweek — any player is a legal replacement for any transferred-out
+  // one, so every row is selectable regardless of position.
+  anyPosition?: boolean;
   userId: string;
   gameweekNumber: number;
   searchAction: SearchAction;
@@ -58,15 +62,17 @@ export function PlayerSearchResults({
 }) {
   const [query, setQuery] = useState("");
   // Empty = no filter, every position shown, nothing pressed — the default
-  // when just browsing with nothing transferred out. Seeded with whatever
-  // position actually needs filling (matching the "Transfer in a <X>"
-  // header) so its button starts pressed and the list starts narrowed to
-  // it; this only runs once per mount, which is exactly when it should —
+  // when just browsing with nothing transferred out, or rebuilding the
+  // squad under a chip (any position is fair game, so narrowing to just the
+  // outgoing player's position isn't a useful default). Seeded with
+  // whatever position actually needs filling (matching the "Transfer in a
+  // <X>" header) so its button starts pressed and the list starts narrowed
+  // to it; this only runs once per mount, which is exactly when it should —
   // the parent remounts this component (via `key`) every time the target
   // changes. Any number of positions can be pressed at once — each click
   // just toggles that one in or out of the set.
   const [selectedPositions, setSelectedPositions] = useState<Set<Position>>(
-    () => new Set(requiredPosition ? [requiredPosition] : []),
+    () => new Set(requiredPosition && !anyPosition ? [requiredPosition] : []),
   );
   const [players, setPlayers] = useState<PlayerListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -210,7 +216,8 @@ export function PlayerSearchResults({
           <>
             <ul className="flex flex-col gap-1">
               {displayedPlayers.map((player) => {
-                const selectable = requiredPosition !== null && player.position === requiredPosition;
+                const selectable =
+                  requiredPosition !== null && (anyPosition || player.position === requiredPosition);
                 const isReincluded = reincludeMatches.some((rp) => rp.playerId === player.playerId);
                 return (
                   <li key={player.playerId}>

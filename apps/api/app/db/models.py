@@ -64,6 +64,16 @@ class Season(Base):
     gameweeks: Mapped[list["Gameweek"]] = relationship(back_populates="season")
 
 
+class ChipAllowance(Base):
+    __tablename__ = "ChipAllowance"
+    __table_args__ = (UniqueConstraint("seasonId", "chip"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=cuid)
+    seasonId: Mapped[str] = mapped_column(String, ForeignKey("Season.id", ondelete="CASCADE"))
+    chip: Mapped[str] = mapped_column(String)
+    count: Mapped[int] = mapped_column(Integer)
+
+
 class Gameweek(Base):
     __tablename__ = "Gameweek"
     __table_args__ = (UniqueConstraint("seasonId", "number"),)
@@ -184,6 +194,7 @@ class LineupPlan(Base):
     gameweekId: Mapped[str] = mapped_column(String, ForeignKey("Gameweek.id"))
     transfersMade: Mapped[int] = mapped_column(Integer, default=0)
     transferCost: Mapped[int] = mapped_column(Integer, default=0)
+    chipUsed: Mapped[str | None] = mapped_column(String, nullable=True)
     bank: Mapped[int] = mapped_column(Integer, default=0)
     teamValue: Mapped[int] = mapped_column(Integer, default=0)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow)

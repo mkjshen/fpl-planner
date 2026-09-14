@@ -29,6 +29,13 @@ class LineupOut(BaseModel):
     freeTransfers: int
     transferCost: int
     laterPlansAffected: bool = False
+    # The chip activated on this specific gameweek's own saved plan, if
+    # any — never a chip inherited from an earlier cascaded plan.
+    chipUsed: str | None = None
+    # How many uses of each chip type remain this season (already excludes
+    # real past usage and every other gameweek's planned usage), keyed by
+    # chip name. A chip not offered this season is simply absent.
+    chipsRemaining: dict[str, int] = {}
     players: list[SquadPlayerOut]
 
 
@@ -42,3 +49,5 @@ class LineupPlayerInput(BaseModel):
 
 class LineupUpdateRequest(BaseModel):
     players: list[LineupPlayerInput]
+    # None clears any chip previously saved for this gameweek's plan.
+    chip: str | None = None
