@@ -189,22 +189,31 @@ export function Pitch({
   const byPosition = (position: Position) =>
     starting.filter((p) => p.position === position).sort((a, b) => a.squadPosition - b.squadPosition);
 
-  const formation = (["DEF", "MID", "FWD"] as const)
-    .map((position) => byPosition(position).length)
-    .join("-");
-
   return (
-    <div className="relative">
-      <span className="absolute top-2 left-1/2 -translate-x-1/2 rounded-full bg-black/30 px-2 py-0.5 text-xs font-medium text-white">
-        {formation}
-      </span>
-      <div
-        className="flex flex-col justify-between gap-4 rounded-xl border border-black/10 px-2 py-10 sm:px-6"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(180deg, #3d8c40 0, #3d8c40 12.5%, #439648 12.5%, #439648 25%)",
-        }}
-      >
+    <div
+      className="relative overflow-hidden rounded-2xl border-2 border-black/10 shadow-[inset_0_0_50px_rgba(0,0,0,0.3)] dark:border-white/10"
+      style={{
+        backgroundImage:
+          "repeating-linear-gradient(180deg, #3d8c40 0, #3d8c40 12.5%, #439648 12.5%, #439648 25%)",
+      }}
+    >
+      {/* Pitch markings — halfway line, center circle, and the goal-end box
+          behind the goalkeeper row — purely decorative, so pointer-events
+          are disabled and every card interaction still lands on the real
+          player cards painted above via z-10. */}
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-x-0 top-1/2 border-t border-white/25" />
+        <div className="absolute top-1/2 left-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25" />
+        <div className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
+        <div className="absolute inset-x-0 top-0 left-1/2 h-[16%] w-[64%] -translate-x-1/2 border border-t-0 border-white/25" />
+        <div className="absolute top-0 left-1/2 h-[7%] w-[34%] -translate-x-1/2 border border-t-0 border-white/25" />
+        <div className="absolute top-0 left-0 h-3 w-3 rounded-br-full border-r border-b border-white/25" />
+        <div className="absolute top-0 right-0 h-3 w-3 rounded-bl-full border-l border-b border-white/25" />
+        <div className="absolute bottom-0 left-0 h-3 w-3 rounded-tr-full border-r border-t border-white/25" />
+        <div className="absolute right-0 bottom-0 h-3 w-3 rounded-tl-full border-t border-l border-white/25" />
+      </div>
+
+      <div className="relative z-10 flex flex-col justify-between gap-4 px-2 py-10 sm:px-6">
         {PITCH_ROWS.map((position) => (
           <div key={position} className="flex flex-wrap items-center justify-center gap-2 xl:gap-6">
             {byPosition(position).map((player) => (
