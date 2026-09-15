@@ -153,13 +153,15 @@ export function PlayerCard({
           </span>
         )}
         {player.clubCode !== null && (
-          <Image
-            src={shirtUrl(player.clubCode, player.position)}
-            alt=""
-            width={56}
-            height={56}
-            className="h-10 w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:h-14 xl:w-14"
-          />
+          <div className="rounded-2xl bg-white/40 p-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:p-2">
+            <Image
+              src={shirtUrl(player.clubCode, player.position)}
+              alt=""
+              width={56}
+              height={56}
+              className="h-10 w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:h-14 xl:w-14"
+            />
+          </div>
         )}
       </div>
       <span
