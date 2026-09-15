@@ -268,33 +268,31 @@ export function PlayerSearchResults({
                             ? "Transfer a player out first to bring someone in"
                             : `Can't replace a ${requiredPosition} with a ${player.position} — same-position swaps only`
                       }
-                      className={`flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                      className={`flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
                         selectable
                           ? "cursor-pointer hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
                           : "cursor-not-allowed opacity-40"
                       }`}
                     >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="w-9 shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
-                          {player.position}
-                        </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="truncate font-medium text-black dark:text-zinc-50">
                           {player.webName}
                         </span>
-                        <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
-                          {player.club}
-                        </span>
-                        {isReincluded ? (
-                          <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                            Transferred out
-                          </span>
-                        ) : (
-                          STATUS_LABELS[player.status] && (
-                            <span className="shrink-0 text-xs text-red-600 dark:text-red-400">
-                              {STATUS_LABELS[player.status]}
+                        <span className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="shrink-0">{player.position}</span>
+                          <span className="truncate">{player.club}</span>
+                          {isReincluded ? (
+                            <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
+                              Transferred out
                             </span>
-                          )
-                        )}
+                          ) : (
+                            STATUS_LABELS[player.status] && (
+                              <span className="shrink-0 text-red-600 dark:text-red-400">
+                                {STATUS_LABELS[player.status]}
+                              </span>
+                            )
+                          )}
+                        </span>
                       </span>
                       <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
                         {formatPrice(player.currentPrice)}
