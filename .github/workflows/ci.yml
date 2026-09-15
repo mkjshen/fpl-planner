@@ -54,6 +54,12 @@ jobs:
       - name: Run pytest
         working-directory: apps/api
         run: pytest -v
+        env:
+          # app/core/config.py's Settings() constructs eagerly at import
+          # time (via app/db/base.py) and has no default — needs this set
+          # even though the tests themselves connect via conftest.py's own
+          # hardcoded TEST_DATABASE_URL, not this one.
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/fpl_planner_test
 
   frontend-unit:
     name: Frontend (lint + Jest)
@@ -112,6 +118,14 @@ jobs:
       - name: Apply Prisma migrations
         working-directory: packages/db
         run: npx prisma migrate deploy
+
+      # packages/db/generated/prisma is gitignored (build output, not
+      # source) — apps/web's own code imports from it directly, so it has
+      # to exist before `next dev` (started below by Playwright's
+      # webServer) tries to compile anything that touches @fpl-planner/db.
+      - name: Generate the Prisma client
+        working-directory: packages/db
+        run: npx prisma generate
 
       - uses: actions/setup-python@v5
         with:
