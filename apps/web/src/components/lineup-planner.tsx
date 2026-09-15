@@ -122,8 +122,7 @@ export function LineupPlanner({
   // to and `dirty` compares against) mirrors `savedPlayers`'s role.
   const [chip, setChip] = useState<Chip | null>(lineup.chipUsed);
   const [savedChip, setSavedChip] = useState<Chip | null>(lineup.chipUsed);
-  const [chipsTotal, setChipsTotal] = useState(lineup.chipsTotal);
-  const [chipsRemaining, setChipsRemaining] = useState(lineup.chipsRemaining);
+  const [chipWindows, setChipWindows] = useState(lineup.chipWindows);
   const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   // Every player currently transferred out but not yet replaced — several
@@ -354,8 +353,7 @@ export function LineupPlanner({
     setFreeTransfers(fresh.freeTransfers);
     setChip(fresh.chipUsed);
     setSavedChip(fresh.chipUsed);
-    setChipsTotal(fresh.chipsTotal);
-    setChipsRemaining(fresh.chipsRemaining);
+    setChipWindows(fresh.chipWindows);
     setLaterPlansAffected(false);
     setResettingAll(false);
     setConfirmingResetAll(false);
@@ -393,8 +391,7 @@ export function LineupPlanner({
       setFreeTransfers(result.lineup.freeTransfers);
       setChip(result.lineup.chipUsed);
       setSavedChip(result.lineup.chipUsed);
-      setChipsTotal(result.lineup.chipsTotal);
-      setChipsRemaining(result.lineup.chipsRemaining);
+      setChipWindows(result.lineup.chipWindows);
       setLaterPlansAffected(result.lineup.laterPlansAffected);
       setMessage("Saved.");
       setMessageTone("success");
@@ -472,23 +469,33 @@ export function LineupPlanner({
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {ALL_CHIPS.map((c) => {
                 const active = chip === c;
-                const total = chipsTotal[c];
-                const left = chipsRemaining[c] ?? 0;
-                const used = total !== undefined ? total - left : 0;
-                const selectable = active || left > 0;
+                const windows = chipWindows[c] ?? [];
+                // The window covering the gameweek being planned right now —
+                // real FPL splits each chip into first-half/second-half
+                // windows that don't share uses, so whether this chip can be
+                // picked here depends on *which* window this gameweek falls
+                // in, not a season-wide total.
+                const windowHere = windows.find(
+                  (w) => w.startEvent <= selectedGameweek && selectedGameweek <= w.stopEvent,
+                );
+                const selectable = active || windowHere?.status === "available";
+                const title =
+                  windowHere === undefined
+                    ? windows.length === 0
+                      ? "Not offered this season"
+                      : `${CHIP_LABELS[c]} isn't usable in gameweek ${selectedGameweek} this season`
+                    : active
+                      ? `Click to remove ${CHIP_LABELS[c]} from this gameweek`
+                      : windowHere.status === "available"
+                        ? `Usable for gameweeks ${windowHere.startEvent}-${windowHere.stopEvent}`
+                        : `No ${CHIP_LABELS[c]} uses left for gameweeks ${windowHere.startEvent}-${windowHere.stopEvent}`;
                 return (
                   <button
                     key={c}
                     type="button"
                     onClick={() => selectable && toggleChip(c)}
                     disabled={!selectable}
-                    title={
-                      total === undefined
-                        ? "Not offered this season"
-                        : active
-                          ? `Click to remove ${CHIP_LABELS[c]} from this gameweek — ${used} of ${total} used this season`
-                          : `${used} of ${total} used this season`
-                    }
+                    title={title}
                     aria-pressed={active}
                     className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                       active
@@ -499,20 +506,26 @@ export function LineupPlanner({
                     }`}
                   >
                     {CHIP_LABELS[c]}
-                    {/* One dot per use this season this chip allows — filled
-                        for each already spent (real history or planned on
-                        another gameweek), hollow for each still available.
-                        A quick "how much of this chip is left" glance
-                        without reading the tooltip. */}
-                    {total !== undefined && total > 0 && (
+                    {/* One dot per usage window this season gives this chip
+                        (real FPL: one for each half of the season) — filled
+                        for a window already spent, a plain ring for one
+                        still open, and a faint dashed ring for one that was
+                        never used and has now lapsed (lost, same as a real
+                        unused chip window not carrying into the next one).
+                        A quick "what's used, open, or lost" glance without
+                        reading the tooltip. */}
+                    {windows.length > 0 && (
                       <span className="inline-flex gap-0.5">
-                        {Array.from({ length: total }).map((_, i) => (
+                        {windows.map((w, i) => (
                           <span
                             key={i}
+                            title={`Gameweeks ${w.startEvent}-${w.stopEvent}: ${w.status}`}
                             className={
-                              i < used
+                              w.status === "used"
                                 ? "h-1.5 w-1.5 rounded-full bg-current opacity-70"
-                                : "h-1.5 w-1.5 rounded-full border border-current opacity-40"
+                                : w.status === "expired"
+                                  ? "h-1.5 w-1.5 rounded-full border border-dashed border-current opacity-20"
+                                  : "h-1.5 w-1.5 rounded-full border border-current opacity-40"
                             }
                           />
                         ))}

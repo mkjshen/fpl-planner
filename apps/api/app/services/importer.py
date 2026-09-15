@@ -1,4 +1,3 @@
-from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -6,8 +5,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    ChipAllowance,
     ChipUsage,
+    ChipWindow,
     Club,
     Fixture,
     FplTeam,
@@ -77,20 +76,27 @@ async def _upsert_season(db: AsyncSession, bootstrap: FplBootstrap) -> Season:
     return season
 
 
-async def _upsert_chip_allowances(db: AsyncSession, season: Season, bootstrap: FplBootstrap) -> None:
-    """How many times each chip can be used this season. The bootstrap
-    "chips" list has one entry per usage *window* (e.g. separate first-half
-    and second-half "wildcard" entries), not one per type — so the count of
-    entries sharing a name, not the deduped set in `chipsAvailable`, is the
-    real per-season allowance."""
-    counts = Counter(CHIP_NAME_MAP.get(c.name, c.name) for c in bootstrap.chips)
-    if not counts:
+async def _upsert_chip_windows(db: AsyncSession, season: Season, bootstrap: FplBootstrap) -> None:
+    """Each chip's usable gameweek windows this season. The bootstrap
+    "chips" list has one entry per window (e.g. separate first-half and
+    second-half "wildcard" entries, each with its own start_event/
+    stop_event) — a window is single-use and doesn't roll into the next
+    one, so this is the real per-season shape, not just a count."""
+    rows = [
+        {
+            "seasonId": season.id,
+            "chip": CHIP_NAME_MAP.get(c.name, c.name),
+            "startEvent": c.start_event,
+            "stopEvent": c.stop_event,
+        }
+        for c in bootstrap.chips
+    ]
+    if not rows:
         return
-    rows = [{"seasonId": season.id, "chip": chip, "count": count} for chip, count in counts.items()]
-    stmt = pg_insert(ChipAllowance).values(rows)
+    stmt = pg_insert(ChipWindow).values(rows)
     stmt = stmt.on_conflict_do_update(
-        index_elements=[ChipAllowance.seasonId, ChipAllowance.chip],
-        set_={"count": stmt.excluded.count},
+        index_elements=[ChipWindow.seasonId, ChipWindow.chip, ChipWindow.startEvent],
+        set_={"stopEvent": stmt.excluded.stopEvent},
     )
     await db.execute(stmt)
     await db.flush()
@@ -387,7 +393,7 @@ async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTe
         fixtures = await client.get_fixtures()
 
     season = await _upsert_season(db, bootstrap)
-    await _upsert_chip_allowances(db, season, bootstrap)
+    await _upsert_chip_windows(db, season, bootstrap)
     gameweeks = await _upsert_gameweeks(db, season, bootstrap)
     await _upsert_clubs_and_players(db, bootstrap)
     await _upsert_fixtures(db, gameweeks, fixtures)

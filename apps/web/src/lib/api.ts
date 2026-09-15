@@ -41,15 +41,22 @@ export type Lineup = Squad & {
   // The chip activated on this specific gameweek's own saved plan, if any —
   // never a chip inherited from an earlier cascaded plan.
   chipUsed: Chip | null;
-  // Total uses of each chip type this season allows, keyed by chip name — a
-  // chip not offered this season is simply absent. Paired with
-  // chipsRemaining so the UI can show "X of Y used".
-  chipsTotal: Partial<Record<Chip, number>>;
-  // Uses left this season for each chip this season offers, keyed by chip
-  // name. A chip already active on the viewed gameweek can show 0 here
-  // while still being the selected option — compare against `chipUsed`
-  // before treating a chip as unavailable.
-  chipsRemaining: Partial<Record<Chip, number>>;
+  // Every usage window each chip type has this season (real FPL gives each
+  // chip two: first half and second half of the season), each with its own
+  // status. A chip not offered this season is simply absent. A window
+  // already active on the viewed gameweek shows "used" — compare against
+  // `chipUsed` before treating that specific chip as unavailable here.
+  chipWindows: Partial<Record<Chip, ChipWindowStatus[]>>;
+};
+
+export type ChipWindowStatus = {
+  startEvent: number;
+  stopEvent: number;
+  // "used" — spent, by real history or another gameweek's plan.
+  // "available" — not spent, and not yet past its stopEvent.
+  // "expired" — never used and its stopEvent has already passed; lost for
+  // the rest of the season, same as a real unused chip window.
+  status: "used" | "available" | "expired";
 };
 
 export type Chip = "wildcard" | "free_hit" | "bench_boost" | "triple_captain";

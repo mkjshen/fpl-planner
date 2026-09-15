@@ -37,6 +37,13 @@ class FplElement(BaseModel):
 
 class FplChip(BaseModel):
     name: str
+    # The inclusive gameweek range this specific usage window covers — real
+    # FPL gives each chip two separate windows (first half/second half of
+    # the season) as two entries sharing a name here, not one entry with a
+    # count. Confirmed against the live API, not assumed: e.g. this
+    # season's wildcard windows are gameweeks 2-19 and 20-38.
+    start_event: int
+    stop_event: int
 
 
 class FplBootstrap(BaseModel):

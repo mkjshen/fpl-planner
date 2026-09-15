@@ -1,12 +1,10 @@
-from collections import Counter
-
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
-    ChipAllowance,
     ChipUsage,
+    ChipWindow,
     FplTeam,
     Gameweek,
     LineupPlan,
@@ -17,7 +15,7 @@ from app.db.models import (
     SquadSnapshot,
     TransferHistory,
 )
-from app.schemas.lineup import LineupOut, LineupPlayerInput
+from app.schemas.lineup import ChipWindowOut, LineupOut, LineupPlayerInput
 from app.services.squad import build_player_rows
 
 Slot = tuple[int, bool, int, bool, bool, int, int]
@@ -237,41 +235,72 @@ async def available_free_transfers(
     return available
 
 
-async def _chip_allowances(db: AsyncSession, season_id: str) -> dict[str, int]:
+async def _chip_windows(db: AsyncSession, season_id: str) -> dict[str, list[tuple[int, int]]]:
+    """Every usable gameweek window each chip has this season, keyed by
+    chip name, sorted earliest-first. Real FPL gives each chip exactly two:
+    first half and second half — but nothing here assumes that count or
+    where the halves split; it's whatever the FPL bootstrap API's chips
+    list said at the last import (see _upsert_chip_windows)."""
     result = await db.execute(
-        select(ChipAllowance.chip, ChipAllowance.count).where(ChipAllowance.seasonId == season_id)
+        select(ChipWindow.chip, ChipWindow.startEvent, ChipWindow.stopEvent)
+        .where(ChipWindow.seasonId == season_id)
+        .order_by(ChipWindow.startEvent)
     )
-    return dict(result.all())
+    windows: dict[str, list[tuple[int, int]]] = {}
+    for chip, start, stop in result.all():
+        windows.setdefault(chip, []).append((start, stop))
+    return windows
 
 
-async def _chip_usage_counts(db: AsyncSession, fpl_team: FplTeam) -> dict[str, int]:
-    """How many times each chip has already been spent this season — real
-    history plus every other gameweek's currently-planned usage (a chip can
-    only be planned once across all of a team's saved plans, same as real
-    FPL only lets you play each instance once)."""
-    counts: Counter = Counter()
-    real = await db.execute(select(ChipUsage.chip).where(ChipUsage.fplTeamId == fpl_team.id))
-    counts.update(row[0] for row in real.all())
+def _window_for_gameweek(
+    windows: list[tuple[int, int]], gameweek_number: int
+) -> tuple[int, int] | None:
+    return next((w for w in windows if w[0] <= gameweek_number <= w[1]), None)
+
+
+async def _chip_usage_events(db: AsyncSession, fpl_team: FplTeam) -> list[tuple[str, int]]:
+    """(chip, gameweekNumber) for every time this chip has been spent —
+    real history, or another gameweek's currently-planned usage (a chip
+    window is single-use across all of a team's saved plans, same as real
+    FPL only lets you play each window once)."""
+    real = await db.execute(
+        select(ChipUsage.chip, Gameweek.number)
+        .join(Gameweek, ChipUsage.gameweekId == Gameweek.id)
+        .where(ChipUsage.fplTeamId == fpl_team.id)
+    )
     planned = await db.execute(
-        select(LineupPlan.chipUsed).where(
-            LineupPlan.fplTeamId == fpl_team.id, LineupPlan.chipUsed.isnot(None)
-        )
+        select(LineupPlan.chipUsed, Gameweek.number)
+        .join(Gameweek, LineupPlan.gameweekId == Gameweek.id)
+        .where(LineupPlan.fplTeamId == fpl_team.id, LineupPlan.chipUsed.isnot(None))
     )
-    counts.update(row[0] for row in planned.all())
-    return dict(counts)
+    return list(real.all()) + list(planned.all())
 
 
-async def chips_remaining(db: AsyncSession, fpl_team: FplTeam, season_id: str) -> dict[str, int]:
-    """Uses left this season for each chip this season actually offers, counting
-    every gameweek's currently-planned usage — including whichever gameweek is
-    being viewed right now, if it has one active. A chip already active on the
-    viewed gameweek can therefore show 0 remaining while still being the
-    selected option there; callers comparing against `chipUsed` (as the
-    planner UI does) should treat "selected here" as always allowed regardless
-    of this count."""
-    allowances = await _chip_allowances(db, season_id)
-    used = await _chip_usage_counts(db, fpl_team)
-    return {chip: max(count - used.get(chip, 0), 0) for chip, count in allowances.items()}
+async def chip_window_statuses(
+    db: AsyncSession, fpl_team: FplTeam, season_id: str, current_gameweek_number: int
+) -> dict[str, list[ChipWindowOut]]:
+    """Every chip window this season offers, each labeled "used" (spent —
+    including whichever gameweek is being viewed right now, if it has one
+    active; callers comparing against `chipUsed`, as the planner UI does,
+    should treat "selected here" as always allowed regardless), "expired"
+    (never used and its stopEvent has already passed — lost, same as a real
+    unused chip window not rolling into the next one), or "available"."""
+    windows = await _chip_windows(db, season_id)
+    events = await _chip_usage_events(db, fpl_team)
+    statuses: dict[str, list[ChipWindowOut]] = {}
+    for chip, ranges in windows.items():
+        chip_gameweeks = [gw for used_chip, gw in events if used_chip == chip]
+        chip_statuses = []
+        for start, stop in ranges:
+            if any(start <= gw <= stop for gw in chip_gameweeks):
+                status = "used"
+            elif stop < current_gameweek_number:
+                status = "expired"
+            else:
+                status = "available"
+            chip_statuses.append(ChipWindowOut(startEvent=start, stopEvent=stop, status=status))
+        statuses[chip] = chip_statuses
+    return statuses
 
 
 async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) -> LineupOut:
@@ -305,8 +334,9 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
     free_transfers = (
         await available_free_transfers(db, fpl_team, gameweek_number) if is_editable else 0
     )
-    chips_total_map = await _chip_allowances(db, current.seasonId) if current else {}
-    chips_remaining_map = await chips_remaining(db, fpl_team, current.seasonId) if current else {}
+    chip_windows = (
+        await chip_window_statuses(db, fpl_team, current.seasonId, current.number) if current else {}
+    )
 
     return LineupOut(
         fplTeamId=fpl_team.fplTeamId,
@@ -319,8 +349,7 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         freeTransfers=free_transfers,
         transferCost=transfer_cost,
         chipUsed=chip_used,
-        chipsTotal=chips_total_map,
-        chipsRemaining=chips_remaining_map,
+        chipWindows=chip_windows,
         players=players,
     )
 
@@ -420,20 +449,31 @@ async def save_lineup(
     # both structurally invalid and over its chip budget should report the
     # more fundamental error, not an incidental one about chip allowance.
     if chip is not None:
+        chip_label = chip.replace("_", " ")
         if chip not in VALID_CHIPS:
             raise LineupValidationError(f"Unknown chip: {chip}")
         season = await db.get(Season, current.seasonId)
         if season is None or chip not in season.chipsAvailable:
-            raise LineupValidationError(f"{chip.replace('_', ' ')} isn't offered this season")
+            raise LineupValidationError(f"{chip_label} isn't offered this season")
+        windows = await _chip_windows(db, season.id)
+        window = _window_for_gameweek(windows.get(chip, []), gameweek_number)
+        if window is None:
+            raise LineupValidationError(
+                f"{chip_label} can't be used in gameweek {gameweek_number} — outside its usage "
+                "window this season"
+            )
         existing_chip = await db.scalar(
             select(LineupPlan.chipUsed).where(
                 LineupPlan.fplTeamId == fpl_team.id, LineupPlan.gameweekId == gameweek.id
             )
         )
         if chip != existing_chip:
-            remaining = await chips_remaining(db, fpl_team, season.id)
-            if remaining.get(chip, 0) <= 0:
-                raise LineupValidationError(f"No {chip.replace('_', ' ')} uses left this season")
+            events = await _chip_usage_events(db, fpl_team)
+            start, stop = window
+            if any(used_chip == chip and start <= gw <= stop for used_chip, gw in events):
+                raise LineupValidationError(
+                    f"No {chip_label} uses left for gameweeks {start}-{stop}"
+                )
 
     # A transfer is about squad *membership*, not which numbered slot a
     # player sits in — comparing prior_slots to `players` slot-by-slot

@@ -64,14 +64,15 @@ class Season(Base):
     gameweeks: Mapped[list["Gameweek"]] = relationship(back_populates="season")
 
 
-class ChipAllowance(Base):
-    __tablename__ = "ChipAllowance"
-    __table_args__ = (UniqueConstraint("seasonId", "chip"),)
+class ChipWindow(Base):
+    __tablename__ = "ChipWindow"
+    __table_args__ = (UniqueConstraint("seasonId", "chip", "startEvent"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=cuid)
     seasonId: Mapped[str] = mapped_column(String, ForeignKey("Season.id", ondelete="CASCADE"))
     chip: Mapped[str] = mapped_column(String)
-    count: Mapped[int] = mapped_column(Integer)
+    startEvent: Mapped[int] = mapped_column(Integer)
+    stopEvent: Mapped[int] = mapped_column(Integer)
 
 
 class Gameweek(Base):

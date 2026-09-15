@@ -96,25 +96,27 @@ model Season {
   freeTransferRolloverLimit Int
   chipsAvailable           String[] // e.g. ["wildcard", "free_hit", "bench_boost", "triple_captain"]
 
-  gameweeks      Gameweek[]
-  chipAllowances ChipAllowance[]
+  gameweeks   Gameweek[]
+  chipWindows ChipWindow[]
 }
 
-// How many times each chip type can be used this season — the FPL API's
-// bootstrap-static "chips" list has one entry per usage *window* (e.g. two
-// separate "wildcard" entries for its first-half/second-half windows), so
-// the count of entries sharing a name is the real per-season allowance.
-// Deliberately not modeling each window's own start/stop gameweek range —
-// see CLAUDE.md's "Status and deviations" section.
-model ChipAllowance {
-  id       String @id @default(cuid())
-  seasonId String
-  chip     String
-  count    Int
+// One usable window per chip instance — real FPL gives each chip two
+// separate windows (first half/second half of the season), each usable
+// exactly once; an unused window doesn't roll into the next one, it's just
+// lost once its stopEvent gameweek has passed. Pulled directly from the FPL
+// bootstrap API's "chips" list (one entry per window, each with its own
+// start_event/stop_event) rather than assumed — the boundary between
+// windows isn't a fixed gameweek number season to season.
+model ChipWindow {
+  id         String @id @default(cuid())
+  seasonId   String
+  chip       String
+  startEvent Int
+  stopEvent  Int
 
   season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
 
-  @@unique([seasonId, chip])
+  @@unique([seasonId, chip, startEvent])
 }
 
 model Gameweek {
