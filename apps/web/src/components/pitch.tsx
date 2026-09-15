@@ -183,6 +183,33 @@ export function PlayerCard({
 
 const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];
 
+// A forced-perspective trapezoid: narrower at the top (goalkeeper's end,
+// "far away") and full width at the bottom (attackers, "closest to you") —
+// mimics standing behind your own box looking up the pitch instead of a
+// bird's-eye view. Each row is then scaled down to match, so distant rows
+// genuinely look smaller/further back rather than just sitting inside a
+// narrower band. A real CSS 3D transform (perspective + rotateX) would sell
+// this more dramatically, but it distorts and skews the pill text/shirt
+// images inside each card — this trapezoid-and-scale approach keeps every
+// card upright and legible while still reading as "looking down the pitch."
+const PITCH_ROW_SCALE: Record<Position, number> = {
+  GK: 0.78,
+  DEF: 0.86,
+  MID: 0.94,
+  FWD: 1,
+};
+
+// Percent inset of the top edge from each side (bottom edge stays full
+// width) and the corner bevel size, both as percentages of the pitch box.
+const PITCH_TOP_INSET = 12;
+const PITCH_CORNER_CUT = 3;
+
+const PITCH_CLIP_PATH = `polygon(${PITCH_TOP_INSET + PITCH_CORNER_CUT}% 0%, ${
+  100 - PITCH_TOP_INSET - PITCH_CORNER_CUT
+}% 0%, ${100 - PITCH_TOP_INSET}% ${PITCH_CORNER_CUT}%, 100% ${100 - PITCH_CORNER_CUT}%, ${
+  100 - PITCH_CORNER_CUT
+}% 100%, ${PITCH_CORNER_CUT}% 100%, 0% ${100 - PITCH_CORNER_CUT}%, ${PITCH_TOP_INSET}% ${PITCH_CORNER_CUT}%)`;
+
 export function Pitch({
   starting,
   selectedPlayerId,
@@ -207,15 +234,17 @@ export function Pitch({
 
   return (
     <div
-      // Layered gradients + shadows fake a domed, floodlit turf instead of a
-      // flat green rectangle: a soft highlight glows in from the top (like
-      // light falling on a curved surface), the far/bottom edge and corners
-      // sink into shadow, and the outer drop shadow lifts the whole pitch
-      // off the page — the same "glossy 3D card" treatment the official FPL
-      // app's pitch uses, without an actual CSS perspective transform (which
-      // would distort/complicate hit-testing on the player cards above it).
-      className="relative overflow-hidden rounded-2xl border-2 border-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),inset_0_40px_50px_-20px_rgba(0,0,0,0.25),inset_0_-50px_70px_-15px_rgba(0,0,0,0.45),inset_40px_0_50px_-35px_rgba(0,0,0,0.2),inset_-40px_0_50px_-35px_rgba(0,0,0,0.2),0_25px_50px_-12px_rgba(0,0,0,0.45)] dark:border-white/10"
+      // A trapezoid clip-path narrower at the top (see PITCH_CLIP_PATH)
+      // does the actual "looking down the pitch toward the goalkeeper"
+      // perspective shift; the layered gradients + shadows on top of that
+      // add a domed, floodlit feel — a soft highlight glowing in from the
+      // top, the far/bottom edge and corners sinking into shadow, and an
+      // outer drop shadow lifting the whole pitch off the page. No border
+      // here: a plain CSS border can't follow the clipped diagonal edges,
+      // only the (now-narrower) top and (still full-width) bottom ones.
+      className="relative overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.15),inset_0_40px_50px_-20px_rgba(0,0,0,0.25),inset_0_-50px_70px_-15px_rgba(0,0,0,0.45),inset_40px_0_50px_-35px_rgba(0,0,0,0.2),inset_-40px_0_50px_-35px_rgba(0,0,0,0.2),0_25px_50px_-12px_rgba(0,0,0,0.45)]"
       style={{
+        clipPath: PITCH_CLIP_PATH,
         backgroundImage: [
           "repeating-linear-gradient(180deg, #3d8c40 0, #3d8c40 12.5%, #439648 12.5%, #439648 25%)",
           "radial-gradient(120% 55% at 50% 0%, rgba(255,255,255,0.18), rgba(255,255,255,0) 65%)",
@@ -226,22 +255,24 @@ export function Pitch({
       {/* Pitch markings — halfway line, center circle, and the goal-end box
           behind the goalkeeper row — purely decorative, so pointer-events
           are disabled and every card interaction still lands on the real
-          player cards painted above via z-10. */}
+          player cards painted above via z-10. Sized/positioned as percents
+          of the untrimmed box, so the trapezoid clip-path above naturally
+          cuts them to the same silhouette as the pitch itself. */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute inset-x-0 top-1/2 border-t border-white/25" />
         <div className="absolute top-1/2 left-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25" />
         <div className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
         <div className="absolute inset-x-0 top-0 left-1/2 h-[16%] w-[64%] -translate-x-1/2 border border-t-0 border-white/25" />
         <div className="absolute top-0 left-1/2 h-[7%] w-[34%] -translate-x-1/2 border border-t-0 border-white/25" />
-        <div className="absolute top-0 left-0 h-3 w-3 rounded-br-full border-r border-b border-white/25" />
-        <div className="absolute top-0 right-0 h-3 w-3 rounded-bl-full border-l border-b border-white/25" />
-        <div className="absolute bottom-0 left-0 h-3 w-3 rounded-tr-full border-r border-t border-white/25" />
-        <div className="absolute right-0 bottom-0 h-3 w-3 rounded-tl-full border-t border-l border-white/25" />
       </div>
 
       <div className="relative z-10 flex flex-col justify-between gap-4 px-2 py-10 sm:px-6">
         {PITCH_ROWS.map((position) => (
-          <div key={position} className="flex flex-wrap items-center justify-center gap-2 xl:gap-6">
+          <div
+            key={position}
+            className="flex flex-wrap items-center justify-center gap-2 xl:gap-6"
+            style={{ transform: `scale(${PITCH_ROW_SCALE[position]})` }}
+          >
             {byPosition(position).map((player) => (
               <PlayerCard
                 key={player.playerId}
