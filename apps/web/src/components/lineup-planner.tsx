@@ -338,12 +338,36 @@ export function LineupPlanner({
     setActiveTransferOutId(remaining[0] ?? null);
   }
 
+  // Both toggle (checking an already-assigned player clears the role
+  // entirely, rather than being a no-op — validationError already surfaces
+  // "Pick a captain"/"Pick a vice-captain" for that transient state) and
+  // enforce that a player can't hold both roles at once: assigning one
+  // strips the other from that same player, so the two checkboxes in the
+  // profile modal can never both end up checked for the same player.
   function setCaptain(playerId: number) {
-    setPlayers((prev) => prev.map((p) => ({ ...p, isCaptain: p.playerId === playerId })));
+    setPlayers((prev) => {
+      const makingCaptain = !prev.find((p) => p.playerId === playerId)?.isCaptain;
+      return prev.map((p) =>
+        p.playerId === playerId
+          ? { ...p, isCaptain: makingCaptain, isViceCaptain: makingCaptain ? false : p.isViceCaptain }
+          : p.isCaptain
+            ? { ...p, isCaptain: false }
+            : p,
+      );
+    });
   }
 
   function setViceCaptain(playerId: number) {
-    setPlayers((prev) => prev.map((p) => ({ ...p, isViceCaptain: p.playerId === playerId })));
+    setPlayers((prev) => {
+      const makingViceCaptain = !prev.find((p) => p.playerId === playerId)?.isViceCaptain;
+      return prev.map((p) =>
+        p.playerId === playerId
+          ? { ...p, isViceCaptain: makingViceCaptain, isCaptain: makingViceCaptain ? false : p.isCaptain }
+          : p.isViceCaptain
+            ? { ...p, isViceCaptain: false }
+            : p,
+      );
+    });
   }
 
   // Sell/Substitute in the profile modal — same underlying actions the
