@@ -84,11 +84,11 @@ export function PlayerCard({
   onActivate?: () => void;
 }) {
   // Styled after the official FPL pitch view: no big bordered card box —
-  // just a shirt "standing" on the pitch with a couple of small white/light
-  // labels underneath, since a card sits on both the green pitch and the
-  // plain page background (the bench), an opaque pill under each line of
-  // text keeps it legible either way without needing a whole boxed card
-  // (and its own bg/border/shadow) to do that job.
+  // just a shirt "standing" on the pitch with a couple of small pill labels
+  // underneath, each with its own opaque light/dark bg (matching the site
+  // theme, not the always-white labels FPL itself uses) so they stay
+  // legible against both the green pitch and the plain page background
+  // (the bench) without needing a whole boxed card to do that job.
   if (blank) {
     return (
       <button
@@ -107,12 +107,12 @@ export function PlayerCard({
           className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
             activeBlank
               ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
-              : "border-black/10 bg-white text-zinc-400 dark:text-zinc-500"
+              : "border-black/10 bg-white text-zinc-400 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-500"
           }`}
         >
           Empty
         </span>
-        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-500 xl:text-xs">
+        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-500 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-400 xl:text-xs">
           {activeBlank ? "Pick a player" : "Tap to fill"}
         </span>
       </button>
@@ -136,7 +136,7 @@ export function PlayerCard({
             }}
             aria-label={`Remove ${player.webName} from your team`}
             title="Remove from team"
-            className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+            className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
           >
             ×
           </button>
@@ -146,7 +146,7 @@ export function PlayerCard({
             className={`absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
               player.isCaptain
                 ? "bg-accent text-accent-foreground"
-                : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:text-accent"
+                : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
             }`}
           >
             {player.isCaptain ? "C" : "VC"}
@@ -166,12 +166,12 @@ export function PlayerCard({
         className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
           selected
             ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
-            : "border-black/10 bg-white text-zinc-900"
+            : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
         }`}
       >
         {player.webName}
       </span>
-      <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 xl:text-xs">
+      <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:text-xs">
         {player.opponent ?? player.club} {formatPrice(player.currentPrice)}
       </span>
     </div>
