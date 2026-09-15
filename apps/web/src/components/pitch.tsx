@@ -162,7 +162,7 @@ export function PlayerCard({
           />
         )}
         <span
-          className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
+          className={`mt-1.5 w-full truncate rounded-t-md border border-b-0 px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
             selected
               ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
               : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
@@ -170,7 +170,7 @@ export function PlayerCard({
         >
           {player.webName}
         </span>
-        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:text-xs">
+        <span className="w-full truncate rounded-b-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:text-xs">
           {player.opponent ?? player.club} {formatPrice(player.currentPrice)}
         </span>
       </div>
