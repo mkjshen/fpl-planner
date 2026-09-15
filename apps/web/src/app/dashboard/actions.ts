@@ -4,6 +4,7 @@ import {
   type Chip,
   getLineup,
   getPlayerProfile,
+  getSuggestedTransfers,
   type Lineup,
   type LineupPlayerInput,
   LineupValidationError,
@@ -14,6 +15,7 @@ import {
   resetAllPlans,
   saveLineup,
   searchPlayers,
+  type Suggestions,
 } from "@/lib/api";
 
 export async function saveLineupAction(
@@ -55,4 +57,11 @@ export async function searchPlayersAction(
 
 export async function getPlayerProfileAction(playerId: number): Promise<PlayerProfile> {
   return getPlayerProfile(playerId);
+}
+
+export async function getSuggestedTransfersAction(
+  userId: string,
+  gameweekNumber: number,
+): Promise<Suggestions | null> {
+  return getSuggestedTransfers(userId, gameweekNumber);
 }

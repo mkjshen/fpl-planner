@@ -191,8 +191,13 @@ export function PlayerSearchResults({
       cancelled = true;
       clearTimeout(timeout);
     };
+    // searchAction deliberately excluded — calling a server action refreshes
+    // the route, which hands down a *new* reference for every server-action
+    // prop; depending on it here would re-fire this effect on every refresh
+    // it itself triggers (an infinite fetch loop — same root cause fixed in
+    // lineup-planner.tsx's suggestions effect, see that comment for detail).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedPositions, sortBy, userId, gameweekNumber, searchAction]);
+  }, [query, selectedPositions, sortBy, userId, gameweekNumber]);
 
   // Infinite scroll: fetch the next page once scrolled near the bottom, so
   // the list can be scrolled through in full instead of being capped and
@@ -228,15 +233,19 @@ export function PlayerSearchResults({
     // room to scroll less than 300px, or not fill the panel at all.
     maybeLoadMore();
     return () => root.removeEventListener("scroll", maybeLoadMore);
-    // query/selectedPositions/sortBy/userId/gameweekNumber/searchAction all
-    // feed maybeLoadMore's closure (via positionsFilter and the searchAction
-    // call) but weren't listed here before — the listener could survive a
-    // filter or query change still bound to the stale params (the debounced
-    // search effect doesn't touch loading/players.length/total until its
-    // 300ms timeout fires), fetching the next page for whatever was
-    // searched previously instead of the new filter, up until the debounce
-    // caught up and overwrote it anyway.
-  }, [players.length, total, loading, loadingMore, query, selectedPositions, sortBy, userId, gameweekNumber, searchAction]);
+    // query/selectedPositions/sortBy/userId/gameweekNumber all feed
+    // maybeLoadMore's closure but weren't listed here before — the listener
+    // could survive a filter or query change still bound to the stale
+    // params (the debounced search effect doesn't touch
+    // loading/players.length/total until its 300ms timeout fires), fetching
+    // the next page for whatever was searched previously instead of the new
+    // filter, up until the debounce caught up and overwrote it anyway.
+    // searchAction itself is deliberately NOT listed, unlike the rest —
+    // see the debounced search effect above for why (its reference churns
+    // on every route refresh a server-action call triggers; depending on it
+    // caused an infinite fetch loop).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players.length, total, loading, loadingMore, query, selectedPositions, sortBy, userId, gameweekNumber]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const reincludeMatches = reincludePlayers.filter(

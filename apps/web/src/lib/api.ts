@@ -216,6 +216,39 @@ export async function getLineup(userId: string, gameweekNumber: number): Promise
   return response.json();
 }
 
+export type SuggestedTransfer = {
+  outPlayer: PlayerListItem;
+  inPlayer: PlayerListItem;
+  // What outPlayer would actually sell for (see the backend's
+  // lineup.py:_resell_price) — can be less than outPlayer.currentPrice, so
+  // this is what the Apply flow needs to preview the bank impact.
+  outPlayerSellingPrice: number;
+  projectedGain: number;
+  requiresHit: boolean;
+};
+
+export type Suggestions = {
+  suggestions: SuggestedTransfer[];
+  freeTransfersAvailable: number;
+};
+
+export async function getSuggestedTransfers(
+  userId: string,
+  gameweekNumber: number,
+): Promise<Suggestions | null> {
+  const response = await fetch(
+    `${API_BASE_URL}/teams/by-user/${userId}/suggestions/${gameweekNumber}`,
+    { cache: "no-store" },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`Failed to load suggested transfers: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function saveLineup(
   userId: string,
   gameweekNumber: number,

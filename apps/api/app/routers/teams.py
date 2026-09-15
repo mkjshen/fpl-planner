@@ -20,10 +20,12 @@ from app.schemas.lineup import (
     PlannableGameweeksOut,
 )
 from app.schemas.squad import ImportTeamRequest, SquadOut
+from app.schemas.suggestions import SuggestionsOut
 from app.services import lineup as lineup_service
 from app.services.fpl_client import FplPicksUnavailableError, FplTeamNotFoundError
 from app.services.importer import import_team
 from app.services.squad import build_player_rows
+from app.services.suggestions import suggest_transfers
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -93,6 +95,17 @@ async def get_lineup(
     except lineup_service.GameweekNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error))
     except lineup_service.LineupValidationError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+
+@router.get("/by-user/{user_id}/suggestions/{gameweek_number}", response_model=SuggestionsOut)
+async def get_suggestions(
+    user_id: str, gameweek_number: int, db: AsyncSession = Depends(get_db)
+) -> SuggestionsOut:
+    fpl_team = await _get_fpl_team_or_404(db, user_id)
+    try:
+        return await suggest_transfers(db, fpl_team, gameweek_number)
+    except lineup_service.GameweekNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error))
 
 

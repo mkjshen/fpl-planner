@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Chip, Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
-import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
+import type {
+  Chip,
+  Lineup,
+  LineupPlayerInput,
+  PlayerListItem,
+  SquadPlayer,
+  SuggestedTransfer,
+} from "@/lib/api";
+import { formatPrice, Pitch, PlayerCard, shirtUrl, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 import { Banner } from "@/components/feedback";
@@ -96,6 +104,7 @@ export function LineupPlanner({
   resetAllAction,
   searchAction,
   profileAction,
+  suggestionsAction,
 }: {
   userId: string;
   lineup: Lineup;
@@ -110,6 +119,10 @@ export function LineupPlanner({
   resetAllAction: (userId: string, gameweekNumber: number) => Promise<Lineup>;
   searchAction: SearchAction;
   profileAction: ProfileAction;
+  suggestionsAction: (
+    userId: string,
+    gameweekNumber: number,
+  ) => Promise<{ suggestions: SuggestedTransfer[]; freeTransfersAvailable: number } | null>;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
@@ -145,6 +158,46 @@ export function LineupPlanner({
   const [confirmingResetAll, setConfirmingResetAll] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<"success" | "error" | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestedTransfer[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+
+  // One fetch per mount (this component remounts per gameweek via the
+  // parent's `key={selectedGameweek}`, same pattern PlayerSearchResults
+  // uses) — not tied to `players`/live edits, so a suggestion can go stale
+  // relative to in-progress manual transfers; filtered against current
+  // squad membership below rather than re-fetched on every edit.
+  //
+  // `suggestionsAction` is deliberately NOT a dependency, even though it's
+  // referenced inside: calling a server action causes Next.js to refresh
+  // the route, which re-runs the server-component parent and hands down a
+  // *new* reference for every server-action prop (this one included) —
+  // depending on it here made the effect re-fire on every refresh it
+  // itself triggered, an infinite fetch loop (visible as constant
+  // flickering, confirmed via ~40 suggestions requests/sec in the network
+  // log before this fix). Only userId/selectedGameweek/isEditable should
+  // ever actually trigger a re-fetch.
+  useEffect(() => {
+    // Skipped without touching loadingSuggestions/etc — the panel that
+    // reads them is itself gated on lineup.isEditable and never renders
+    // here, so there's nothing for a stuck "loading" value to affect.
+    if (!lineup.isEditable) return;
+    let cancelled = false;
+    suggestionsAction(userId, selectedGameweek)
+      .then((result) => {
+        if (!cancelled) setSuggestions(result?.suggestions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestionsError("Couldn't load suggested transfers.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSuggestions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, selectedGameweek, lineup.isEditable]);
 
   const gameweekIndex = gameweekOptions.findIndex((gw) => gw.number === selectedGameweek);
   const previousGameweek = gameweekIndex > 0 ? gameweekOptions[gameweekIndex - 1] : null;
@@ -235,6 +288,16 @@ export function LineupPlanner({
       status: "a",
     }));
 
+  // Suggestions are fetched once per mount (see the effect above), so a
+  // manual edit made since then can leave one referencing a player who's no
+  // longer actually in the squad, or who's already been bought some other
+  // way — filtered out here against the live squad rather than re-fetched
+  // on every edit.
+  const currentPlayerIds = new Set(players.map((p) => p.playerId));
+  const visibleSuggestions = suggestions.filter(
+    (s) => currentPlayerIds.has(s.outPlayer.playerId) && !currentPlayerIds.has(s.inPlayer.playerId),
+  );
+
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
     // No substitution pending — clicking a player views their profile
@@ -312,6 +375,14 @@ export function LineupPlanner({
     setSelectedId(null);
     setMessage(null);
     setMessageTone(null);
+  }
+
+  // Applies a suggested swap exactly like picking the same replacement
+  // manually would (handleTransfer doesn't care how outPlayerId/inPlayer
+  // were chosen) — no separate execution path for suggestions vs. manual
+  // transfers.
+  function applySuggestion(suggestion: SuggestedTransfer) {
+    handleTransfer(suggestion.outPlayer.playerId, suggestion.inPlayer);
   }
 
   function handleTransferOutClick(playerId: number) {
@@ -749,6 +820,93 @@ export function LineupPlanner({
                 onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
               />
             </div>
+          </div>
+        )}
+
+        {lineup.isEditable && (
+          <div className="mt-6 rounded-2xl border border-border bg-black/[.02] p-4 dark:bg-white/[.04]">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-black dark:text-zinc-50">Suggested transfers</p>
+              {!loadingSuggestions && visibleSuggestions.length > 0 && (
+                <span className="hidden shrink-0 text-xs text-zinc-500 sm:inline dark:text-zinc-400">
+                  Based on recent form + points per game — not a prediction
+                </span>
+              )}
+            </div>
+            {loadingSuggestions ? (
+              <div className="mt-3 flex animate-pulse gap-3 overflow-hidden">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square w-36 shrink-0 rounded-xl bg-black/[.06] dark:bg-white/[.08]"
+                  />
+                ))}
+              </div>
+            ) : suggestionsError ? (
+              <p className="mt-3 text-sm text-red-600 dark:text-red-400">{suggestionsError}</p>
+            ) : visibleSuggestions.length === 0 ? (
+              <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                No standout swaps found for this squad right now.
+              </p>
+            ) : (
+              // A horizontal, scroll-snapped strip rather than a vertical
+              // list — native touch/trackpad scroll gives carousel-like
+              // browsing for free, no JS or extra state needed.
+              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+                {visibleSuggestions.map((s) => (
+                  <div
+                    key={`${s.outPlayer.playerId}-${s.inPlayer.playerId}`}
+                    className="flex w-36 shrink-0 snap-start flex-col items-center gap-1.5 rounded-xl border border-border bg-white p-3 text-center dark:bg-zinc-950"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      {s.outPlayer.clubCode !== null && (
+                        <Image
+                          src={shirtUrl(s.outPlayer.clubCode, s.outPlayer.position)}
+                          alt=""
+                          width={26}
+                          height={26}
+                          className="h-[26px] w-[26px] object-contain opacity-40"
+                        />
+                      )}
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500">→</span>
+                      {s.inPlayer.clubCode !== null && (
+                        <Image
+                          src={shirtUrl(s.inPlayer.clubCode, s.inPlayer.position)}
+                          alt=""
+                          width={30}
+                          height={30}
+                          className="h-[30px] w-[30px] object-contain"
+                        />
+                      )}
+                    </div>
+                    <div className="flex w-full flex-col">
+                      <span className="truncate text-[0.7rem] text-zinc-400 line-through dark:text-zinc-500">
+                        {s.outPlayer.webName}
+                      </span>
+                      <span className="truncate text-sm font-semibold text-black dark:text-zinc-50">
+                        {s.inPlayer.webName}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span>{formatPrice(s.inPlayer.currentPrice)}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        +{s.projectedGain.toFixed(1)}
+                      </span>
+                      {s.requiresHit && (
+                        <span className="text-amber-600 dark:text-amber-400">−4</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => applySuggestion(s)}
+                      className="focus-ring mt-1 w-full shrink-0 rounded-full border border-primary/30 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 dark:border-accent/40 dark:text-accent dark:hover:bg-accent/10"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

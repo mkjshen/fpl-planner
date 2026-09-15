@@ -4,6 +4,7 @@ import { getLineup, getPlannableGameweeks, getSquadForUser } from "@/lib/api";
 import { LineupPlanner } from "@/components/lineup-planner";
 import {
   getPlayerProfileAction,
+  getSuggestedTransfersAction,
   resetAllPlansAction,
   saveLineupAction,
   searchPlayersAction,
@@ -81,6 +82,7 @@ async function PlannerLineup({
         resetAllAction={resetAllPlansAction}
         searchAction={searchPlayersAction}
         profileAction={getPlayerProfileAction}
+        suggestionsAction={getSuggestedTransfersAction}
       />
     </div>
   );

@@ -144,7 +144,13 @@ export function PlayerProfileModal({
     return () => {
       cancelled = true;
     };
-  }, [playerId, profileAction]);
+    // profileAction excluded — calling a server action refreshes the route,
+    // which hands down a *new* reference for every server-action prop;
+    // depending on it here would re-fire this effect on every refresh it
+    // itself triggers (an infinite fetch loop — see lineup-planner.tsx's
+    // suggestions effect for the full explanation of this root cause).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId]);
 
   const availabilityNote =
     profile &&
