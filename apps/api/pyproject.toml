@@ -1,3 +1,8 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Makes `app` importable regardless of how pytest is invoked (bare `pytest`
+# vs `python -m pytest`, which differ in whether CWD gets added to
+# sys.path) — CI runs the former, which was failing with
+# ModuleNotFoundError: No module named 'app' before this was added.
+pythonpath = ["."]
