@@ -83,24 +83,36 @@ export function PlayerCard({
   // transfer-in panel to search a replacement for this one instead.
   onActivate?: () => void;
 }) {
+  // Styled after the official FPL pitch view: no big bordered card box —
+  // just a shirt "standing" on the pitch with a couple of small white/light
+  // labels underneath, since a card sits on both the green pitch and the
+  // plain page background (the bench), an opaque pill under each line of
+  // text keeps it legible either way without needing a whole boxed card
+  // (and its own bg/border/shadow) to do that job.
   if (blank) {
     return (
       <button
         type="button"
         onClick={onActivate}
-        className={`flex w-20 flex-col items-center rounded-lg border-2 border-dashed px-1.5 py-2 text-center xl:w-32 xl:px-2 xl:py-3 ${
-          activeBlank
-            ? "border-primary dark:border-accent"
-            : "border-black/[.15] dark:border-white/[.2]"
-        } ${onActivate ? "cursor-pointer hover:border-black/30 dark:hover:border-white/40" : ""}`}
+        className={`flex w-20 flex-col items-center text-center xl:w-32 ${
+          onActivate ? "cursor-pointer" : ""
+        }`}
       >
         <div
-          className={`mb-1 h-8 w-8 rounded-full border-2 border-dashed xl:mb-1.5 xl:h-10 xl:w-10 ${
-            activeBlank ? "border-primary dark:border-accent" : "border-black/[.15] dark:border-white/[.2]"
+          className={`h-10 w-10 rounded-full border-2 border-dashed xl:h-14 xl:w-14 ${
+            activeBlank ? "border-primary dark:border-accent" : "border-black/20 dark:border-white/30"
           }`}
         />
-        <span className="text-xs font-semibold text-zinc-400 dark:text-zinc-600 xl:text-sm">Empty</span>
-        <span className="text-[0.65rem] text-zinc-400 dark:text-zinc-600 xl:text-xs">
+        <span
+          className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
+            activeBlank
+              ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
+              : "border-black/10 bg-white text-zinc-400 dark:text-zinc-500"
+          }`}
+        >
+          Empty
+        </span>
+        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-500 xl:text-xs">
           {activeBlank ? "Pick a player" : "Tap to fill"}
         </span>
       </button>
@@ -110,56 +122,57 @@ export function PlayerCard({
   return (
     <div
       onClick={disabled ? undefined : onClick}
-      className={`group relative flex w-20 flex-col items-center rounded-lg border px-1.5 py-2 text-center shadow-sm xl:w-32 xl:px-2 xl:py-3 ${
-        selected
-          ? "border-primary bg-white ring-2 ring-primary dark:border-accent dark:bg-zinc-900 dark:ring-accent"
-          : muted
-            ? "border-black/[.08] bg-white/70 dark:border-white/[.1] dark:bg-zinc-900/70"
-            : "border-black/[.08] bg-white dark:border-white/[.145] dark:bg-zinc-900"
+      className={`group relative flex w-20 flex-col items-center text-center xl:w-32 ${
+        muted ? "opacity-80" : ""
       } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
     >
-      {onRemove && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          aria-label={`Remove ${player.webName} from your team`}
-          title="Remove from team"
-          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2.5 xl:-left-2.5 xl:h-6 xl:w-6 xl:text-xs"
-        >
-          ×
-        </button>
-      )}
-      {(player.isCaptain || player.isViceCaptain) && (
-        <span
-          className={`absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold xl:-top-2.5 xl:-right-2.5 xl:h-6 xl:w-6 xl:text-xs ${
-            player.isCaptain
-              ? "bg-accent text-accent-foreground"
-              : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
-          }`}
-        >
-          {player.isCaptain ? "C" : "VC"}
-        </span>
-      )}
-      {player.clubCode !== null && (
-        <Image
-          src={shirtUrl(player.clubCode, player.position)}
-          alt=""
-          width={40}
-          height={40}
-          className="mb-1 h-8 w-8 object-contain xl:mb-1.5 xl:h-10 xl:w-10"
-        />
-      )}
-      <span className="w-full truncate text-xs font-semibold text-black dark:text-zinc-50 xl:text-sm">
+      <div className="relative">
+        {onRemove && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            aria-label={`Remove ${player.webName} from your team`}
+            title="Remove from team"
+            className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+          >
+            ×
+          </button>
+        )}
+        {(player.isCaptain || player.isViceCaptain) && (
+          <span
+            className={`absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
+              player.isCaptain
+                ? "bg-accent text-accent-foreground"
+                : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:text-accent"
+            }`}
+          >
+            {player.isCaptain ? "C" : "VC"}
+          </span>
+        )}
+        {player.clubCode !== null && (
+          <Image
+            src={shirtUrl(player.clubCode, player.position)}
+            alt=""
+            width={56}
+            height={56}
+            className="h-10 w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:h-14 xl:w-14"
+          />
+        )}
+      </div>
+      <span
+        className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
+          selected
+            ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
+            : "border-black/10 bg-white text-zinc-900"
+        }`}
+      >
         {player.webName}
       </span>
-      <span className="truncate text-[0.65rem] text-zinc-500 dark:text-zinc-400 xl:text-xs">
-        {player.opponent ?? player.club}
-      </span>
-      <span className="mt-0.5 text-[0.65rem] font-medium text-zinc-600 dark:text-zinc-300 xl:text-xs">
-        {formatPrice(player.currentPrice)}
+      <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 xl:text-xs">
+        {player.opponent ?? player.club} {formatPrice(player.currentPrice)}
       </span>
     </div>
   );
