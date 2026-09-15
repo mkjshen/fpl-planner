@@ -29,7 +29,7 @@ export default async function PlannerPage({
 
   return (
     <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
-      <div className="w-full max-w-7xl rounded-xl border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950">
+      <div className="w-full max-w-7xl rounded-xl border border-border bg-white p-8 dark:bg-zinc-950">
         {plannable.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             No future gameweeks left to plan this season.

@@ -439,7 +439,7 @@ export function LineupPlanner({
   return (
     <div className="flex flex-col gap-6 md:flex-row">
       <div className="min-w-0 flex-1">
-        <div className="border-b border-black/[.08] pb-4 dark:border-white/[.145]">
+        <div className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-lg font-semibold text-black dark:text-zinc-50">
@@ -447,7 +447,7 @@ export function LineupPlanner({
               </h1>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">{lineup.managerName}</p>
             </div>
-            <div className="flex items-center gap-1 rounded-full border border-black/[.08] bg-black/[.02] p-1 dark:border-white/[.145] dark:bg-white/[.03]">
+            <div className="flex items-center gap-1 rounded-full border border-border bg-black/[.02] p-1 dark:bg-white/[.03]">
               <button
                 type="button"
                 onClick={() =>
@@ -530,8 +530,8 @@ export function LineupPlanner({
                       active
                         ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
                         : selectable
-                          ? "border-black/[.08] text-zinc-500 hover:border-black/20 dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/30"
-                          : "cursor-not-allowed border-black/[.08] text-zinc-300 dark:border-white/[.1] dark:text-zinc-600"
+                          ? "border-border text-zinc-500 hover:border-black/20 dark:text-zinc-400 dark:hover:border-white/30"
+                          : "cursor-not-allowed border-border text-zinc-300 dark:border-white/[.1] dark:text-zinc-600"
                     }`}
                   >
                     {CHIP_LABELS[c]}
@@ -627,7 +627,7 @@ export function LineupPlanner({
                 <button
                   onClick={() => setConfirmingResetAll(false)}
                   disabled={resettingAll}
-                  className="focus-ring rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                  className="focus-ring rounded-md border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
                 >
                   Cancel
                 </button>
@@ -677,7 +677,7 @@ export function LineupPlanner({
                   <button
                     type="button"
                     onClick={() => handleSubstituteFromModal(viewingPlayer.playerId)}
-                    className="focus-ring rounded-full border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                    className="focus-ring rounded-full border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
                   >
                     Substitute
                   </button>
@@ -699,9 +699,9 @@ export function LineupPlanner({
               aria-modal="true"
               aria-label={transferPanelTitle(transferOutPlayer)}
               onClick={(e) => e.stopPropagation()}
-              className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
+              className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-xl dark:bg-zinc-950"
             >
-              <div className="flex items-center justify-between gap-4 border-b border-black/[.08] pb-3 dark:border-white/[.145]">
+              <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
                 <p className="text-base font-semibold text-black dark:text-zinc-50">
                   {transferPanelTitle(transferOutPlayer)}
                   {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
@@ -745,7 +745,7 @@ export function LineupPlanner({
           />
         </div>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-2 rounded-2xl border border-black/[.08] bg-black/[.03] p-4 xl:gap-6 dark:border-white/[.145] dark:bg-white/[.04]">
+        <div className="mt-6 flex flex-wrap justify-center gap-2 rounded-2xl border border-border bg-black/[.03] p-4 xl:gap-6 dark:bg-white/[.04]">
           {bench.map((player) => (
             <PlayerCard
               key={player.playerId}
@@ -765,7 +765,7 @@ export function LineupPlanner({
         </div>
 
         {lineup.isEditable && (
-          <div className="mt-6 flex flex-col gap-3 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
+          <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleSave}
@@ -782,7 +782,7 @@ export function LineupPlanner({
               <button
                 onClick={handleReset}
                 disabled={!dirty || saving}
-                className="focus-ring rounded-full border border-black/[.08] px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                className="focus-ring rounded-full border border-border px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
               >
                 Reset
               </button>
@@ -796,8 +796,8 @@ export function LineupPlanner({
           out" first) so the squad and the pool of available replacements
           can be compared side by side the whole time you're planning. */}
       {lineup.isEditable && (
-        <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-black/[.08] pl-6 dark:border-white/[.145] md:sticky md:top-8 md:flex md:h-[calc(100vh-4rem)]">
-          <div className="flex items-center justify-between gap-4 border-b border-black/[.08] pb-3 dark:border-white/[.145]">
+        <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-border pl-6 md:sticky md:top-8 md:flex md:h-[calc(100vh-4rem)]">
+          <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
             <p className="text-base font-semibold text-black dark:text-zinc-50">
               {transferPanelTitle(transferOutPlayer)}
               {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}

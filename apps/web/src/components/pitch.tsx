@@ -22,7 +22,7 @@ export function StatChip({
   return (
     <div
       title={title}
-      className="rounded-lg border border-black/[.08] bg-black/[.02] px-3 py-1.5 dark:border-white/[.145] dark:bg-white/[.03]"
+      className="rounded-lg border border-border bg-black/[.02] px-3 py-1.5 dark:bg-white/[.03]"
     >
       <p className="text-[0.65rem] font-medium tracking-wide text-zinc-600 uppercase dark:text-zinc-400">
         {label}

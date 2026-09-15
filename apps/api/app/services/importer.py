@@ -44,8 +44,9 @@ CHIP_NAME_MAP = {
 }
 
 # The FPL API doesn't expose these as data — they're game rules that have
-# changed between seasons. Verify against the live rules before trusting
-# this for anything beyond display (see CLAUDE.md).
+# changed between seasons. Confirmed against the live 2026/27 season rules
+# (1 free transfer/gameweek, rollover capped at 5, no mid-season bump this
+# season) as of 2026-09-15 — re-verify if a season boundary has passed.
 FREE_TRANSFER_CAP = 1
 FREE_TRANSFER_ROLLOVER_LIMIT = 5
 

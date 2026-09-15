@@ -7,12 +7,15 @@ export type FeedbackTone = "success" | "error" | "info";
 // One shared visual language for every success/error/info message in the
 // app — previously error banners were hand-rolled per-page (sign-in,
 // sign-up, dashboard, link-team-form) and successes had no banner at all.
+// The actual colors live in one place (globals.css's tone-* utilities),
+// not repeated here — this just maps a tone name to its utility class.
+// (Must stay a literal Record, not a template string built from `tone` —
+// Tailwind's build-time scanner needs to see each class name spelled out
+// in source to generate it.)
 const TONE_STYLES: Record<FeedbackTone, string> = {
-  success:
-    "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
-  error:
-    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
-  info: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  success: "tone-success",
+  error: "tone-error",
+  info: "tone-info",
 };
 
 const DISMISS_STYLES: Record<FeedbackTone, string> = {

@@ -18,6 +18,29 @@ const STATUS_LABELS: Record<string, string> = {
 
 const ALL_POSITIONS: Position[] = ["GK", "DEF", "MID", "FWD"];
 
+// Echoes a result row's shape (icon + shirt + name/position/club + price)
+// instead of plain "Loading…" text — used both for the initial fetch and
+// for the infinite-scroll "next page" fetch.
+function PlayerRowSkeletons({ count, className = "" }: { count: number; className?: string }) {
+  return (
+    <div className={`flex animate-pulse flex-col gap-1 ${className}`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex items-center gap-1 px-1 py-2.5">
+          <div className="h-7 w-7 shrink-0 rounded-full bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="h-6 w-6 shrink-0 rounded bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="flex flex-1 items-center justify-between gap-2 px-2">
+            <div className="flex flex-col gap-1.5">
+              <div className="h-3.5 w-24 rounded bg-black/[.06] dark:bg-white/[.08]" />
+              <div className="h-3 w-32 rounded bg-black/[.06] dark:bg-white/[.08]" />
+            </div>
+            <div className="h-3.5 w-10 rounded bg-black/[.06] dark:bg-white/[.08]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const SORT_OPTIONS: { value: PlayerSortBy; label: string }[] = [
   { value: "price", label: "Price" },
   { value: "form", label: "Form" },
@@ -234,7 +257,7 @@ export function PlayerSearchResults({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name…"
-        className="focus-ring rounded-md border border-black/[.08] px-3 py-2 text-sm transition-colors focus:border-primary dark:border-white/[.145] dark:bg-black dark:focus:border-accent"
+        className="focus-ring rounded-md border border-border px-3 py-2 text-sm transition-colors focus:border-primary dark:bg-black dark:focus:border-accent"
       />
 
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -249,7 +272,7 @@ export function PlayerSearchResults({
               className={`focus-ring rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                 active
                   ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
-                  : "border-black/[.08] text-zinc-500 hover:border-black/20 dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/30"
+                  : "border-border text-zinc-500 hover:border-black/20 dark:text-zinc-400 dark:hover:border-white/30"
               }`}
             >
               {pos}
@@ -266,7 +289,7 @@ export function PlayerSearchResults({
           id="player-sort"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as PlayerSortBy)}
-          className="focus-ring min-w-0 flex-1 rounded-md border border-black/[.08] bg-transparent px-2 py-1 text-xs text-black focus:border-primary dark:border-white/[.145] dark:text-zinc-50 dark:focus:border-accent"
+          className="focus-ring min-w-0 flex-1 rounded-md border border-border bg-transparent px-2 py-1 text-xs text-black focus:border-primary dark:text-zinc-50 dark:focus:border-accent"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value} className="text-black">
@@ -278,7 +301,7 @@ export function PlayerSearchResults({
 
       <div ref={scrollRef} className="mt-3 flex-1 overflow-y-auto">
         {loading ? (
-          <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
+          <PlayerRowSkeletons count={6} />
         ) : error ? (
           <p className="py-8 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
         ) : displayedPlayers.length === 0 ? (
@@ -367,11 +390,7 @@ export function PlayerSearchResults({
                 );
               })}
             </ul>
-            {loadingMore && (
-              <p className="py-3 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                Loading more…
-              </p>
-            )}
+            {loadingMore && <PlayerRowSkeletons count={2} className="mt-1" />}
           </>
         )}
       </div>

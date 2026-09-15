@@ -74,7 +74,7 @@ export function LinkTeamForm({ error }: { error?: string }) {
             inputMode="numeric"
             placeholder="e.g. 12345"
             required
-            className="focus-ring rounded-md border border-black/[.08] px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
+            className="focus-ring rounded-md border border-border px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:bg-black"
           />
         </div>
         <SubmitButton

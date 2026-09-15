@@ -39,7 +39,7 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
-      <div className="w-full max-w-5xl rounded-xl border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950">
+      <div className="w-full max-w-5xl rounded-xl border border-border bg-white p-8 dark:bg-zinc-950">
         {squad ? (
           <div>
             {error === "team_not_found" && (
@@ -63,7 +63,7 @@ export default async function DashboardPage({
                 Squad refreshed.
               </Banner>
             )}
-            <div className="border-b border-black/[.08] pb-4 dark:border-white/[.145]">
+            <div className="border-b border-border pb-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h1 className="text-lg font-semibold text-black dark:text-zinc-50">
@@ -98,7 +98,7 @@ export default async function DashboardPage({
               <Pitch starting={squad.players.filter((p) => p.isStarting)} />
             </div>
 
-            <div className="mt-6 flex flex-wrap justify-center gap-2 rounded-2xl border border-black/[.08] bg-black/[.03] p-4 xl:gap-6 dark:border-white/[.145] dark:bg-white/[.04]">
+            <div className="mt-6 flex flex-wrap justify-center gap-2 rounded-2xl border border-border bg-black/[.03] p-4 xl:gap-6 dark:bg-white/[.04]">
               {squad.players
                 .filter((p) => !p.isStarting)
                 .sort((a, b) => a.squadPosition - b.squadPosition)

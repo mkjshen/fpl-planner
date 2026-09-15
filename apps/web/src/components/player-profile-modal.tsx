@@ -22,7 +22,7 @@ const STATUS_LABELS: Record<string, string> = {
 // than one long stacked list.
 function StatSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-black/[.08] bg-black/[.02] p-4 dark:border-white/[.145] dark:bg-white/[.03]">
+    <div className="rounded-lg border border-border bg-black/[.02] p-4 dark:bg-white/[.03]">
       <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
         {title}
       </p>
@@ -36,6 +36,39 @@ function Badge({ children }: { children: ReactNode }) {
     <span className="rounded-full bg-black/[.05] px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-white/[.08] dark:text-zinc-300">
       {children}
     </span>
+  );
+}
+
+// Echoes the loaded profile's real shape (photo, name, badges, stat
+// sections) instead of plain "Loading…" text.
+function ProfileSkeleton() {
+  return (
+    <div className="animate-pulse p-8">
+      <div className="flex items-center gap-4">
+        <div className="h-24 w-[75px] shrink-0 rounded-lg bg-black/[.06] dark:bg-white/[.08]" />
+        <div className="flex flex-col gap-2">
+          <div className="h-6 w-36 rounded bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="h-4 w-48 rounded bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="mt-1 flex gap-1.5">
+            <div className="h-6 w-12 rounded-full bg-black/[.06] dark:bg-white/[.08]" />
+            <div className="h-6 w-14 rounded-full bg-black/[.06] dark:bg-white/[.08]" />
+            <div className="h-6 w-14 rounded-full bg-black/[.06] dark:bg-white/[.08]" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 flex flex-col gap-4">
+        {[7, 4, 2].map((statCount, i) => (
+          <div key={i} className="rounded-lg border border-border bg-black/[.02] p-4 dark:bg-white/[.03]">
+            <div className="h-3 w-20 rounded bg-black/[.06] dark:bg-white/[.08]" />
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {Array.from({ length: statCount }).map((_, j) => (
+                <div key={j} className="h-11 rounded-lg bg-black/[.06] dark:bg-white/[.08]" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -129,11 +162,9 @@ export function PlayerProfileModal({
         aria-modal="true"
         aria-label={profile ? `${profile.webName}'s profile` : "Player profile"}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-black/[.08] bg-white shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xl dark:bg-zinc-950"
       >
-        {loading && (
-          <p className="py-24 text-center text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
-        )}
+        {loading && <ProfileSkeleton />}
         {error && <p className="py-24 text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
         {profile && (
           <div className="flex min-h-0 flex-col overflow-y-auto p-8">
@@ -238,7 +269,7 @@ export function PlayerProfileModal({
             </div>
 
             {actions && (
-              <div className="mt-5 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
+              <div className="mt-5 border-t border-border pt-4">
                 {actions(profile)}
               </div>
             )}
