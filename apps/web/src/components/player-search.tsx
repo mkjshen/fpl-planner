@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { PlayerListItem, PlayerSearchResult, Position } from "@/lib/api";
-import { formatPrice } from "@/components/pitch";
+import { formatPrice, shirtUrl } from "@/components/pitch";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 
 // "d" (doubtful) isn't labeled — a doubtful player still has a real chance
@@ -248,6 +249,15 @@ export function PlayerSearchResults({
                         />
                       </svg>
                     </button>
+                    {player.clubCode !== null && (
+                      <Image
+                        src={shirtUrl(player.clubCode, player.position)}
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="h-6 w-6 shrink-0 object-contain"
+                      />
+                    )}
                     <button
                       onClick={selectable ? () => onSelect?.(player) : undefined}
                       disabled={!selectable}
