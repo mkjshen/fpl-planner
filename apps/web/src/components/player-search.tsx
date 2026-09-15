@@ -57,7 +57,7 @@ const SORT_OPTIONS: { value: PlayerSortBy; label: string }[] = [
 // itself already says what's being shown. Also null for a reincluded
 // player (see PlayerListItem) — these fields are optional there since that
 // path never actually fetches them.
-function sortStatLabel(player: PlayerListItem, sortBy: PlayerSortBy): string | null {
+export function sortStatLabel(player: PlayerListItem, sortBy: PlayerSortBy): string | null {
   switch (sortBy) {
     case "form":
       return player.form === undefined ? null : player.form.toFixed(1);

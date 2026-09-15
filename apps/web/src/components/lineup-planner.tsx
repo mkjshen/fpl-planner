@@ -25,7 +25,7 @@ const CHIP_LABELS: Record<Chip, string> = {
 
 const ALL_CHIPS: Chip[] = ["wildcard", "free_hit", "bench_boost", "triple_captain"];
 
-function validationError(players: SquadPlayer[]): string | null {
+export function validationError(players: SquadPlayer[]): string | null {
   const totals = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
   for (const p of players) totals[p.position]++;
   if (totals.GK !== 2 || totals.DEF !== 5 || totals.MID !== 5 || totals.FWD !== 3) {
@@ -53,7 +53,7 @@ function validationError(players: SquadPlayer[]): string | null {
   return null;
 }
 
-function canSwap(players: SquadPlayer[], aId: number, bId: number): boolean {
+export function canSwap(players: SquadPlayer[], aId: number, bId: number): boolean {
   const a = players.find((p) => p.playerId === aId);
   const b = players.find((p) => p.playerId === bId);
   if (!a || !b) return false;
