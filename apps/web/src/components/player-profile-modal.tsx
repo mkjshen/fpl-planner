@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { type ReactNode, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PlayerProfile } from "@/lib/api";
 import { formatPrice, playerPhotoUrl, StatChip } from "@/components/pitch";
 
@@ -45,6 +46,15 @@ function Badge({ children }: { children: ReactNode }) {
 // keeps the fetch-on-mount effect simple (state starts clean because the
 // component instance is new, not because the effect resets it) and avoids
 // synchronous setState calls in the effect body.
+//
+// Rendered via a portal straight into document.body rather than in place:
+// this can be opened from inside the planner's `md:sticky` transfer-in
+// sidebar, and `position: sticky` establishes a new stacking context — a
+// `fixed` descendant's z-index is then only compared *within* that
+// context, so it can end up painting behind unrelated page content (the
+// pitch, confirmed by testing at the DOM level) no matter how high the
+// z-index goes. A portal sidesteps the whole class of bug by escaping the
+// component tree entirely instead of trying to out-z-index an ancestor.
 export function PlayerProfileModal({
   playerId,
   profileAction,
@@ -109,7 +119,7 @@ export function PlayerProfileModal({
       (profile.status !== "a" && STATUS_LABELS[profile.status]) ||
       (profile.chanceOfPlayingNextRound !== null && profile.chanceOfPlayingNextRound < 100));
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -235,6 +245,7 @@ export function PlayerProfileModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
