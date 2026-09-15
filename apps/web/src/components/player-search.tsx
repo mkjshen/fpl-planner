@@ -227,6 +227,26 @@ export function PlayerSearchResults({
                 return (
                   <li key={player.playerId} className="flex items-center gap-1">
                     <button
+                      type="button"
+                      onClick={() => setViewingPlayer(player)}
+                      aria-label={`View ${player.webName}'s profile`}
+                      title="View player profile"
+                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-black/[.04] hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="h-4 w-4"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9 9a.75.75 0 0 0 0 1.5h.25v3.25H9a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-.25v-4A.75.75 0 0 0 10.5 9H9Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                    <button
                       onClick={selectable ? () => onSelect?.(player) : undefined}
                       disabled={!selectable}
                       title={
@@ -267,26 +287,6 @@ export function PlayerSearchResults({
                       <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
                         {formatPrice(player.currentPrice)}
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewingPlayer(player)}
-                      aria-label={`View ${player.webName}'s profile`}
-                      title="View player profile"
-                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-black/[.04] hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="h-4 w-4"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9 9a.75.75 0 0 0 0 1.5h.25v3.25H9a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-.25v-4A.75.75 0 0 0 10.5 9H9Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
                     </button>
                   </li>
                 );
