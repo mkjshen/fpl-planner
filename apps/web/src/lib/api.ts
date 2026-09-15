@@ -41,6 +41,10 @@ export type Lineup = Squad & {
   // The chip activated on this specific gameweek's own saved plan, if any —
   // never a chip inherited from an earlier cascaded plan.
   chipUsed: Chip | null;
+  // Total uses of each chip type this season allows, keyed by chip name — a
+  // chip not offered this season is simply absent. Paired with
+  // chipsRemaining so the UI can show "X of Y used".
+  chipsTotal: Partial<Record<Chip, number>>;
   // Uses left this season for each chip this season offers, keyed by chip
   // name. A chip already active on the viewed gameweek can show 0 here
   // while still being the selected option — compare against `chipUsed`

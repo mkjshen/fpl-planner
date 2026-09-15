@@ -305,6 +305,7 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
     free_transfers = (
         await available_free_transfers(db, fpl_team, gameweek_number) if is_editable else 0
     )
+    chips_total_map = await _chip_allowances(db, current.seasonId) if current else {}
     chips_remaining_map = await chips_remaining(db, fpl_team, current.seasonId) if current else {}
 
     return LineupOut(
@@ -318,6 +319,7 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         freeTransfers=free_transfers,
         transferCost=transfer_cost,
         chipUsed=chip_used,
+        chipsTotal=chips_total_map,
         chipsRemaining=chips_remaining_map,
         players=players,
     )

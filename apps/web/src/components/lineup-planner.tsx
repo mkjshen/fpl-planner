@@ -122,6 +122,7 @@ export function LineupPlanner({
   // to and `dirty` compares against) mirrors `savedPlayers`'s role.
   const [chip, setChip] = useState<Chip | null>(lineup.chipUsed);
   const [savedChip, setSavedChip] = useState<Chip | null>(lineup.chipUsed);
+  const [chipsTotal, setChipsTotal] = useState(lineup.chipsTotal);
   const [chipsRemaining, setChipsRemaining] = useState(lineup.chipsRemaining);
   const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -353,6 +354,7 @@ export function LineupPlanner({
     setFreeTransfers(fresh.freeTransfers);
     setChip(fresh.chipUsed);
     setSavedChip(fresh.chipUsed);
+    setChipsTotal(fresh.chipsTotal);
     setChipsRemaining(fresh.chipsRemaining);
     setLaterPlansAffected(false);
     setResettingAll(false);
@@ -391,6 +393,7 @@ export function LineupPlanner({
       setFreeTransfers(result.lineup.freeTransfers);
       setChip(result.lineup.chipUsed);
       setSavedChip(result.lineup.chipUsed);
+      setChipsTotal(result.lineup.chipsTotal);
       setChipsRemaining(result.lineup.chipsRemaining);
       setLaterPlansAffected(result.lineup.laterPlansAffected);
       setMessage("Saved.");
@@ -469,7 +472,9 @@ export function LineupPlanner({
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {ALL_CHIPS.map((c) => {
                 const active = chip === c;
+                const total = chipsTotal[c];
                 const left = chipsRemaining[c] ?? 0;
+                const used = total !== undefined ? total - left : 0;
                 const selectable = active || left > 0;
                 return (
                   <button
@@ -478,14 +483,14 @@ export function LineupPlanner({
                     onClick={() => selectable && toggleChip(c)}
                     disabled={!selectable}
                     title={
-                      selectable
-                        ? active
-                          ? `Click to remove ${CHIP_LABELS[c]} from this gameweek`
-                          : `${left} use${left === 1 ? "" : "s"} left this season`
-                        : "No uses left this season"
+                      total === undefined
+                        ? "Not offered this season"
+                        : active
+                          ? `Click to remove ${CHIP_LABELS[c]} from this gameweek — ${used} of ${total} used this season`
+                          : `${used} of ${total} used this season`
                     }
                     aria-pressed={active}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                       active
                         ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
                         : selectable
@@ -494,6 +499,25 @@ export function LineupPlanner({
                     }`}
                   >
                     {CHIP_LABELS[c]}
+                    {/* One dot per use this season this chip allows — filled
+                        for each already spent (real history or planned on
+                        another gameweek), hollow for each still available.
+                        A quick "how much of this chip is left" glance
+                        without reading the tooltip. */}
+                    {total !== undefined && total > 0 && (
+                      <span className="inline-flex gap-0.5">
+                        {Array.from({ length: total }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={
+                              i < used
+                                ? "h-1.5 w-1.5 rounded-full bg-current opacity-70"
+                                : "h-1.5 w-1.5 rounded-full border border-current opacity-40"
+                            }
+                          />
+                        ))}
+                      </span>
+                    )}
                   </button>
                 );
               })}
