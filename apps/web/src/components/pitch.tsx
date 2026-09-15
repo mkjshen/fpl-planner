@@ -207,10 +207,20 @@ export function Pitch({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border-2 border-black/10 shadow-[inset_0_0_50px_rgba(0,0,0,0.3)] dark:border-white/10"
+      // Layered gradients + shadows fake a domed, floodlit turf instead of a
+      // flat green rectangle: a soft highlight glows in from the top (like
+      // light falling on a curved surface), the far/bottom edge and corners
+      // sink into shadow, and the outer drop shadow lifts the whole pitch
+      // off the page — the same "glossy 3D card" treatment the official FPL
+      // app's pitch uses, without an actual CSS perspective transform (which
+      // would distort/complicate hit-testing on the player cards above it).
+      className="relative overflow-hidden rounded-2xl border-2 border-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),inset_0_40px_50px_-20px_rgba(0,0,0,0.25),inset_0_-50px_70px_-15px_rgba(0,0,0,0.45),inset_40px_0_50px_-35px_rgba(0,0,0,0.2),inset_-40px_0_50px_-35px_rgba(0,0,0,0.2),0_25px_50px_-12px_rgba(0,0,0,0.45)] dark:border-white/10"
       style={{
-        backgroundImage:
+        backgroundImage: [
           "repeating-linear-gradient(180deg, #3d8c40 0, #3d8c40 12.5%, #439648 12.5%, #439648 25%)",
+          "radial-gradient(120% 55% at 50% 0%, rgba(255,255,255,0.18), rgba(255,255,255,0) 65%)",
+          "radial-gradient(140% 90% at 50% 100%, rgba(0,0,0,0.3), rgba(0,0,0,0) 55%)",
+        ].join(", "),
       }}
     >
       {/* Pitch markings — halfway line, center circle, and the goal-end box
