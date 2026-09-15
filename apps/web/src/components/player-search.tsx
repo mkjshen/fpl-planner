@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { PlayerListItem, PlayerSearchResult, Position } from "@/lib/api";
-import { formatPrice, shirtUrl } from "@/components/pitch";
+import { formatPrice } from "@/components/pitch";
+import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 
 // "d" (doubtful) isn't labeled — a doubtful player still has a real chance
 // of playing, so it's not worth flagging the way a confirmed injury,
@@ -34,6 +34,7 @@ export function PlayerSearchResults({
   userId,
   gameweekNumber,
   searchAction,
+  profileAction,
   onSelect,
   reincludePlayers = [],
 }: {
@@ -52,6 +53,7 @@ export function PlayerSearchResults({
   userId: string;
   gameweekNumber: number;
   searchAction: SearchAction;
+  profileAction: ProfileAction;
   onSelect?: (player: PlayerListItem) => void;
   // Players transferred out earlier in this same unsaved editing session —
   // the backend's pool query only knows about the last *saved* squad, so it
@@ -81,10 +83,10 @@ export function PlayerSearchResults({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  // The player whose profile card is open, if any — placeholder content for
-  // now (name/position/club/price/status, whatever's already on hand from
-  // the search list) until it's decided what actually belongs on it.
-  const [viewingPlayer, setViewingPlayer] = useState<PlayerListItem | null>(null);
+  // The id of the player whose profile modal is open, if any — just the id
+  // (not the row's PlayerListItem) since the modal fetches its own fuller
+  // profile rather than reusing the row's already-thin search data.
+  const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
 
   const positionsFilter = selectedPositions.size > 0 ? [...selectedPositions] : undefined;
 
@@ -228,7 +230,7 @@ export function PlayerSearchResults({
                   <li key={player.playerId} className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => setViewingPlayer(player)}
+                      onClick={() => setViewingPlayerId(player.playerId)}
                       aria-label={`View ${player.webName}'s profile`}
                       title="View player profile"
                       className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-black/[.04] hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
@@ -301,69 +303,13 @@ export function PlayerSearchResults({
         )}
       </div>
 
-      {viewingPlayer && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-          onClick={() => setViewingPlayer(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${viewingPlayer.webName}'s profile`}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border border-black/[.08] bg-white p-6 shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {viewingPlayer.clubCode !== null && (
-                  <Image
-                    src={shirtUrl(viewingPlayer.clubCode, viewingPlayer.position)}
-                    alt=""
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 object-contain"
-                  />
-                )}
-                <div>
-                  <p className="text-base font-semibold text-black dark:text-zinc-50">
-                    {viewingPlayer.webName}
-                  </p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {viewingPlayer.position} · {viewingPlayer.club}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setViewingPlayer(null)}
-                aria-label="Close"
-                className="shrink-0 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-4 flex items-center gap-4 border-t border-black/[.08] pt-4 text-sm dark:border-white/[.145]">
-              <div>
-                <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-                  Price
-                </p>
-                <p className="font-semibold text-black dark:text-zinc-50">
-                  {formatPrice(viewingPlayer.currentPrice)}
-                </p>
-              </div>
-              {STATUS_LABELS[viewingPlayer.status] && (
-                <div>
-                  <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-                    Status
-                  </p>
-                  <p className="font-semibold text-red-600 dark:text-red-400">
-                    {STATUS_LABELS[viewingPlayer.status]}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {viewingPlayerId !== null && (
+        <PlayerProfileModal
+          key={viewingPlayerId}
+          playerId={viewingPlayerId}
+          profileAction={profileAction}
+          onClose={() => setViewingPlayerId(null)}
+        />
       )}
     </div>
   );

@@ -77,7 +77,7 @@ model FplTeam {
   managerName String?
   linkedAt    DateTime @default(now())
 
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   snapshots   SquadSnapshot[]
   transfers   TransferHistory[]
   lineupPlans LineupPlan[]
@@ -89,12 +89,12 @@ model FplTeam {
 // A season's rules — kept as data since free-transfer caps, rollover limits,
 // and the chip set have changed between FPL seasons.
 model Season {
-  id                       String   @id @default(cuid())
-  label                    String   @unique // e.g. "2026/27"
-  isCurrent                Boolean  @default(false)
-  freeTransferCap          Int
+  id                        String   @id @default(cuid())
+  label                     String   @unique // e.g. "2026/27"
+  isCurrent                 Boolean  @default(false)
+  freeTransferCap           Int
   freeTransferRolloverLimit Int
-  chipsAvailable           String[] // e.g. ["wildcard", "free_hit", "bench_boost", "triple_captain"]
+  chipsAvailable            String[] // e.g. ["wildcard", "free_hit", "bench_boost", "triple_captain"]
 
   gameweeks   Gameweek[]
   chipWindows ChipWindow[]
@@ -139,8 +139,8 @@ model Gameweek {
 }
 
 model Club {
-  id        Int     @id // official FPL club id
-  code      Int?    // official FPL team code — used to build shirt image URLs, distinct from id
+  id        Int    @id // official FPL club id
+  code      Int? // official FPL team code — used to build shirt image URLs, distinct from id
   name      String
   shortName String
 
@@ -183,18 +183,39 @@ model Player {
   currentPrice Int // in tenths of a million, matching the FPL API (e.g. 105 = £10.5m)
   status       String   @default("available")
 
-  club              Club                @relation(fields: [clubId], references: [id])
+  // Fantasy-relevance fields for the player profile card — all straight
+  // from the FPL bootstrap API's per-element stats, refreshed on every
+  // import the same way price/status are. See squad.py's PlayerProfileOut
+  // for what each is used for.
+  photoCode                Int? // numeric prefix of the API's "photo" filename (e.g. "154561.jpg" -> 154561) — builds the portrait URL, see squad.py
+  form                     Float  @default(0) // FPL's own rolling recent-form average
+  totalPoints              Int    @default(0)
+  pointsPerGame            Float  @default(0)
+  selectedByPercent        Float  @default(0) // ownership — ties to how "template" a pick is
+  minutes                  Int    @default(0) // playing-time / rotation-risk signal
+  goalsScored              Int    @default(0)
+  assists                  Int    @default(0)
+  cleanSheets              Int    @default(0)
+  bonus                    Int    @default(0)
+  ictIndex                 Float  @default(0) // FPL's own Influence/Creativity/Threat composite
+  expectedGoals            Float  @default(0)
+  expectedAssists          Float  @default(0)
+  valueSeason              Float  @default(0) // total points per £1m — FPL's own "value" metric
+  chanceOfPlayingNextRound Int? // 0-100, null means "no doubt" (fully fit)
+  news                     String @default("") // injury/suspension/rotation note, empty when there's none
+
+  club              Club                 @relation(fields: [clubId], references: [id])
   priceHistory      PlayerPriceHistory[]
   squadPlayers      SquadPlayer[]
-  transfersOut      TransferHistory[]   @relation("TransferPlayerOut")
-  transfersIn       TransferHistory[]   @relation("TransferPlayerIn")
+  transfersOut      TransferHistory[]    @relation("TransferPlayerOut")
+  transfersIn       TransferHistory[]    @relation("TransferPlayerIn")
   lineupPlanEntries LineupPlanPlayer[]
 }
 
 model PlayerPriceHistory {
-  id        String   @id @default(cuid())
-  playerId  Int
-  price     Int
+  id         String   @id @default(cuid())
+  playerId   Int
+  price      Int
   recordedAt DateTime @default(now())
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
@@ -212,23 +233,23 @@ model SquadSnapshot {
   teamValue  Int // squad current-price value only, bank not included — see importer._replace_snapshot
   capturedAt DateTime @default(now())
 
-  fplTeam FplTeam       @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
-  gameweek Gameweek     @relation(fields: [gameweekId], references: [id])
+  fplTeam  FplTeam       @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
+  gameweek Gameweek      @relation(fields: [gameweekId], references: [id])
   players  SquadPlayer[]
 
   @@unique([fplTeamId, gameweekId])
 }
 
 model SquadPlayer {
-  id            String   @id @default(cuid())
+  id            String  @id @default(cuid())
   snapshotId    String
   playerId      Int
   purchasePrice Int
   sellingPrice  Int
-  isStarting    Boolean  @default(false)
+  isStarting    Boolean @default(false)
   squadPosition Int // 1-15, matching the FPL squad slot ordering
-  isCaptain     Boolean  @default(false)
-  isViceCaptain Boolean  @default(false)
+  isCaptain     Boolean @default(false)
+  isViceCaptain Boolean @default(false)
 
   snapshot SquadSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
   player   Player        @relation(fields: [playerId], references: [id])
@@ -239,13 +260,13 @@ model SquadPlayer {
 // Actual transfers as reported by the FPL API — separate from any
 // in-progress planning data added in later build steps.
 model TransferHistory {
-  id             String   @id @default(cuid())
-  fplTeamId      String
-  gameweekId     String
-  playerOutId    Int
-  playerInId     Int
-  transferCost   Int // 0 or 4 (points), per the -4 hit rule
-  executedAt     DateTime
+  id           String   @id @default(cuid())
+  fplTeamId    String
+  gameweekId   String
+  playerOutId  Int
+  playerInId   Int
+  transferCost Int // 0 or 4 (points), per the -4 hit rule
+  executedAt   DateTime
 
   fplTeam   FplTeam  @relation(fields: [fplTeamId], references: [id], onDelete: Cascade)
   gameweek  Gameweek @relation(fields: [gameweekId], references: [id])
@@ -278,9 +299,9 @@ model ChipUsage {
 // Deliberately separate from SquadSnapshot: this is a plan, not a record of
 // what actually happened.
 model LineupPlan {
-  id         String   @id @default(cuid())
-  fplTeamId  String
-  gameweekId String
+  id            String   @id @default(cuid())
+  fplTeamId     String
+  gameweekId    String
   // Transfer bookkeeping — set at save time. transfersMade/transferCost are
   // 0 for a plan that only reorders the existing 15 (no transfers). bank
   // cascades the same way LineupPlanPlayer's purchase/selling price does:

@@ -133,6 +133,19 @@ async def _upsert_gameweeks(
     return gameweeks
 
 
+def _photo_code(photo: str) -> int | None:
+    """The FPL API's "photo" field is a filename like "154561.jpg" — the
+    numeric part is what builds a portrait URL at
+    resources.premierleague.com/premierleague/photos/players/110x140/p{code}.png
+    (confirmed against the live API, not assumed). None on anything
+    unexpected rather than failing the whole import over one player's
+    portrait."""
+    try:
+        return int(photo.split(".")[0])
+    except (ValueError, IndexError):
+        return None
+
+
 async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -> None:
     if bootstrap.teams:
         club_rows = [
@@ -160,6 +173,22 @@ async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -
                 "position": ELEMENT_TYPE_TO_POSITION[e.element_type],
                 "currentPrice": e.now_cost,
                 "status": e.status,
+                "photoCode": _photo_code(e.photo),
+                "form": e.form,
+                "totalPoints": e.total_points,
+                "pointsPerGame": e.points_per_game,
+                "selectedByPercent": e.selected_by_percent,
+                "minutes": e.minutes,
+                "goalsScored": e.goals_scored,
+                "assists": e.assists,
+                "cleanSheets": e.clean_sheets,
+                "bonus": e.bonus,
+                "ictIndex": e.ict_index,
+                "expectedGoals": e.expected_goals,
+                "expectedAssists": e.expected_assists,
+                "valueSeason": e.value_season,
+                "chanceOfPlayingNextRound": e.chance_of_playing_next_round,
+                "news": e.news,
             }
             for e in bootstrap.elements
         ]
@@ -173,6 +202,22 @@ async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -
                 "position": stmt.excluded.position,
                 "currentPrice": stmt.excluded.currentPrice,
                 "status": stmt.excluded.status,
+                "photoCode": stmt.excluded.photoCode,
+                "form": stmt.excluded.form,
+                "totalPoints": stmt.excluded.totalPoints,
+                "pointsPerGame": stmt.excluded.pointsPerGame,
+                "selectedByPercent": stmt.excluded.selectedByPercent,
+                "minutes": stmt.excluded.minutes,
+                "goalsScored": stmt.excluded.goalsScored,
+                "assists": stmt.excluded.assists,
+                "cleanSheets": stmt.excluded.cleanSheets,
+                "bonus": stmt.excluded.bonus,
+                "ictIndex": stmt.excluded.ictIndex,
+                "expectedGoals": stmt.excluded.expectedGoals,
+                "expectedAssists": stmt.excluded.expectedAssists,
+                "valueSeason": stmt.excluded.valueSeason,
+                "chanceOfPlayingNextRound": stmt.excluded.chanceOfPlayingNextRound,
+                "news": stmt.excluded.news,
             },
         )
         await db.execute(stmt)

@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Club, FplTeam, Gameweek, Player, Position
-from app.schemas.players import PlayerListItemOut, PlayerListOut
+from app.schemas.players import PlayerListItemOut, PlayerListOut, PlayerProfileOut
 from app.services.lineup import GameweekNotFoundError, _find_effective_plan, _latest_snapshot_slots, _plan_slots
 
 
@@ -70,3 +70,39 @@ async def search_players(
         for player, club in result.all()
     ]
     return PlayerListOut(total=total, players=players)
+
+
+async def get_player_profile(db: AsyncSession, player_id: int) -> PlayerProfileOut | None:
+    row = await db.execute(
+        select(Player, Club).join(Club, Player.clubId == Club.id).where(Player.id == player_id)
+    )
+    match = row.first()
+    if match is None:
+        return None
+    player, club = match
+    return PlayerProfileOut(
+        playerId=player.id,
+        webName=player.webName,
+        fullName=player.fullName,
+        position=player.position.value,
+        club=club.shortName,
+        clubCode=club.code,
+        photoCode=player.photoCode,
+        currentPrice=player.currentPrice,
+        status=player.status,
+        chanceOfPlayingNextRound=player.chanceOfPlayingNextRound,
+        news=player.news,
+        form=player.form,
+        totalPoints=player.totalPoints,
+        pointsPerGame=player.pointsPerGame,
+        selectedByPercent=player.selectedByPercent,
+        minutes=player.minutes,
+        goalsScored=player.goalsScored,
+        assists=player.assists,
+        cleanSheets=player.cleanSheets,
+        bonus=player.bonus,
+        ictIndex=player.ictIndex,
+        expectedGoals=player.expectedGoals,
+        expectedAssists=player.expectedAssists,
+        valueSeason=player.valueSeason,
+    )

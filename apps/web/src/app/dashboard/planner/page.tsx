@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getLineup, getPlannableGameweeks, getSquadForUser } from "@/lib/api";
 import { LineupPlanner } from "@/components/lineup-planner";
-import { resetAllPlansAction, saveLineupAction, searchPlayersAction } from "../actions";
+import {
+  getPlayerProfileAction,
+  resetAllPlansAction,
+  saveLineupAction,
+  searchPlayersAction,
+} from "../actions";
 
 export default async function PlannerPage({
   searchParams,
@@ -75,6 +80,7 @@ async function PlannerLineup({
         saveAction={saveLineupAction}
         resetAllAction={resetAllPlansAction}
         searchAction={searchPlayersAction}
+        profileAction={getPlayerProfileAction}
       />
     </div>
   );

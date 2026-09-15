@@ -33,6 +33,29 @@ class FplElement(BaseModel):
     element_type: int
     now_cost: int
     status: str
+    # Fantasy-relevance stats for the player profile card — see
+    # importer._upsert_clubs_and_players for what each becomes. Several of
+    # these (form, points_per_game, selected_by_percent, ict_index,
+    # expected_goals, expected_assists, value_season) come back as
+    # one-decimal-place strings in the raw API (e.g. "7.2"), not numbers —
+    # confirmed against the live API, not assumed. Pydantic coerces them to
+    # float here in its default lax mode.
+    photo: str
+    form: float
+    total_points: int
+    points_per_game: float
+    selected_by_percent: float
+    minutes: int
+    goals_scored: int
+    assists: int
+    clean_sheets: int
+    bonus: int
+    ict_index: float
+    expected_goals: float
+    expected_assists: float
+    value_season: float
+    chance_of_playing_next_round: int | None
+    news: str
 
 
 class FplChip(BaseModel):

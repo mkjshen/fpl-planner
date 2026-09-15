@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.db.models import FplTeam
-from app.schemas.players import PlayerListOut
+from app.schemas.players import PlayerListOut, PlayerProfileOut
 from app.services import players as players_service
 from app.services.lineup import GameweekNotFoundError
 
@@ -42,3 +42,11 @@ async def list_players(
         )
     except GameweekNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error))
+
+
+@router.get("/{player_id}", response_model=PlayerProfileOut)
+async def get_player(player_id: int, db: AsyncSession = Depends(get_db)) -> PlayerProfileOut:
+    profile = await players_service.get_player_profile(db, player_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"Player {player_id} not found")
+    return profile

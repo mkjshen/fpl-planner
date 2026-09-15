@@ -78,7 +78,8 @@ Progress so far covers build steps 1-4. Notable departures from what's written a
 - **Google and Apple OAuth are wired in code but not functional yet.** Google works once real client credentials are added to `.env.local` (verified once they were). Apple cannot be tested at all in local dev — Sign in with Apple requires a live HTTPS domain, not `http://localhost`.
 - **`freeTransferCap`/`freeTransferRolloverLimit` are unverified assumptions** (currently 1 and 5), not confirmed against the live current-season FPL rules — exactly the risk flagged in the "Classic FPL rules to encode" section above. The chip set, by contrast, is derived live from the FPL API on every import, not hardcoded.
 - **No automated tests yet** (no Playwright, Pytest, or Jest), and none of build step 5 (Docker/Kubernetes/Terraform/CI/monitoring) has been started. Every feature so far has been verified manually per change — direct API calls plus in-browser checks — not codified as a repeatable suite.
-- **Advanced per-90 stats (Understat/FBref) are not integrated** — no `PlayerExternalIdMap` or advanced-stats table exists yet.
+- **The player search panel's info icon opens a profile card** (season totals, form, ICT Index, expected goals/assists, ownership, and a portrait) pulled from the same FPL bootstrap API response already used for prices/status, refreshed on the same "next import" cadence — not live-polled, so it can lag a few hours behind FPL's own site right after a game. The portrait and stat definitions (ICT Index, xG, xA) are FPL's own, not independently recomputed here.
+- **Advanced per-90 stats (Understat/FBref) are not integrated** — the profile card's xG/xA are the FPL API's own season totals, not a third-party per-90 source; no `PlayerExternalIdMap` or advanced-stats table exists yet.
 
 ## Non-goals
 

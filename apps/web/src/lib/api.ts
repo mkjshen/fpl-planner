@@ -76,6 +76,38 @@ export type PlayerSearchResult = {
   players: PlayerListItem[];
 };
 
+// Everything the player profile modal shows — fetched on demand for one
+// player at a time (see getPlayerProfile) rather than folded into
+// PlayerListItem, so browsing/searching the pool doesn't carry stats
+// nobody's asked to see yet.
+export type PlayerProfile = {
+  playerId: number;
+  webName: string;
+  fullName: string;
+  position: Position;
+  club: string;
+  clubCode: number | null;
+  photoCode: number | null;
+  currentPrice: number;
+  status: string;
+  // 0-100, null means "no doubt" (fully fit).
+  chanceOfPlayingNextRound: number | null;
+  news: string;
+  form: number;
+  totalPoints: number;
+  pointsPerGame: number;
+  selectedByPercent: number;
+  minutes: number;
+  goalsScored: number;
+  assists: number;
+  cleanSheets: number;
+  bonus: number;
+  ictIndex: number;
+  expectedGoals: number;
+  expectedAssists: number;
+  valueSeason: number;
+};
+
 export type GameweekSummary = {
   number: number;
   deadlineTime: string;
@@ -195,6 +227,14 @@ export async function searchPlayers(
   });
   if (!response.ok) {
     throw new Error(`Failed to search players: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getPlayerProfile(playerId: number): Promise<PlayerProfile> {
+  const response = await fetch(`${API_BASE_URL}/players/${playerId}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Failed to load player profile: ${response.status}`);
   }
   return response.json();
 }

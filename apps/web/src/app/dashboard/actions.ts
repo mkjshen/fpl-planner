@@ -3,9 +3,11 @@
 import {
   type Chip,
   getLineup,
+  getPlayerProfile,
   type Lineup,
   type LineupPlayerInput,
   LineupValidationError,
+  type PlayerProfile,
   type PlayerSearchResult,
   type Position,
   resetAllPlans,
@@ -48,4 +50,8 @@ export async function searchPlayersAction(
   options: { positions?: Position[]; search?: string; offset?: number },
 ): Promise<PlayerSearchResult> {
   return searchPlayers(userId, gameweekNumber, { ...options, limit: 30 });
+}
+
+export async function getPlayerProfileAction(playerId: number): Promise<PlayerProfile> {
+  return getPlayerProfile(playerId);
 }

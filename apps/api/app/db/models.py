@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -109,6 +110,23 @@ class Player(Base):
     position: Mapped[Position] = mapped_column(PGEnum(Position, name="Position", create_type=False))
     currentPrice: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String, default="available")
+
+    photoCode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    form: Mapped[float] = mapped_column(Float, default=0)
+    totalPoints: Mapped[int] = mapped_column(Integer, default=0)
+    pointsPerGame: Mapped[float] = mapped_column(Float, default=0)
+    selectedByPercent: Mapped[float] = mapped_column(Float, default=0)
+    minutes: Mapped[int] = mapped_column(Integer, default=0)
+    goalsScored: Mapped[int] = mapped_column(Integer, default=0)
+    assists: Mapped[int] = mapped_column(Integer, default=0)
+    cleanSheets: Mapped[int] = mapped_column(Integer, default=0)
+    bonus: Mapped[int] = mapped_column(Integer, default=0)
+    ictIndex: Mapped[float] = mapped_column(Float, default=0)
+    expectedGoals: Mapped[float] = mapped_column(Float, default=0)
+    expectedAssists: Mapped[float] = mapped_column(Float, default=0)
+    valueSeason: Mapped[float] = mapped_column(Float, default=0)
+    chanceOfPlayingNextRound: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    news: Mapped[str] = mapped_column(String, default="")
 
 
 class Fixture(Base):

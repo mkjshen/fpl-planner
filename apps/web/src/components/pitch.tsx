@@ -46,6 +46,13 @@ export function shirtUrl(clubCode: number, position: Position): string {
   return `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${clubCode}${suffix}-66.png`;
 }
 
+// Same official static assets as the shirt images — the FPL site's own
+// player headshots, keyed by the numeric code in the API's "photo" field
+// (not the player or club id).
+export function playerPhotoUrl(photoCode: number): string {
+  return `https://resources.premierleague.com/premierleague/photos/players/110x140/p${photoCode}.png`;
+}
+
 export function PlayerCard({
   player,
   muted,

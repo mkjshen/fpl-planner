@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Chip, Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
+import type { ProfileAction } from "@/components/player-profile-modal";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
@@ -93,6 +94,7 @@ export function LineupPlanner({
   saveAction,
   resetAllAction,
   searchAction,
+  profileAction,
 }: {
   userId: string;
   lineup: Lineup;
@@ -106,6 +108,7 @@ export function LineupPlanner({
   ) => Promise<SaveResult>;
   resetAllAction: (userId: string, gameweekNumber: number) => Promise<Lineup>;
   searchAction: SearchAction;
+  profileAction: ProfileAction;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
@@ -648,6 +651,7 @@ export function LineupPlanner({
                 userId={userId}
                 gameweekNumber={selectedGameweek}
                 searchAction={searchAction}
+                profileAction={profileAction}
                 reincludePlayers={freedPlayers}
                 onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
               />
@@ -773,6 +777,7 @@ export function LineupPlanner({
             userId={userId}
             gameweekNumber={selectedGameweek}
             searchAction={searchAction}
+            profileAction={profileAction}
             reincludePlayers={freedPlayers}
             onSelect={
               transferOutPlayer
