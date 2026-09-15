@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { FplTeamNotFoundError, importFplTeam } from "@/lib/api";
+import { FplPicksUnavailableError, FplTeamNotFoundError, importFplTeam } from "@/lib/api";
 
 async function linkTeamAction(formData: FormData) {
   "use server";
@@ -21,6 +21,9 @@ async function linkTeamAction(formData: FormData) {
   } catch (error) {
     if (error instanceof FplTeamNotFoundError) {
       redirect("/dashboard?error=team_not_found");
+    }
+    if (error instanceof FplPicksUnavailableError) {
+      redirect("/dashboard?error=picks_unavailable");
     }
     throw error;
   }
@@ -43,6 +46,12 @@ export function LinkTeamForm({ error }: { error?: string }) {
       {error === "team_not_found" && (
         <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           Couldn&apos;t find an FPL team with that ID.
+        </p>
+      )}
+      {error === "picks_unavailable" && (
+        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          Found that team, but it has no squad picks published for the
+          current gameweek yet. Try again after the gameweek deadline.
         </p>
       )}
       {error === "invalid_team_id" && (

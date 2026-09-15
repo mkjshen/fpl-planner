@@ -5,6 +5,7 @@ import Apple from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@fpl-planner/db";
+import { signInSchema } from "@/lib/validation";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -21,11 +22,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: {},
       },
       async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-        if (typeof email !== "string" || typeof password !== "string") {
+        // Sign-up normalizes email casing/whitespace before storing it
+        // (see signUpSchema); sign-in has to apply the same normalization
+        // here or a differently-cased email won't match the stored unique
+        // value and login fails even with the right password.
+        const parsed = signInSchema.safeParse(credentials);
+        if (!parsed.success) {
           return null;
         }
+        const { email, password } = parsed.data;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user?.password) {

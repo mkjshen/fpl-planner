@@ -158,6 +158,7 @@ export type LineupPlayerInput = {
 };
 
 export class FplTeamNotFoundError extends Error {}
+export class FplPicksUnavailableError extends Error {}
 export class LineupValidationError extends Error {}
 
 export async function getSquadForUser(userId: string): Promise<Squad | null> {
@@ -181,6 +182,9 @@ export async function importFplTeam(userId: string, fplTeamId: number): Promise<
   });
   if (response.status === 404) {
     throw new FplTeamNotFoundError(`FPL team ${fplTeamId} not found`);
+  }
+  if (response.status === 409) {
+    throw new FplPicksUnavailableError(`FPL team ${fplTeamId} has no picks published yet`);
   }
   if (!response.ok) {
     throw new Error(`Failed to import team: ${response.status}`);

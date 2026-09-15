@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { FplTeamNotFoundError, getSquadForUser, importFplTeam } from "@/lib/api";
+import { FplPicksUnavailableError, FplTeamNotFoundError, getSquadForUser, importFplTeam } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
 import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 
@@ -12,6 +12,9 @@ async function refreshSquadAction(userId: string, fplTeamId: number) {
   } catch (error) {
     if (error instanceof FplTeamNotFoundError) {
       redirect("/dashboard?error=team_not_found");
+    }
+    if (error instanceof FplPicksUnavailableError) {
+      redirect("/dashboard?error=picks_unavailable");
     }
     throw error;
   }
@@ -40,6 +43,12 @@ export default async function DashboardPage({
             {error === "team_not_found" && (
               <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
                 Couldn&apos;t refresh — your FPL team ID no longer resolves.
+              </p>
+            )}
+            {error === "picks_unavailable" && (
+              <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                Couldn&apos;t refresh — no squad picks published for the current
+                gameweek yet. Try again after the deadline.
               </p>
             )}
             <div className="border-b border-black/[.08] pb-4 dark:border-white/[.145]">

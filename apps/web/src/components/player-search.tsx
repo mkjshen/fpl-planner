@@ -187,7 +187,7 @@ export function PlayerSearchResults({
       if (!nearBottom) return;
       setLoadingMore(true);
       searchAction(userId, gameweekNumber, {
-        positions: positionsFilter,
+        positions: selectedPositions.size > 0 ? [...selectedPositions] : undefined,
         search: query || undefined,
         sortBy,
         offset: players.length,
@@ -205,8 +205,15 @@ export function PlayerSearchResults({
     // room to scroll less than 300px, or not fill the panel at all.
     maybeLoadMore();
     return () => root.removeEventListener("scroll", maybeLoadMore);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players.length, total, loading, loadingMore]);
+    // query/selectedPositions/sortBy/userId/gameweekNumber/searchAction all
+    // feed maybeLoadMore's closure (via positionsFilter and the searchAction
+    // call) but weren't listed here before — the listener could survive a
+    // filter or query change still bound to the stale params (the debounced
+    // search effect doesn't touch loading/players.length/total until its
+    // 300ms timeout fires), fetching the next page for whatever was
+    // searched previously instead of the new filter, up until the debounce
+    // caught up and overwrote it anyway.
+  }, [players.length, total, loading, loadingMore, query, selectedPositions, sortBy, userId, gameweekNumber, searchAction]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const reincludeMatches = reincludePlayers.filter(
