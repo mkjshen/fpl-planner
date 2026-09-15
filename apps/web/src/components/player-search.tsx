@@ -341,9 +341,6 @@ export function PlayerSearchResults({
                         <span className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                           <span className="shrink-0">{player.position}</span>
                           <span className="truncate">{player.club}</span>
-                          {sortStatLabel(player, sortBy) && (
-                            <span className="shrink-0">{sortStatLabel(player, sortBy)}</span>
-                          )}
                           {isReincluded ? (
                             <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
                               Transferred out
@@ -358,7 +355,7 @@ export function PlayerSearchResults({
                         </span>
                       </span>
                       <span className="shrink-0 text-zinc-600 dark:text-zinc-300">
-                        {formatPrice(player.currentPrice)}
+                        {sortStatLabel(player, sortBy) ?? formatPrice(player.currentPrice)}
                       </span>
                     </button>
                   </li>
