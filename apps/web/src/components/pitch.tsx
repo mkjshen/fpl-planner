@@ -136,7 +136,7 @@ export function PlayerCard({
             }}
             aria-label={`Remove ${player.webName} from your team`}
             title="Remove from team"
-            className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+            className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
           >
             ×
           </button>
