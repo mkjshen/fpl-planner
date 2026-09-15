@@ -17,6 +17,11 @@ class SquadPlayerOut(BaseModel):
     # for a blank one. More relevant here than their own club, which the
     # shirt already shows.
     opponent: str
+    # This player's actual fantasy points for the current gameweek, once
+    # their fixture has finished — null otherwise (fixture not yet played,
+    # or this isn't the live current gameweek). The frontend shows this
+    # instead of `opponent` when it's present.
+    actualPoints: int | None = None
     currentPrice: int
     purchasePrice: int
     sellingPrice: int

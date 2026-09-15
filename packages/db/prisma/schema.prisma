@@ -155,10 +155,11 @@ model Club {
 // show each squad player's opponent for the gameweek being viewed instead
 // of just their own club.
 model Fixture {
-  id         Int    @id // official FPL fixture id
+  id         Int     @id // official FPL fixture id
   gameweekId String
   homeTeamId Int
   awayTeamId Int
+  finished   Boolean @default(false) // straight from the FPL API's own "finished" flag
 
   gameweek Gameweek @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
   homeTeam Club     @relation("FixtureHomeTeam", fields: [homeTeamId], references: [id])
@@ -203,6 +204,13 @@ model Player {
   valueSeason              Float  @default(0) // total points per £1m — FPL's own "value" metric
   chanceOfPlayingNextRound Int? // 0-100, null means "no doubt" (fully fit)
   news                     String @default("") // injury/suspension/rotation note, empty when there's none
+
+  // Points scored in whatever gameweek was current as of the last import —
+  // not a historical per-gameweek table, just a refreshed snapshot like
+  // currentPrice. Pulled from the FPL API's /event/{id}/live/ endpoint
+  // (importer._upsert_current_gameweek_points). Null until an import has
+  // fetched it, or for a gameweek with no live data yet.
+  currentGameweekPoints Int?
 
   club              Club                 @relation(fields: [clubId], references: [id])
   priceHistory      PlayerPriceHistory[]

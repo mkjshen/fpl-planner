@@ -127,6 +127,7 @@ class Player(Base):
     valueSeason: Mapped[float] = mapped_column(Float, default=0)
     chanceOfPlayingNextRound: Mapped[int | None] = mapped_column(Integer, nullable=True)
     news: Mapped[str] = mapped_column(String, default="")
+    currentGameweekPoints: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class Fixture(Base):
@@ -136,6 +137,7 @@ class Fixture(Base):
     gameweekId: Mapped[str] = mapped_column(String, ForeignKey("Gameweek.id", ondelete="CASCADE"))
     homeTeamId: Mapped[int] = mapped_column(Integer, ForeignKey("Club.id"))
     awayTeamId: Mapped[int] = mapped_column(Integer, ForeignKey("Club.id"))
+    finished: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class PlayerPriceHistory(Base):

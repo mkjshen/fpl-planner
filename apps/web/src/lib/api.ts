@@ -14,6 +14,11 @@ export type SquadPlayer = {
   // the transfer-in pool (not yet round-tripped through a save) doesn't
   // have this yet — PlayerCard falls back to `club` until then.
   opponent?: string;
+  // This player's actual fantasy points for the current gameweek, once
+  // their fixture has finished — set instead of (never alongside) a
+  // meaningful `opponent`. PlayerCard shows this in place of the fixture
+  // when present.
+  actualPoints?: number | null;
   currentPrice: number;
   purchasePrice: number;
   sellingPrice: number;

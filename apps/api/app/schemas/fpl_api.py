@@ -132,3 +132,19 @@ class FplFixture(BaseModel):
     event: int | None
     team_h: int
     team_a: int
+    finished: bool
+
+
+class FplLiveStats(BaseModel):
+    total_points: int
+
+
+class FplLiveElement(BaseModel):
+    id: int
+    stats: FplLiveStats
+
+
+class FplLiveResponse(BaseModel):
+    # One entry per player, for a single gameweek — a player who didn't
+    # play that gameweek still gets an entry, just with total_points: 0.
+    elements: list[FplLiveElement]

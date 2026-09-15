@@ -174,7 +174,9 @@ export function PlayerCard({
           {player.webName}
         </span>
         <span className="w-full truncate rounded-b-2xl border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:rounded-b-3xl xl:text-xs">
-          {player.opponent ?? player.club}
+          {player.actualPoints != null
+            ? `${player.actualPoints} pt${player.actualPoints === 1 ? "" : "s"}`
+            : (player.opponent ?? player.club)}
         </span>
       </div>
     </div>

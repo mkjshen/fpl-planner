@@ -5,6 +5,7 @@ from app.schemas.fpl_api import (
     FplEntry,
     FplFixture,
     FplHistoryResponse,
+    FplLiveResponse,
     FplPicksResponse,
     FplTransfer,
 )
@@ -69,3 +70,11 @@ class FplClient:
         response = await self._client.get("/fixtures/")
         response.raise_for_status()
         return [FplFixture.model_validate(item) for item in response.json()]
+
+    async def get_event_live(self, event: int) -> FplLiveResponse:
+        # Every player's actual stats for one specific past/current
+        # gameweek — used to show a squad player's real points once their
+        # fixture has finished, instead of who they're playing.
+        response = await self._client.get(f"/event/{event}/live/")
+        response.raise_for_status()
+        return FplLiveResponse.model_validate(response.json())

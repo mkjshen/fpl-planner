@@ -161,7 +161,7 @@ async def _load_squad(db: AsyncSession, fpl_team_row_id: str) -> SquadOut:
         )
         for sp in result.scalars().all()
     ]
-    players = await build_player_rows(db, slots, gameweek.id)
+    players = await build_player_rows(db, slots, gameweek.id, is_current_gameweek=gameweek.isCurrent)
 
     return SquadOut(
         fplTeamId=fpl_team.fplTeamId,

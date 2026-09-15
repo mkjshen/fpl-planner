@@ -330,7 +330,9 @@ async def get_lineup(db: AsyncSession, fpl_team: FplTeam, gameweek_number: int) 
         # for.
         chip_used = plan.chipUsed if plan.gameweekId == gameweek.id else None
 
-    players = await build_player_rows(db, slots, gameweek.id)
+    players = await build_player_rows(
+        db, slots, gameweek.id, is_current_gameweek=current is not None and gameweek.id == current.id
+    )
     free_transfers = (
         await available_free_transfers(db, fpl_team, gameweek_number) if is_editable else 0
     )

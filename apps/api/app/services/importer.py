@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import bindparam, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +23,7 @@ from app.schemas.fpl_api import (
     FplChipUsage,
     FplEntry,
     FplFixture,
+    FplLiveResponse,
     FplPicksResponse,
     FplTransfer,
 )
@@ -402,6 +403,7 @@ async def _upsert_fixtures(
             "gameweekId": gameweeks[f.event].id,
             "homeTeamId": f.team_h,
             "awayTeamId": f.team_a,
+            "finished": f.finished,
         }
         for f in fixtures
         if f.event is not None and f.event in gameweeks
@@ -415,9 +417,41 @@ async def _upsert_fixtures(
             "gameweekId": stmt.excluded.gameweekId,
             "homeTeamId": stmt.excluded.homeTeamId,
             "awayTeamId": stmt.excluded.awayTeamId,
+            "finished": stmt.excluded.finished,
         },
     )
     await db.execute(stmt)
+    await db.flush()
+
+
+async def _upsert_current_gameweek_points(db: AsyncSession, live: FplLiveResponse) -> None:
+    """Every player's actual points for whatever gameweek is current —
+    refreshed wholesale on every import, the same snapshot-not-history
+    treatment as currentPrice. Used to show a squad player's real return
+    once their fixture has finished instead of who they're playing (see
+    squad.py's build_player_rows).
+
+    A plain bulk UPDATE, not an upsert: every id here already exists as a
+    Player row from _upsert_clubs_and_players just above, sourced from the
+    same bootstrap response. An INSERT ... ON CONFLICT DO UPDATE was tried
+    first and rejected — confirmed against a live Postgres, ON CONFLICT DO
+    UPDATE still validates NOT NULL on every column of the *candidate* row
+    before the conflict redirects to UPDATE, so omitting clubId/webName/etc
+    (which this partial upsert has no data for) fails even though those
+    columns are never actually written."""
+    rows = [{"_id": e.id, "_points": e.stats.total_points} for e in live.elements]
+    if not rows:
+        return
+    # Core Table.update(), not the ORM-mapped update(Player): the latter
+    # auto-detects this shape as its "bulk UPDATE by primary key" feature,
+    # which requires the parameter dict's key to literally be "id" — using
+    # the raw table sidesteps that ORM heuristic entirely.
+    stmt = (
+        Player.__table__.update()
+        .where(Player.id == bindparam("_id"))
+        .values(currentGameweekPoints=bindparam("_points"))
+    )
+    await db.execute(stmt, rows)
     await db.flush()
 
 
@@ -436,12 +470,14 @@ async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTe
         transfers = await client.get_entry_transfers(fpl_team_id)
         history = await client.get_entry_history(fpl_team_id)
         fixtures = await client.get_fixtures()
+        live = await client.get_event_live(current_event_id)
 
     season = await _upsert_season(db, bootstrap)
     await _upsert_chip_windows(db, season, bootstrap)
     gameweeks = await _upsert_gameweeks(db, season, bootstrap)
     await _upsert_clubs_and_players(db, bootstrap)
     await _upsert_fixtures(db, gameweeks, fixtures)
+    await _upsert_current_gameweek_points(db, live)
 
     fpl_team = await _upsert_fpl_team(db, user_id, fpl_team_id, entry)
     await _replace_snapshot(db, fpl_team, gameweeks[current_event_id], picks)
