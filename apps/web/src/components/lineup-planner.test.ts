@@ -1,5 +1,5 @@
-import type { SquadPlayer } from "@/lib/api";
-import { canSwap, validationError } from "./lineup-planner";
+import type { PlayerListItem, SquadPlayer, SuggestedTransfer } from "@/lib/api";
+import { canSwap, filterVisibleSuggestions, validationError } from "./lineup-planner";
 
 // A legal 15-player squad: 2 GK/5 DEF/5 MID/3 FWD total, 11 starting
 // (1 GK/3 DEF/4 MID/3 FWD — inside the 3-5/2-5/1-3 formation ranges),
@@ -143,5 +143,59 @@ describe("canSwap", () => {
     // would drop DEF to 2 (below the 3 minimum) while also breaking the
     // goalkeeper count — either failure is a correct reject.
     expect(canSwap(players, 3, 2)).toBe(false);
+  });
+});
+
+function makeListItem(overrides: Partial<PlayerListItem>): PlayerListItem {
+  return {
+    playerId: 0,
+    webName: "Player",
+    position: "MID",
+    club: "TST",
+    clubCode: 1,
+    currentPrice: 50,
+    status: "a",
+    ...overrides,
+  };
+}
+
+function makeSuggestion(outId: number, inId: number): SuggestedTransfer {
+  return {
+    outPlayer: makeListItem({ playerId: outId, webName: `Out${outId}` }),
+    inPlayer: makeListItem({ playerId: inId, webName: `In${inId}` }),
+    outPlayerSellingPrice: 50,
+    projectedGain: 2.5,
+    requiresHit: false,
+  };
+}
+
+describe("filterVisibleSuggestions", () => {
+  it("keeps a suggestion whose outPlayer is still owned and inPlayer isn't", () => {
+    const suggestions = [makeSuggestion(1, 2)];
+    expect(filterVisibleSuggestions(suggestions, new Set([1, 3, 4]))).toEqual(suggestions);
+  });
+
+  it("drops a suggestion once its outPlayer has already left the squad", () => {
+    // e.g. the user manually transferred them out since suggestions loaded.
+    const suggestions = [makeSuggestion(1, 2)];
+    expect(filterVisibleSuggestions(suggestions, new Set([3, 4]))).toEqual([]);
+  });
+
+  it("drops a suggestion once its inPlayer is already owned", () => {
+    // e.g. the user already bought them some other way (manually, or by
+    // applying a different suggestion first).
+    const suggestions = [makeSuggestion(1, 2)];
+    expect(filterVisibleSuggestions(suggestions, new Set([1, 2]))).toEqual([]);
+  });
+
+  it("keeps only the still-valid suggestions out of a mixed list", () => {
+    const stillValid = makeSuggestion(1, 2);
+    const outAlreadyGone = makeSuggestion(5, 6);
+    const inAlreadyOwned = makeSuggestion(1, 7);
+    const suggestions = [stillValid, outAlreadyGone, inAlreadyOwned];
+
+    // Owned: 1 (still has outPlayer 1) and 7 (already bought inPlayer 7);
+    // player 5 (outAlreadyGone's outPlayer) is no longer owned.
+    expect(filterVisibleSuggestions(suggestions, new Set([1, 7]))).toEqual([stillValid]);
   });
 });

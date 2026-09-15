@@ -95,6 +95,20 @@ export function canSwap(players: SquadPlayer[], aId: number, bId: number): boole
   );
 }
 
+// Suggestions are fetched once per mount (see LineupPlanner's suggestions
+// effect), so a manual edit made since then can leave one referencing a
+// player who's no longer actually in the squad, or who's already been
+// bought some other way — filtered against the live squad here rather than
+// re-fetched on every edit.
+export function filterVisibleSuggestions(
+  suggestions: SuggestedTransfer[],
+  currentPlayerIds: Set<number>,
+): SuggestedTransfer[] {
+  return suggestions.filter(
+    (s) => currentPlayerIds.has(s.outPlayer.playerId) && !currentPlayerIds.has(s.inPlayer.playerId),
+  );
+}
+
 export function LineupPlanner({
   userId,
   lineup,
@@ -288,15 +302,8 @@ export function LineupPlanner({
       status: "a",
     }));
 
-  // Suggestions are fetched once per mount (see the effect above), so a
-  // manual edit made since then can leave one referencing a player who's no
-  // longer actually in the squad, or who's already been bought some other
-  // way — filtered out here against the live squad rather than re-fetched
-  // on every edit.
   const currentPlayerIds = new Set(players.map((p) => p.playerId));
-  const visibleSuggestions = suggestions.filter(
-    (s) => currentPlayerIds.has(s.outPlayer.playerId) && !currentPlayerIds.has(s.inPlayer.playerId),
-  );
+  const visibleSuggestions = filterVisibleSuggestions(suggestions, currentPlayerIds);
 
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
