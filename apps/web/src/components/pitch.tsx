@@ -126,56 +126,54 @@ export function PlayerCard({
         muted ? "opacity-80" : ""
       } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
     >
-      <div className="relative">
-        {onRemove && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            aria-label={`Remove ${player.webName} from your team`}
-            title="Remove from team"
-            className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
-          >
-            ×
-          </button>
-        )}
-        {(player.isCaptain || player.isViceCaptain) && (
-          <span
-            className={`absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
-              player.isCaptain
-                ? "bg-accent text-accent-foreground"
-                : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
-            }`}
-          >
-            {player.isCaptain ? "C" : "VC"}
-          </span>
-        )}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          aria-label={`Remove ${player.webName} from your team`}
+          title="Remove from team"
+          className="absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+        >
+          ×
+        </button>
+      )}
+      {(player.isCaptain || player.isViceCaptain) && (
+        <span
+          className={`absolute -top-1.5 -right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
+            player.isCaptain
+              ? "bg-accent text-accent-foreground"
+              : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
+          }`}
+        >
+          {player.isCaptain ? "C" : "VC"}
+        </span>
+      )}
+      <div className="flex w-full flex-col items-center rounded-2xl bg-white/40 p-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:p-2">
         {player.clubCode !== null && (
-          <div className="rounded-2xl bg-white/40 p-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:p-2">
-            <Image
-              src={shirtUrl(player.clubCode, player.position)}
-              alt=""
-              width={56}
-              height={56}
-              className="h-10 w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:h-14 xl:w-14"
-            />
-          </div>
+          <Image
+            src={shirtUrl(player.clubCode, player.position)}
+            alt=""
+            width={56}
+            height={56}
+            className="h-10 w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:h-14 xl:w-14"
+          />
         )}
+        <span
+          className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
+            selected
+              ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
+              : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
+          }`}
+        >
+          {player.webName}
+        </span>
+        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:text-xs">
+          {player.opponent ?? player.club} {formatPrice(player.currentPrice)}
+        </span>
       </div>
-      <span
-        className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
-          selected
-            ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
-            : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
-        }`}
-      >
-        {player.webName}
-      </span>
-      <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:text-xs">
-        {player.opponent ?? player.club} {formatPrice(player.currentPrice)}
-      </span>
     </div>
   );
 }
