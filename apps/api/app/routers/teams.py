@@ -21,7 +21,7 @@ from app.schemas.lineup import (
 )
 from app.schemas.squad import ImportTeamRequest, SquadOut
 from app.services import lineup as lineup_service
-from app.services.fpl_client import FplTeamNotFoundError
+from app.services.fpl_client import FplPicksUnavailableError, FplTeamNotFoundError
 from app.services.importer import import_team
 from app.services.squad import build_player_rows
 
@@ -36,6 +36,14 @@ async def import_fpl_team(
         fpl_team = await import_team(db, payload.userId, payload.fplTeamId)
     except FplTeamNotFoundError:
         raise HTTPException(status_code=404, detail=f"FPL team {payload.fplTeamId} not found")
+    except FplPicksUnavailableError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"FPL team {payload.fplTeamId} has no picks published for "
+                f"gameweek {error.event} yet — try again after the deadline."
+            ),
+        )
 
     return await _load_squad(db, fpl_team.id)
 

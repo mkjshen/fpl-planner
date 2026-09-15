@@ -207,10 +207,16 @@ async def available_free_transfers(
         return 0
 
     available = season.freeTransferCap
-    if current.number > 2:
+    if current.number >= 2:
+        # Through *and including* current.number: the current gameweek is
+        # live, so any real transfer already made in it this week has
+        # already happened and must count against what rolls into the next
+        # gameweek — same as every earlier gameweek in this replay. (range()
+        # self-guards to empty when current.number == 1, matching "free
+        # transfers don't exist in gameweek 1" above.)
         real_transfers = await _real_transfers_by_gameweek(db, fpl_team)
         chip_gameweeks = await _chip_gameweeks(db, fpl_team)
-        for gw_number in range(2, current.number):
+        for gw_number in range(2, current.number + 1):
             if gw_number in chip_gameweeks:
                 continue
             made = real_transfers.get(gw_number, 0)

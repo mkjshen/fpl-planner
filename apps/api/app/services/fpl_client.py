@@ -19,6 +19,20 @@ class FplTeamNotFoundError(Exception):
         super().__init__(f"FPL team {fpl_team_id} not found")
 
 
+class FplPicksUnavailableError(Exception):
+    """The team exists but has no picks published for the requested
+    gameweek yet (e.g. the deadline for the current gameweek hasn't
+    passed). Distinct from FplTeamNotFoundError, which the picks endpoint
+    also 404s on for a genuinely unknown team — that case is ruled out
+    here because import_team always resolves the team via get_entry
+    first."""
+
+    def __init__(self, fpl_team_id: int, event: int):
+        self.fpl_team_id = fpl_team_id
+        self.event = event
+        super().__init__(f"FPL team {fpl_team_id} has no picks for event {event}")
+
+
 class FplClient:
     def __init__(self) -> None:
         self._client = httpx.AsyncClient(base_url=BASE_URL, timeout=15.0)
@@ -45,9 +59,14 @@ class FplClient:
         return FplEntry.model_validate(response.json())
 
     async def get_entry_picks(self, fpl_team_id: int, event: int) -> FplPicksResponse:
+        # A 404 here means "no picks for this event" (deadline hasn't
+        # passed, or the team didn't exist yet at that event) — it does
+        # NOT mean the team itself is unknown, unlike every other 404 in
+        # this client. Callers that already resolved the team via
+        # get_entry should treat this as FplPicksUnavailableError.
         response = await self._client.get(f"/entry/{fpl_team_id}/event/{event}/picks/")
         if response.status_code == 404:
-            raise FplTeamNotFoundError(fpl_team_id)
+            raise FplPicksUnavailableError(fpl_team_id, event)
         response.raise_for_status()
         return FplPicksResponse.model_validate(response.json())
 

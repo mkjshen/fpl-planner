@@ -21,6 +21,15 @@ SORT_COLUMNS = {
 }
 
 
+def _escape_like(value: str) -> str:
+    """Player search text is dropped straight into a LIKE pattern below —
+    without this, a name typed with a literal '%' or '_' would be treated
+    as a SQL wildcard (e.g. searching "_" matches every player with any
+    single character in their name, i.e. everyone) instead of matched
+    literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 async def _owned_player_ids(db: AsyncSession, fpl_team: FplTeam, gameweek: Gameweek) -> set[int]:
     plan = await _find_effective_plan(db, fpl_team, gameweek)
     if plan is not None:
@@ -54,7 +63,7 @@ async def search_players(
     if positions:
         filters.append(Player.position.in_([Position(p) for p in positions]))
     if search:
-        filters.append(Player.webName.ilike(f"%{search}%"))
+        filters.append(Player.webName.ilike(f"%{_escape_like(search)}%", escape="\\"))
     else:
         filters.append(Player.status.notin_(["i", "s"]))
     if owned_ids:
