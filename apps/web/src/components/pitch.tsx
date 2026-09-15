@@ -195,6 +195,27 @@ const PITCH_TOP_INSET = 12;
 
 const PITCH_CLIP_PATH = `polygon(${PITCH_TOP_INSET}% 0%, ${100 - PITCH_TOP_INSET}% 0%, 100% 100%, 0% 100%)`;
 
+// How many x-percentage-points the pitch's own side edges shift per
+// y-percentage-point — i.e. the trapezoid's slope. The goal box and
+// six-yard box are drawn with their sides on this same slope (open at the
+// goal line, y=0) so they narrow toward the goalkeeper exactly in step
+// with the pitch itself, instead of sitting inside it as plain rectangles.
+const PITCH_SLOPE = PITCH_TOP_INSET / 100;
+
+// SVG polyline points (in the 0-100 percent coordinate space used
+// throughout this file) for a box of the given height (from the goal line
+// at y=0) and width at its bottom edge, centered horizontally, with sides
+// parallel to the pitch's own touchlines. Left-open (no top segment) since
+// the goal line itself is the pitch's own clipped top edge.
+function trapezoidBoxPoints(heightPercent: number, widthAtBottomPercent: number): string {
+  const halfBottom = widthAtBottomPercent / 2;
+  const leftBottom = 50 - halfBottom;
+  const rightBottom = 50 + halfBottom;
+  const leftTop = leftBottom - PITCH_SLOPE * heightPercent;
+  const rightTop = rightBottom + PITCH_SLOPE * heightPercent;
+  return `${leftTop},0 ${leftBottom},${heightPercent} ${rightBottom},${heightPercent} ${rightTop},0`;
+}
+
 export function Pitch({
   starting,
   selectedPlayerId,
@@ -247,8 +268,30 @@ export function Pitch({
         <div className="absolute inset-x-0 top-1/2 border-t border-white/25" />
         <div className="absolute top-1/2 left-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/25" />
         <div className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25" />
-        <div className="absolute inset-x-0 top-0 left-1/2 h-[16%] w-[64%] -translate-x-1/2 border border-t-0 border-white/25" />
-        <div className="absolute top-0 left-1/2 h-[7%] w-[34%] -translate-x-1/2 border border-t-0 border-white/25" />
+        {/* Goal box + six-yard box, drawn in perspective (see
+            trapezoidBoxPoints) rather than as plain rectangles, so their
+            sides narrow toward the goal line on the same slope as the
+            pitch's own touchlines. */}
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          <polyline
+            points={trapezoidBoxPoints(16, 64)}
+            fill="none"
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+          <polyline
+            points={trapezoidBoxPoints(7, 34)}
+            fill="none"
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
       </div>
 
       <div className="relative z-10 flex flex-col justify-between gap-4 px-2 py-10 sm:px-6">
