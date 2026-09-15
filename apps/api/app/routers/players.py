@@ -26,6 +26,10 @@ async def list_players(
     # include; omitted entirely means every position, not none.
     position: list[str] | None = Query(default=None),
     search: str | None = None,
+    # One of SORT_COLUMNS in services/players.py (price, form, points,
+    # points_per_game, ict, value, ownership) — unrecognized falls back to
+    # price there rather than erroring.
+    sortBy: str = Query(default="price"),
     limit: int = Query(default=30, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -38,7 +42,7 @@ async def list_players(
 
     try:
         return await players_service.search_players(
-            db, fpl_team, gameweekNumber, position, search, limit, offset
+            db, fpl_team, gameweekNumber, position, search, sortBy, limit, offset
         )
     except GameweekNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error))

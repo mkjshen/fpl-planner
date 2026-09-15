@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import type { PlayerListItem, PlayerSearchResult, Position } from "@/lib/api";
+import type { PlayerListItem, PlayerSearchResult, PlayerSortBy, Position } from "@/lib/api";
 import { formatPrice, shirtUrl } from "@/components/pitch";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 
@@ -18,10 +18,49 @@ const STATUS_LABELS: Record<string, string> = {
 
 const ALL_POSITIONS: Position[] = ["GK", "DEF", "MID", "FWD"];
 
+const SORT_OPTIONS: { value: PlayerSortBy; label: string }[] = [
+  { value: "price", label: "Price" },
+  { value: "form", label: "Form" },
+  { value: "points", label: "Total points" },
+  { value: "points_per_game", label: "Points per game" },
+  { value: "ict", label: "ICT Index" },
+  { value: "value", label: "Value (pts/£m)" },
+  { value: "ownership", label: "Ownership" },
+];
+
+// The value a given sort is actually ordering by, formatted for display —
+// shown alongside price in each row so it's obvious *why* the list is in
+// this order. Price itself isn't included: it's already shown on every row
+// regardless of sort, so repeating it here would be redundant. Also null
+// for a reincluded player (see PlayerListItem) — these fields are optional
+// there since that path never actually fetches them.
+function sortStatLabel(player: PlayerListItem, sortBy: PlayerSortBy): string | null {
+  switch (sortBy) {
+    case "form":
+      return player.form === undefined ? null : `${player.form.toFixed(1)} form`;
+    case "points":
+      return player.totalPoints === undefined ? null : `${player.totalPoints} pts`;
+    case "points_per_game":
+      return player.pointsPerGame === undefined
+        ? null
+        : `${player.pointsPerGame.toFixed(1)} pts/game`;
+    case "ict":
+      return player.ictIndex === undefined ? null : `${player.ictIndex.toFixed(1)} ICT`;
+    case "value":
+      return player.valueSeason === undefined ? null : `${player.valueSeason.toFixed(1)} value`;
+    case "ownership":
+      return player.selectedByPercent === undefined
+        ? null
+        : `${player.selectedByPercent.toFixed(1)}% owned`;
+    case "price":
+      return null;
+  }
+}
+
 export type SearchAction = (
   userId: string,
   gameweekNumber: number,
-  options: { positions?: Position[]; search?: string; offset?: number },
+  options: { positions?: Position[]; search?: string; sortBy?: PlayerSortBy; offset?: number },
 ) => Promise<PlayerSearchResult>;
 
 // The search box + results list only — no modal/panel chrome, so it can be
@@ -78,6 +117,7 @@ export function PlayerSearchResults({
   const [selectedPositions, setSelectedPositions] = useState<Set<Position>>(
     () => new Set(requiredPosition && !anyPosition ? [requiredPosition] : []),
   );
+  const [sortBy, setSortBy] = useState<PlayerSortBy>("price");
   const [players, setPlayers] = useState<PlayerListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -100,9 +140,9 @@ export function PlayerSearchResults({
     });
   }
 
-  // Query text or the position filter changing starts over from the first
-  // page — the debounce is really only needed for typing, but reusing it
-  // for a position toggle too keeps this to one code path.
+  // Query text, the position filter, or the sort changing all start over
+  // from the first page — the debounce is really only needed for typing,
+  // but reusing it for the others too keeps this to one code path.
   useEffect(() => {
     let cancelled = false;
     const timeout = setTimeout(() => {
@@ -111,6 +151,7 @@ export function PlayerSearchResults({
       searchAction(userId, gameweekNumber, {
         positions: positionsFilter,
         search: query || undefined,
+        sortBy,
         offset: 0,
       })
         .then((res) => {
@@ -130,7 +171,7 @@ export function PlayerSearchResults({
       clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, selectedPositions, userId, gameweekNumber, searchAction]);
+  }, [query, selectedPositions, sortBy, userId, gameweekNumber, searchAction]);
 
   // Infinite scroll: fetch the next page once scrolled near the bottom, so
   // the list can be scrolled through in full instead of being capped and
@@ -150,6 +191,7 @@ export function PlayerSearchResults({
       searchAction(userId, gameweekNumber, {
         positions: positionsFilter,
         search: query || undefined,
+        sortBy,
         offset: players.length,
       })
         .then((res) => {
@@ -209,6 +251,24 @@ export function PlayerSearchResults({
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <label htmlFor="player-sort" className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+          Sort by
+        </label>
+        <select
+          id="player-sort"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as PlayerSortBy)}
+          className="min-w-0 flex-1 rounded-md border border-black/[.08] bg-transparent px-2 py-1 text-xs text-black outline-none focus:border-primary dark:border-white/[.145] dark:text-zinc-50 dark:focus:border-accent"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} className="text-black">
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div ref={scrollRef} className="mt-3 flex-1 overflow-y-auto">
@@ -281,6 +341,9 @@ export function PlayerSearchResults({
                         <span className="flex min-w-0 items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                           <span className="shrink-0">{player.position}</span>
                           <span className="truncate">{player.club}</span>
+                          {sortStatLabel(player, sortBy) && (
+                            <span className="shrink-0">{sortStatLabel(player, sortBy)}</span>
+                          )}
                           {isReincluded ? (
                             <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
                               Transferred out

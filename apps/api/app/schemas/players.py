@@ -9,6 +9,16 @@ class PlayerListItemOut(BaseModel):
     clubCode: int | None
     currentPrice: int
     status: str
+    # The same handful of fields search_players can sort by (see SORT_COLUMNS
+    # in services/players.py) — carried on every row, not just the one being
+    # sorted by, so switching "sort by" doesn't need a second round trip and
+    # the row can always show *why* it's where it is in the list.
+    form: float
+    totalPoints: int
+    pointsPerGame: float
+    ictIndex: float
+    valueSeason: float
+    selectedByPercent: float
 
 
 class PlayerListOut(BaseModel):

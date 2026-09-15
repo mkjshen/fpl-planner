@@ -69,7 +69,30 @@ export type PlayerListItem = {
   clubCode: number | null;
   currentPrice: number;
   status: string;
+  // The same fields the search can sort by (see PlayerSortBy) — carried on
+  // every row so the list can show *why* it's ordered the way it is
+  // without a second round trip when the sort changes. Optional because a
+  // player re-offered via `reincludePlayers` (see PlayerSearchResults) is
+  // built client-side from squad data that doesn't carry these, not fetched
+  // from the search API — that's the only place they're ever missing.
+  form?: number;
+  totalPoints?: number;
+  pointsPerGame?: number;
+  ictIndex?: number;
+  valueSeason?: number;
+  selectedByPercent?: number;
 };
+
+// What the player search can sort by — must match SORT_COLUMNS in the
+// backend's services/players.py.
+export type PlayerSortBy =
+  | "price"
+  | "form"
+  | "points"
+  | "points_per_game"
+  | "ict"
+  | "value"
+  | "ownership";
 
 export type PlayerSearchResult = {
   total: number;
@@ -208,7 +231,13 @@ export async function saveLineup(
 export async function searchPlayers(
   userId: string,
   gameweekNumber: number,
-  options: { positions?: Position[]; search?: string; limit?: number; offset?: number },
+  options: {
+    positions?: Position[];
+    search?: string;
+    sortBy?: PlayerSortBy;
+    limit?: number;
+    offset?: number;
+  },
 ): Promise<PlayerSearchResult> {
   const params = new URLSearchParams({
     userId,
@@ -219,6 +248,7 @@ export async function searchPlayers(
   // being explicit here avoids relying on that.
   for (const position of options.positions ?? []) params.append("position", position);
   if (options.search) params.set("search", options.search);
+  if (options.sortBy) params.set("sortBy", options.sortBy);
   if (options.limit) params.set("limit", String(options.limit));
   if (options.offset) params.set("offset", String(options.offset));
 

@@ -9,6 +9,7 @@ import {
   LineupValidationError,
   type PlayerProfile,
   type PlayerSearchResult,
+  type PlayerSortBy,
   type Position,
   resetAllPlans,
   saveLineup,
@@ -47,7 +48,7 @@ export async function resetAllPlansAction(
 export async function searchPlayersAction(
   userId: string,
   gameweekNumber: number,
-  options: { positions?: Position[]; search?: string; offset?: number },
+  options: { positions?: Position[]; search?: string; sortBy?: PlayerSortBy; offset?: number },
 ): Promise<PlayerSearchResult> {
   return searchPlayers(userId, gameweekNumber, { ...options, limit: 30 });
 }

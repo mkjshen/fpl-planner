@@ -5,6 +5,21 @@ from app.db.models import Club, FplTeam, Gameweek, Player, Position
 from app.schemas.players import PlayerListItemOut, PlayerListOut, PlayerProfileOut
 from app.services.lineup import GameweekNotFoundError, _find_effective_plan, _latest_snapshot_slots, _plan_slots
 
+# What "sort by" values the search endpoint accepts, mapped to the column
+# they order on — all descending (highest first), which is what every one
+# of these actually means as "best" (including price: browsing expensive
+# players first surfaces the well-known ones). An unrecognized value falls
+# back to "price", same as the endpoint's own default.
+SORT_COLUMNS = {
+    "price": Player.currentPrice,
+    "form": Player.form,
+    "points": Player.totalPoints,
+    "points_per_game": Player.pointsPerGame,
+    "ict": Player.ictIndex,
+    "value": Player.valueSeason,
+    "ownership": Player.selectedByPercent,
+}
+
 
 async def _owned_player_ids(db: AsyncSession, fpl_team: FplTeam, gameweek: Gameweek) -> set[int]:
     plan = await _find_effective_plan(db, fpl_team, gameweek)
@@ -21,6 +36,7 @@ async def search_players(
     gameweek_number: int,
     positions: list[str] | None,
     search: str | None,
+    sort_by: str,
     limit: int,
     offset: int,
 ) -> PlayerListOut:
@@ -47,11 +63,15 @@ async def search_players(
     count_query = select(func.count()).select_from(Player).where(*filters)
     total = await db.scalar(count_query) or 0
 
+    sort_column = SORT_COLUMNS.get(sort_by, Player.currentPrice)
     query = (
         select(Player, Club)
         .join(Club, Player.clubId == Club.id)
         .where(*filters)
-        .order_by(Player.currentPrice.desc(), Player.webName)
+        # webName as the tiebreak keeps paging stable — without it, rows
+        # sharing the sorted value (e.g. two players both on 0.0 form)
+        # could reorder between the first page and the next offset-based one.
+        .order_by(sort_column.desc(), Player.webName)
         .offset(offset)
         .limit(limit)
     )
@@ -66,6 +86,12 @@ async def search_players(
             clubCode=club.code,
             currentPrice=player.currentPrice,
             status=player.status,
+            form=player.form,
+            totalPoints=player.totalPoints,
+            pointsPerGame=player.pointsPerGame,
+            ictIndex=player.ictIndex,
+            valueSeason=player.valueSeason,
+            selectedByPercent=player.selectedByPercent,
         )
         for player, club in result.all()
     ]
