@@ -49,10 +49,18 @@ export function PlayerProfileModal({
   playerId,
   profileAction,
   onClose,
+  actions,
 }: {
   playerId: number;
   profileAction: ProfileAction;
   onClose: () => void;
+  // Squad-context controls (captain/vice-captain, sell, substitute) that
+  // only make sense when this player is actually in the viewer's own
+  // lineup — not part of this component's own concerns, since it's also
+  // used to browse the full transfer-in pool, where none of that applies.
+  // Rendered once the profile has loaded, with the profile as an argument
+  // in case the caller wants it (e.g. for a confirmation message).
+  actions?: (profile: PlayerProfile) => ReactNode;
 }) {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,6 +226,12 @@ export function PlayerProfileModal({
                 />
               </StatSection>
             </div>
+
+            {actions && (
+              <div className="mt-5 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
+                {actions(profile)}
+              </div>
+            )}
           </div>
         )}
       </div>

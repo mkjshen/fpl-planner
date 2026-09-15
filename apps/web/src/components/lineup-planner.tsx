@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Chip, Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
-import type { ProfileAction } from "@/components/player-profile-modal";
+import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
@@ -128,6 +128,11 @@ export function LineupPlanner({
   const [chipWindows, setChipWindows] = useState(lineup.chipWindows);
   const [laterPlansAffected, setLaterPlansAffected] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // The player whose profile modal is open, if any — clicking a squad
+  // player opens their profile (same as the info icon in player search)
+  // rather than immediately entering "pick a swap target" mode; that mode
+  // is now only entered via the modal's own Substitute button.
+  const [viewingPlayerId, setViewingPlayerId] = useState<number | null>(null);
   // Every player currently transferred out but not yet replaced — several
   // can be pending at once. `activeTransferOutId` is whichever one the
   // transfer-in panel is showing right now (always one of `transferOutIds`
@@ -154,7 +159,7 @@ export function LineupPlanner({
   const chipIsTransferFree = chip !== null && TRANSFER_FREE_CHIPS.has(chip);
   const transferPanelTitle = (target: SquadPlayer | null) =>
     target ? (chipIsTransferFree ? "Transfer in any player" : `Transfer in a ${target.position}`) : "Transfer players";
-  const selectedPlayer = players.find((p) => p.playerId === selectedId) ?? null;
+  const viewingPlayer = players.find((p) => p.playerId === viewingPlayerId) ?? null;
   const transferOutIdSet = new Set(transferOutIds);
   const transferOutPlayer = players.find((p) => p.playerId === activeTransferOutId) ?? null;
   const disabledPlayerIds =
@@ -231,8 +236,12 @@ export function LineupPlanner({
 
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
+    // No substitution pending — clicking a player views their profile
+    // instead of starting one. A substitution only starts via the
+    // profile modal's own Substitute button (handleSubstituteFromModal),
+    // which is what sets selectedId in the first place.
     if (selectedId === null) {
-      setSelectedId(player.playerId);
+      setViewingPlayerId(player.playerId);
       return;
     }
     if (selectedId === player.playerId) {
@@ -334,6 +343,22 @@ export function LineupPlanner({
 
   function setViceCaptain(playerId: number) {
     setPlayers((prev) => prev.map((p) => ({ ...p, isViceCaptain: p.playerId === playerId })));
+  }
+
+  // Sell/Substitute in the profile modal — same underlying actions the
+  // card's own × button and click-to-select used to trigger directly, just
+  // reached from the modal now. Substitute reproduces exactly what used to
+  // happen on a bare first click: select this player and close the modal,
+  // leaving the pitch/bench waiting for whichever card gets clicked next to
+  // complete the swap (handlePlayerClick's second branch, unchanged).
+  function handleSellFromModal(playerId: number) {
+    handleTransferOutClick(playerId);
+    setViewingPlayerId(null);
+  }
+
+  function handleSubstituteFromModal(playerId: number) {
+    setSelectedId(playerId);
+    setViewingPlayerId(null);
   }
 
   function handleReset() {
@@ -618,6 +643,57 @@ export function LineupPlanner({
           </div>
         )}
 
+        {lineup.isEditable && viewingPlayer && (
+          <PlayerProfileModal
+            key={viewingPlayer.playerId}
+            playerId={viewingPlayer.playerId}
+            profileAction={profileAction}
+            onClose={() => setViewingPlayerId(null)}
+            actions={() => (
+              <div className="flex flex-col gap-3">
+                {viewingPlayer.isStarting && (
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 text-sm text-black dark:text-zinc-50">
+                      <input
+                        type="checkbox"
+                        checked={viewingPlayer.isCaptain}
+                        onChange={() => setCaptain(viewingPlayer.playerId)}
+                        className="h-4 w-4 rounded border-black/20 text-primary accent-primary dark:border-white/30 dark:accent-accent"
+                      />
+                      Captain
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-black dark:text-zinc-50">
+                      <input
+                        type="checkbox"
+                        checked={viewingPlayer.isViceCaptain}
+                        onChange={() => setViceCaptain(viewingPlayer.playerId)}
+                        className="h-4 w-4 rounded border-black/20 text-primary accent-primary dark:border-white/30 dark:accent-accent"
+                      />
+                      Vice-captain
+                    </label>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSellFromModal(viewingPlayer.playerId)}
+                    className="rounded-full border border-red-200 px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                  >
+                    Sell
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSubstituteFromModal(viewingPlayer.playerId)}
+                    className="rounded-full border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                  >
+                    Substitute
+                  </button>
+                </div>
+              </div>
+            )}
+          />
+        )}
+
         {/* Below md there's no room for the squad and the transfer picker
             side by side, so it falls back to a centered, dimmed modal. */}
         {transferOutPlayer && (
@@ -675,24 +751,6 @@ export function LineupPlanner({
             }
           />
         </div>
-
-        {lineup.isEditable && selectedPlayer && selectedPlayer.isStarting && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-black/[.06] bg-zinc-50 px-3 py-2 text-sm dark:border-white/[.08] dark:bg-white/[.03]">
-            <span className="font-medium text-black dark:text-zinc-50">{selectedPlayer.webName}:</span>
-            <button
-              onClick={() => setCaptain(selectedPlayer.playerId)}
-              className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-accent hover:bg-accent/10 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-            >
-              Make captain
-            </button>
-            <button
-              onClick={() => setViceCaptain(selectedPlayer.playerId)}
-              className="rounded-md border border-black/[.08] px-2 py-1 text-xs font-medium transition-colors hover:border-primary hover:bg-primary/5 dark:border-white/[.145] dark:hover:border-accent dark:hover:bg-accent/10"
-            >
-              Make vice-captain
-            </button>
-          </div>
-        )}
 
         <div className="mt-6 flex flex-wrap justify-center gap-2 xl:gap-6">
           {bench.map((player) => (
