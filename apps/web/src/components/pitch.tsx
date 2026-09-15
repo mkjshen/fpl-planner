@@ -186,29 +186,14 @@ const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];
 // A forced-perspective trapezoid: narrower at the top (goalkeeper's end,
 // "far away") and full width at the bottom (attackers, "closest to you") —
 // mimics standing behind your own box looking up the pitch instead of a
-// bird's-eye view. Each row is then scaled down to match, so distant rows
-// genuinely look smaller/further back rather than just sitting inside a
-// narrower band. A real CSS 3D transform (perspective + rotateX) would sell
-// this more dramatically, but it distorts and skews the pill text/shirt
-// images inside each card — this trapezoid-and-scale approach keeps every
-// card upright and legible while still reading as "looking down the pitch."
-const PITCH_ROW_SCALE: Record<Position, number> = {
-  GK: 0.78,
-  DEF: 0.86,
-  MID: 0.94,
-  FWD: 1,
-};
-
-// Percent inset of the top edge from each side (bottom edge stays full
-// width) and the corner bevel size, both as percentages of the pitch box.
+// bird's-eye view. Just the pitch shape itself; player card sizes are left
+// alone. A real CSS 3D transform (perspective + rotateX) would sell the
+// depth more dramatically, but it distorts and skews the pill text/shirt
+// images inside each card — a plain clip-path keeps every card upright and
+// legible while still reading as "looking down the pitch."
 const PITCH_TOP_INSET = 12;
-const PITCH_CORNER_CUT = 3;
 
-const PITCH_CLIP_PATH = `polygon(${PITCH_TOP_INSET + PITCH_CORNER_CUT}% 0%, ${
-  100 - PITCH_TOP_INSET - PITCH_CORNER_CUT
-}% 0%, ${100 - PITCH_TOP_INSET}% ${PITCH_CORNER_CUT}%, 100% ${100 - PITCH_CORNER_CUT}%, ${
-  100 - PITCH_CORNER_CUT
-}% 100%, ${PITCH_CORNER_CUT}% 100%, 0% ${100 - PITCH_CORNER_CUT}%, ${PITCH_TOP_INSET}% ${PITCH_CORNER_CUT}%)`;
+const PITCH_CLIP_PATH = `polygon(${PITCH_TOP_INSET}% 0%, ${100 - PITCH_TOP_INSET}% 0%, 100% 100%, 0% 100%)`;
 
 export function Pitch({
   starting,
@@ -268,11 +253,7 @@ export function Pitch({
 
       <div className="relative z-10 flex flex-col justify-between gap-4 px-2 py-10 sm:px-6">
         {PITCH_ROWS.map((position) => (
-          <div
-            key={position}
-            className="flex flex-wrap items-center justify-center gap-2 xl:gap-6"
-            style={{ transform: `scale(${PITCH_ROW_SCALE[position]})` }}
-          >
+          <div key={position} className="flex flex-wrap items-center justify-center gap-2 xl:gap-6">
             {byPosition(position).map((player) => (
               <PlayerCard
                 key={player.playerId}
