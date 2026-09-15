@@ -41,7 +41,7 @@ export function StatChip({
 // Hotlinked from the official FPL site's own static assets — the same
 // shirt images fantasy.premierleague.com uses on its own squad view — not
 // a copy we host ourselves. Goalkeepers get a distinct "_1" kit variant.
-function shirtUrl(clubCode: number, position: Position): string {
+export function shirtUrl(clubCode: number, position: Position): string {
   const suffix = position === "GK" ? "_1" : "";
   return `https://fantasy.premierleague.com/dist/img/shirts/standard/shirt_${clubCode}${suffix}-66.png`;
 }
