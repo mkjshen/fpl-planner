@@ -152,6 +152,9 @@ export function PlayerCard({
         </span>
       )}
       <div className="flex w-full flex-col items-center overflow-hidden rounded-2xl bg-white/40 pt-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:pt-2">
+        <span className="text-[0.65rem] font-semibold text-zinc-700 drop-shadow-sm dark:text-zinc-200 xl:text-xs">
+          {formatPrice(player.currentPrice)}
+        </span>
         {player.clubCode !== null && (
           <Image
             src={shirtUrl(player.clubCode, player.position)}
@@ -171,7 +174,7 @@ export function PlayerCard({
           {player.webName}
         </span>
         <span className="w-full truncate rounded-b-2xl border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:rounded-b-3xl xl:text-xs">
-          {player.opponent ?? player.club} {formatPrice(player.currentPrice)}
+          {player.opponent ?? player.club}
         </span>
       </div>
     </div>
