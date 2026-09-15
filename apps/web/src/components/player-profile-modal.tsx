@@ -58,6 +58,26 @@ export function PlayerProfileModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Lock the page behind the modal from scrolling while it's open —
+  // otherwise a scroll/wheel gesture over the backdrop scrolls the planner
+  // underneath instead of (or as well as) the modal's own content. Both
+  // <html> and <body> need it: whichever one the browser treats as the
+  // actual scrolling element (document.scrollingElement, normally <html>)
+  // is the one that matters, and that isn't guaranteed to be body alone.
+  // Restores whatever was there before, not just "visible", in case
+  // something else already constrained it.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    root.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     profileAction(playerId)
