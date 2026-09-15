@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { PlayerProfile } from "@/lib/api";
 import { formatPrice, playerPhotoUrl, StatChip } from "@/components/pitch";
 
@@ -15,6 +15,28 @@ const STATUS_LABELS: Record<string, string> = {
   s: "Suspended",
   u: "Unavailable",
 };
+
+// A section of the card — a labeled, bordered block holding one related
+// group of stats, so the card reads as a set of distinct panels rather
+// than one long stacked list.
+function StatSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border border-black/[.08] bg-black/[.02] p-4 dark:border-white/[.145] dark:bg-white/[.03]">
+      <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+        {title}
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{children}</div>
+    </div>
+  );
+}
+
+function Badge({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full bg-black/[.05] px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-white/[.08] dark:text-zinc-300">
+      {children}
+    </span>
+  );
+}
 
 // The caller is expected to conditionally render this (only when a player
 // is being viewed) with `key={playerId}`, the same "remount for a fresh
@@ -69,33 +91,35 @@ export function PlayerProfileModal({
         aria-modal="true"
         aria-label={profile ? `${profile.webName}'s profile` : "Player profile"}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-black/[.08] bg-white shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-black/[.08] bg-white shadow-xl dark:border-white/[.145] dark:bg-zinc-950"
       >
         {loading && (
-          <p className="py-16 text-center text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
+          <p className="py-24 text-center text-sm text-zinc-500 dark:text-zinc-400">Loading…</p>
         )}
-        {error && <p className="py-16 text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="py-24 text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
         {profile && (
-          <div className="flex min-h-0 flex-col overflow-y-auto p-6">
+          <div className="flex min-h-0 flex-col overflow-y-auto p-8">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {profile.photoCode !== null && (
                   <Image
                     src={playerPhotoUrl(profile.photoCode)}
                     alt=""
-                    width={44}
-                    height={56}
-                    className="h-14 w-11 rounded-md object-cover"
+                    width={76}
+                    height={97}
+                    className="h-24 w-[75px] shrink-0 rounded-lg object-cover"
                   />
                 )}
                 <div>
-                  <p className="text-base font-semibold text-black dark:text-zinc-50">
+                  <p className="text-2xl font-semibold text-black dark:text-zinc-50">
                     {profile.webName}
                   </p>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{profile.fullName}</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {profile.position} · {profile.club} · {formatPrice(profile.currentPrice)}
-                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge>{profile.position}</Badge>
+                    <Badge>{profile.club}</Badge>
+                    <Badge>{formatPrice(profile.currentPrice)}</Badge>
+                  </div>
                 </div>
               </div>
               <button
@@ -108,7 +132,7 @@ export function PlayerProfileModal({
             </div>
 
             {availabilityNote && (
-              <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+              <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
                 {STATUS_LABELS[profile.status] && (
                   <span className="font-medium">{STATUS_LABELS[profile.status]}. </span>
                 )}
@@ -119,11 +143,8 @@ export function PlayerProfileModal({
               </div>
             )}
 
-            <div className="mt-4 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
-              <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-                Season
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-5 flex flex-col gap-4">
+              <StatSection title="Season">
                 <StatChip label="Points" value={String(profile.totalPoints)} />
                 <StatChip
                   label="Pts/game"
@@ -155,26 +176,16 @@ export function PlayerProfileModal({
                   value={String(profile.minutes)}
                   title="Total minutes played this season — low minutes on a fit player is a rotation-risk warning sign"
                 />
-              </div>
-            </div>
+              </StatSection>
 
-            <div className="mt-4 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
-              <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-                Returns
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <StatSection title="Returns">
                 <StatChip label="Goals" value={String(profile.goalsScored)} />
                 <StatChip label="Assists" value={String(profile.assists)} />
                 <StatChip label="Clean sheets" value={String(profile.cleanSheets)} />
                 <StatChip label="Bonus" value={String(profile.bonus)} />
-              </div>
-            </div>
+              </StatSection>
 
-            <div className="mt-4 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
-              <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-                Underlying stats
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <StatSection title="Underlying stats">
                 <StatChip
                   label="xG"
                   value={profile.expectedGoals.toFixed(2)}
@@ -185,7 +196,7 @@ export function PlayerProfileModal({
                   value={profile.expectedAssists.toFixed(2)}
                   title="Expected assists — the same idea as xG, for chances created that led (or should lead) to a goal"
                 />
-              </div>
+              </StatSection>
             </div>
           </div>
         )}
