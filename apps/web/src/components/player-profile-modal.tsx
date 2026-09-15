@@ -163,7 +163,7 @@ export function PlayerProfileModal({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="shrink-0 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                className="focus-ring shrink-0 rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 Close
               </button>

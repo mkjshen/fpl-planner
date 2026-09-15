@@ -48,7 +48,7 @@ export function OAuthButtons() {
       >
         <button
           type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-black/[.08] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+          className="focus-ring flex w-full items-center justify-center gap-2 rounded-md border border-black/[.08] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
         >
           <GoogleIcon />
           Continue with Google
@@ -62,7 +62,7 @@ export function OAuthButtons() {
       >
         <button
           type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-black/[.08] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+          className="focus-ring flex w-full items-center justify-center gap-2 rounded-md border border-black/[.08] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
         >
           <AppleIcon />
           Continue with Apple

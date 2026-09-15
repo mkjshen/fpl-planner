@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FplPicksUnavailableError, FplTeamNotFoundError, importFplTeam } from "@/lib/api";
+import { Banner } from "@/components/feedback";
+import { SubmitButton } from "@/components/submit-button";
 
 async function linkTeamAction(formData: FormData) {
   "use server";
@@ -28,7 +30,7 @@ async function linkTeamAction(formData: FormData) {
     throw error;
   }
 
-  redirect("/dashboard");
+  redirect("/dashboard?success=linked");
 }
 
 export function LinkTeamForm({ error }: { error?: string }) {
@@ -44,37 +46,43 @@ export function LinkTeamForm({ error }: { error?: string }) {
       </p>
 
       {error === "team_not_found" && (
-        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Banner tone="error" className="mt-4">
           Couldn&apos;t find an FPL team with that ID.
-        </p>
+        </Banner>
       )}
       {error === "picks_unavailable" && (
-        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Banner tone="error" className="mt-4">
           Found that team, but it has no squad picks published for the
           current gameweek yet. Try again after the gameweek deadline.
-        </p>
+        </Banner>
       )}
       {error === "invalid_team_id" && (
-        <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <Banner tone="error" className="mt-4">
           Enter a valid numeric team ID.
-        </p>
+        </Banner>
       )}
 
-      <form action={linkTeamAction} className="mt-6 flex gap-3">
-        <input
-          name="fplTeamId"
-          type="number"
-          inputMode="numeric"
-          placeholder="e.g. 12345"
-          required
-          className="flex-1 rounded-md border border-black/[.08] px-3 py-2 text-sm outline-none transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
-        />
-        <button
-          type="submit"
-          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+      <form action={linkTeamAction} className="mt-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:gap-3">
+        <div className="flex flex-1 flex-col gap-1">
+          <label htmlFor="fplTeamId" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            FPL team ID
+          </label>
+          <input
+            id="fplTeamId"
+            name="fplTeamId"
+            type="number"
+            inputMode="numeric"
+            placeholder="e.g. 12345"
+            required
+            className="focus-ring rounded-md border border-black/[.08] px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
+          />
+        </div>
+        <SubmitButton
+          pendingLabel="Importing…"
+          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
         >
           Import
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

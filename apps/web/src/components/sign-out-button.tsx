@@ -32,7 +32,7 @@ export function SignOutButton() {
         type="submit"
         aria-label="Sign out"
         title="Sign out"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[.08] text-zinc-600 transition-colors hover:bg-black/[.04] hover:text-black dark:border-white/[.145] dark:text-zinc-400 dark:hover:bg-[#1a1a1a] dark:hover:text-zinc-50"
+        className="focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-black/[.08] text-zinc-600 transition-colors hover:bg-black/[.04] hover:text-black dark:border-white/[.145] dark:text-zinc-400 dark:hover:bg-[#1a1a1a] dark:hover:text-zinc-50"
       >
         <LogOutIcon />
       </button>

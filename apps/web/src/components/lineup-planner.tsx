@@ -6,6 +6,7 @@ import type { Chip, Lineup, LineupPlayerInput, PlayerListItem, SquadPlayer } fro
 import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
+import { Banner } from "@/components/feedback";
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
@@ -455,7 +456,7 @@ export function LineupPlanner({
                 }
                 disabled={!previousGameweek}
                 aria-label="Previous gameweek"
-                className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
+                className="focus-ring rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
               >
                 ‹
               </button>
@@ -469,7 +470,7 @@ export function LineupPlanner({
                 }
                 disabled={!nextGameweek}
                 aria-label="Next gameweek"
-                className="rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
+                className="focus-ring rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
               >
                 ›
               </button>
@@ -525,7 +526,7 @@ export function LineupPlanner({
                     disabled={!selectable}
                     title={title}
                     aria-pressed={active}
-                    className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`focus-ring flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                       active
                         ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
                         : selectable
@@ -583,25 +584,17 @@ export function LineupPlanner({
           <button
             onClick={() => setConfirmingResetAll(true)}
             disabled={resettingAll}
-            className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
+            className="focus-ring rounded text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             {resettingAll ? "Resetting…" : "Reset all plans"}
           </button>
         </div>
 
         {laterPlansAffected && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-            <span>
-              Editing gameweek {selectedGameweek} may make your later planned gameweeks
-              inconsistent — review them or use Reset all plans.
-            </span>
-            <button
-              onClick={() => setLaterPlansAffected(false)}
-              className="shrink-0 font-medium text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
-            >
-              Dismiss
-            </button>
-          </div>
+          <Banner tone="info" onDismiss={() => setLaterPlansAffected(false)} className="mt-3">
+            Editing gameweek {selectedGameweek} may make your later planned gameweeks
+            inconsistent — review them or use Reset all plans.
+          </Banner>
         )}
 
         {confirmingResetAll && (
@@ -627,14 +620,14 @@ export function LineupPlanner({
                 <button
                   onClick={handleConfirmResetAll}
                   disabled={resettingAll}
-                  className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+                  className="focus-ring rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
                 >
                   {resettingAll ? "Resetting…" : "Yes, reset everything"}
                 </button>
                 <button
                   onClick={() => setConfirmingResetAll(false)}
                   disabled={resettingAll}
-                  className="rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                  className="focus-ring rounded-md border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
                 >
                   Cancel
                 </button>
@@ -677,14 +670,14 @@ export function LineupPlanner({
                   <button
                     type="button"
                     onClick={() => handleSellFromModal(viewingPlayer.playerId)}
-                    className="rounded-full border border-red-200 px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+                    className="focus-ring rounded-full border border-red-200 px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
                   >
                     Sell
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSubstituteFromModal(viewingPlayer.playerId)}
-                    className="rounded-full border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+                    className="focus-ring rounded-full border border-black/[.08] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
                   >
                     Substitute
                   </button>
@@ -715,7 +708,7 @@ export function LineupPlanner({
                 </p>
                 <button
                   onClick={handleClearActiveTransferOut}
-                  className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  className="focus-ring rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                 >
                   Close
                 </button>
@@ -772,39 +765,29 @@ export function LineupPlanner({
         </div>
 
         {lineup.isEditable && (
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
-            <button
-              onClick={handleSave}
-              disabled={!dirty || saving || transferOutIds.length > 0}
-              title={
-                transferOutIds.length > 0
-                  ? "Pick a replacement for every transferred-out player, or clear them, first"
-                  : undefined
-              }
-              className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button
-              onClick={handleReset}
-              disabled={!dirty || saving}
-              className="rounded-full border border-black/[.08] px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
-            >
-              Reset
-            </button>
-            {message && (
-              <span
-                className={`text-sm ${
-                  messageTone === "success"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : messageTone === "error"
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-zinc-600 dark:text-zinc-400"
-                }`}
+          <div className="mt-6 flex flex-col gap-3 border-t border-black/[.08] pt-4 dark:border-white/[.145]">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleSave}
+                disabled={!dirty || saving || transferOutIds.length > 0}
+                title={
+                  transferOutIds.length > 0
+                    ? "Pick a replacement for every transferred-out player, or clear them, first"
+                    : undefined
+                }
+                className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
               >
-                {message}
-              </span>
-            )}
+                {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={!dirty || saving}
+                className="focus-ring rounded-full border border-black/[.08] px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+              >
+                Reset
+              </button>
+            </div>
+            {message && messageTone && <Banner tone={messageTone}>{message}</Banner>}
           </div>
         )}
       </div>
@@ -822,7 +805,7 @@ export function LineupPlanner({
             {transferOutPlayer && (
               <button
                 onClick={handleClearActiveTransferOut}
-                className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                className="focus-ring rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 Clear
               </button>

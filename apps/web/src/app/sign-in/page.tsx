@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { OAuthButtons } from "@/components/oauth-buttons";
+import { Banner } from "@/components/feedback";
+import { SubmitButton } from "@/components/submit-button";
 
 async function signInAction(formData: FormData) {
   "use server";
@@ -34,9 +36,9 @@ export default async function SignInPage({
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Sign in</h1>
 
         {error === "invalid_credentials" && (
-          <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          <Banner tone="error" className="mt-4">
             Incorrect email or password.
-          </p>
+          </Banner>
         )}
 
         <form action={signInAction} className="mt-6 flex flex-col gap-4">
@@ -49,7 +51,7 @@ export default async function SignInPage({
               name="email"
               type="email"
               required
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm outline-none transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
+              className="focus-ring rounded-md border border-black/[.08] px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -61,15 +63,15 @@ export default async function SignInPage({
               name="password"
               type="password"
               required
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm outline-none transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
+              className="focus-ring rounded-md border border-black/[.08] px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:border-white/[.145] dark:bg-black"
             />
           </div>
-          <button
-            type="submit"
-            className="mt-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover"
+          <SubmitButton
+            pendingLabel="Signing in…"
+            className="mt-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
           >
             Sign in
-          </button>
+          </SubmitButton>
         </form>
 
         <div className="mt-6 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-500">

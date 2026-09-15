@@ -24,7 +24,7 @@ export function StatChip({
       title={title}
       className="rounded-lg border border-black/[.08] bg-black/[.02] px-3 py-1.5 dark:border-white/[.145] dark:bg-white/[.03]"
     >
-      <p className="text-[0.65rem] font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
+      <p className="text-[0.65rem] font-medium tracking-wide text-zinc-600 uppercase dark:text-zinc-400">
         {label}
       </p>
       <p
@@ -94,7 +94,7 @@ export function PlayerCard({
       <button
         type="button"
         onClick={onActivate}
-        className={`flex w-20 flex-col items-center text-center xl:w-32 ${
+        className={`focus-ring flex w-20 flex-col items-center text-center xl:w-32 ${
           onActivate ? "cursor-pointer" : ""
         }`}
       >
@@ -107,12 +107,12 @@ export function PlayerCard({
           className={`mt-1.5 w-full truncate rounded-md border px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
             activeBlank
               ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
-              : "border-black/10 bg-white text-zinc-400 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-500"
+              : "border-black/10 bg-white text-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-500"
           }`}
         >
           Empty
         </span>
-        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-500 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-400 xl:text-xs">
+        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-400 xl:text-xs">
           {activeBlank ? "Pick a player" : "Tap to fill"}
         </span>
       </button>
@@ -135,7 +135,7 @@ export function PlayerCard({
           }}
           aria-label={`Remove ${player.webName} from your team`}
           title="Remove from team"
-          className="absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+          className="focus-ring absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
         >
           ×
         </button>
@@ -156,6 +156,10 @@ export function PlayerCard({
           {formatPrice(player.currentPrice)}
         </span>
         {player.clubCode !== null && (
+          // alt="" is deliberate, not an oversight — the player's name is
+          // always rendered as adjacent visible text right below, so a
+          // descriptive alt here would just be redundant noise for screen
+          // readers.
           <Image
             src={shirtUrl(player.clubCode, player.position)}
             alt=""

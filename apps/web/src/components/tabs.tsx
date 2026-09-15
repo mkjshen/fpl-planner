@@ -19,7 +19,7 @@ function TabLink({ href, label, isActive }: { href: string; label: string; isAct
   return (
     <Link
       href={href}
-      className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+      className={`focus-ring border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
         isActive
           ? "border-primary text-primary dark:border-accent dark:text-accent"
           : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"

@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { FplPicksUnavailableError, FplTeamNotFoundError, getSquadForUser, importFplTeam } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
 import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
+import { Banner } from "@/components/feedback";
+import { SubmitButton } from "@/components/submit-button";
 
 async function refreshSquadAction(userId: string, fplTeamId: number) {
   "use server";
@@ -19,20 +21,20 @@ async function refreshSquadAction(userId: string, fplTeamId: number) {
     throw error;
   }
 
-  redirect("/dashboard");
+  redirect("/dashboard?success=refreshed");
 }
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; success?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) {
     redirect("/sign-in");
   }
 
-  const { error } = await searchParams;
+  const { error, success } = await searchParams;
   const squad = await getSquadForUser(session.user.id);
 
   return (
@@ -41,15 +43,25 @@ export default async function DashboardPage({
         {squad ? (
           <div>
             {error === "team_not_found" && (
-              <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+              <Banner tone="error" className="mb-4">
                 Couldn&apos;t refresh — your FPL team ID no longer resolves.
-              </p>
+              </Banner>
             )}
             {error === "picks_unavailable" && (
-              <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+              <Banner tone="error" className="mb-4">
                 Couldn&apos;t refresh — no squad picks published for the current
                 gameweek yet. Try again after the deadline.
-              </p>
+              </Banner>
+            )}
+            {success === "linked" && (
+              <Banner tone="success" className="mb-4">
+                Team linked — your squad is up to date.
+              </Banner>
+            )}
+            {success === "refreshed" && (
+              <Banner tone="success" className="mb-4">
+                Squad refreshed.
+              </Banner>
             )}
             <div className="border-b border-black/[.08] pb-4 dark:border-white/[.145]">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -72,13 +84,13 @@ export default async function DashboardPage({
 
             <div className="mt-4 flex justify-center">
               <form action={refreshSquadAction.bind(null, session.user.id, squad.fplTeamId)}>
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingLabel="Refreshing…"
                   title="Re-pull your squad, prices, and bank from the FPL API"
-                  className="text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  className="rounded text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-60 dark:text-zinc-400 dark:hover:text-zinc-200"
                 >
                   Refresh squad
-                </button>
+                </SubmitButton>
               </form>
             </div>
 

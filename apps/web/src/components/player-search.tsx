@@ -234,7 +234,7 @@ export function PlayerSearchResults({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name…"
-        className="rounded-md border border-black/[.08] px-3 py-2 text-sm outline-none transition-colors focus:border-primary dark:border-white/[.145] dark:bg-black dark:focus:border-accent"
+        className="focus-ring rounded-md border border-black/[.08] px-3 py-2 text-sm transition-colors focus:border-primary dark:border-white/[.145] dark:bg-black dark:focus:border-accent"
       />
 
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -246,7 +246,7 @@ export function PlayerSearchResults({
               type="button"
               onClick={() => togglePosition(pos)}
               aria-pressed={active}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`focus-ring rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                 active
                   ? "border-primary bg-primary/10 text-primary dark:border-accent dark:bg-accent/10 dark:text-accent"
                   : "border-black/[.08] text-zinc-500 hover:border-black/20 dark:border-white/[.145] dark:text-zinc-400 dark:hover:border-white/30"
@@ -266,7 +266,7 @@ export function PlayerSearchResults({
           id="player-sort"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as PlayerSortBy)}
-          className="min-w-0 flex-1 rounded-md border border-black/[.08] bg-transparent px-2 py-1 text-xs text-black outline-none focus:border-primary dark:border-white/[.145] dark:text-zinc-50 dark:focus:border-accent"
+          className="focus-ring min-w-0 flex-1 rounded-md border border-black/[.08] bg-transparent px-2 py-1 text-xs text-black focus:border-primary dark:border-white/[.145] dark:text-zinc-50 dark:focus:border-accent"
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value} className="text-black">
@@ -299,7 +299,7 @@ export function PlayerSearchResults({
                       onClick={() => setViewingPlayerId(player.playerId)}
                       aria-label={`View ${player.webName}'s profile`}
                       title="View player profile"
-                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-black/[.04] hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
+                      className="focus-ring shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-black/[.04] hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -333,7 +333,7 @@ export function PlayerSearchResults({
                             ? "Transfer a player out first to bring someone in"
                             : `Can't replace a ${requiredPosition} with a ${player.position} — same-position swaps only`
                       }
-                      className={`flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
+                      className={`focus-ring flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
                         selectable
                           ? "cursor-pointer hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
                           : "cursor-not-allowed opacity-40"
