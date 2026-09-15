@@ -28,30 +28,28 @@ const SORT_OPTIONS: { value: PlayerSortBy; label: string }[] = [
   { value: "ownership", label: "Ownership" },
 ];
 
-// The value a given sort is actually ordering by, formatted for display —
-// shown alongside price in each row so it's obvious *why* the list is in
-// this order. Price itself isn't included: it's already shown on every row
-// regardless of sort, so repeating it here would be redundant. Also null
-// for a reincluded player (see PlayerListItem) — these fields are optional
-// there since that path never actually fetches them.
+// The value a given sort is actually ordering by, formatted for display in
+// place of price (see the row's price/sort-value span below) — bare
+// numbers, no unit words ("form", "ICT", ...), since the "Sort by" control
+// itself already says what's being shown. Also null for a reincluded
+// player (see PlayerListItem) — these fields are optional there since that
+// path never actually fetches them.
 function sortStatLabel(player: PlayerListItem, sortBy: PlayerSortBy): string | null {
   switch (sortBy) {
     case "form":
-      return player.form === undefined ? null : `${player.form.toFixed(1)} form`;
+      return player.form === undefined ? null : player.form.toFixed(1);
     case "points":
-      return player.totalPoints === undefined ? null : `${player.totalPoints} pts`;
+      return player.totalPoints === undefined ? null : String(player.totalPoints);
     case "points_per_game":
-      return player.pointsPerGame === undefined
-        ? null
-        : `${player.pointsPerGame.toFixed(1)} pts/game`;
+      return player.pointsPerGame === undefined ? null : player.pointsPerGame.toFixed(1);
     case "ict":
-      return player.ictIndex === undefined ? null : `${player.ictIndex.toFixed(1)} ICT`;
+      return player.ictIndex === undefined ? null : player.ictIndex.toFixed(1);
     case "value":
-      return player.valueSeason === undefined ? null : `${player.valueSeason.toFixed(1)} value`;
+      return player.valueSeason === undefined ? null : player.valueSeason.toFixed(1);
     case "ownership":
       return player.selectedByPercent === undefined
         ? null
-        : `${player.selectedByPercent.toFixed(1)}% owned`;
+        : `${player.selectedByPercent.toFixed(1)}%`;
     case "price":
       return null;
   }
