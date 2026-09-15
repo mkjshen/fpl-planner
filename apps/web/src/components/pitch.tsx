@@ -211,8 +211,8 @@ function trapezoidBoxPoints(heightPercent: number, widthAtBottomPercent: number)
   const halfBottom = widthAtBottomPercent / 2;
   const leftBottom = 50 - halfBottom;
   const rightBottom = 50 + halfBottom;
-  const leftTop = leftBottom - PITCH_SLOPE * heightPercent;
-  const rightTop = rightBottom + PITCH_SLOPE * heightPercent;
+  const leftTop = leftBottom + PITCH_SLOPE * heightPercent;
+  const rightTop = rightBottom - PITCH_SLOPE * heightPercent;
   return `${leftTop},0 ${leftBottom},${heightPercent} ${rightBottom},${heightPercent} ${rightTop},0`;
 }
 
