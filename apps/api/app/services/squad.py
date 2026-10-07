@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Club, Fixture, Player
 from app.schemas.squad import SquadPlayerOut
+from app.services.fixtures import group_fixtures_by_club
 
 
 async def _opponent_strings(
@@ -20,18 +21,16 @@ async def _opponent_strings(
     result = await db.execute(select(Fixture).where(Fixture.gameweekId == gameweek_id))
     fixtures = result.scalars().all()
 
-    opponent_ids: set[int] = set()
-    matchups: dict[int, list[tuple[int, bool]]] = {}
-    finished: dict[int, list[bool]] = {}
-    for fixture in fixtures:
-        if fixture.homeTeamId in club_ids:
-            matchups.setdefault(fixture.homeTeamId, []).append((fixture.awayTeamId, True))
-            finished.setdefault(fixture.homeTeamId, []).append(fixture.finished)
-            opponent_ids.add(fixture.awayTeamId)
-        if fixture.awayTeamId in club_ids:
-            matchups.setdefault(fixture.awayTeamId, []).append((fixture.homeTeamId, False))
-            finished.setdefault(fixture.awayTeamId, []).append(fixture.finished)
-            opponent_ids.add(fixture.homeTeamId)
+    matchups_by_club = group_fixtures_by_club(fixtures, club_ids)
+    opponent_ids = {opp_id for entries in matchups_by_club.values() for opp_id, _, _ in entries}
+    matchups = {
+        club_id: [(opp_id, is_home) for opp_id, is_home, _ in entries]
+        for club_id, entries in matchups_by_club.items()
+    }
+    finished = {
+        club_id: [fixture.finished for _, _, fixture in entries]
+        for club_id, entries in matchups_by_club.items()
+    }
 
     club_rows = await db.execute(
         select(Club.id, Club.shortName).where(Club.id.in_(club_ids | opponent_ids))

@@ -405,6 +405,8 @@ async def _upsert_fixtures(
             "homeTeamId": f.team_h,
             "awayTeamId": f.team_a,
             "finished": f.finished,
+            "homeDifficulty": f.team_h_difficulty,
+            "awayDifficulty": f.team_a_difficulty,
         }
         for f in fixtures
         if f.event is not None and f.event in gameweeks
@@ -419,6 +421,8 @@ async def _upsert_fixtures(
             "homeTeamId": stmt.excluded.homeTeamId,
             "awayTeamId": stmt.excluded.awayTeamId,
             "finished": stmt.excluded.finished,
+            "homeDifficulty": stmt.excluded.homeDifficulty,
+            "awayDifficulty": stmt.excluded.awayDifficulty,
         },
     )
     await db.execute(stmt)

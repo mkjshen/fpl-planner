@@ -133,6 +133,11 @@ class FplFixture(BaseModel):
     team_h: int
     team_a: int
     finished: bool
+    # FPL's own 1 (easiest) - 5 (hardest) difficulty rating, from each
+    # club's perspective of this fixture — confirmed present on every
+    # fixture row in the live API, scheduled or not.
+    team_h_difficulty: int
+    team_a_difficulty: int
 
 
 class FplLiveStats(BaseModel):

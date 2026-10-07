@@ -155,11 +155,16 @@ model Club {
 // show each squad player's opponent for the gameweek being viewed instead
 // of just their own club.
 model Fixture {
-  id         Int     @id // official FPL fixture id
-  gameweekId String
-  homeTeamId Int
-  awayTeamId Int
-  finished   Boolean @default(false) // straight from the FPL API's own "finished" flag
+  id             Int     @id // official FPL fixture id
+  gameweekId     String
+  homeTeamId     Int
+  awayTeamId     Int
+  finished       Boolean @default(false) // straight from the FPL API's own "finished" flag
+  // FPL's own 1 (easiest) - 5 (hardest) rating, from each side's perspective.
+  // Nullable because existing fixture rows predate this column and are only
+  // backfilled on the next import, not because the live API ever omits it.
+  homeDifficulty Int?
+  awayDifficulty Int?
 
   gameweek Gameweek @relation(fields: [gameweekId], references: [id], onDelete: Cascade)
   homeTeam Club     @relation("FixtureHomeTeam", fields: [homeTeamId], references: [id])

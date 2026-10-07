@@ -138,6 +138,8 @@ class Fixture(Base):
     homeTeamId: Mapped[int] = mapped_column(Integer, ForeignKey("Club.id"))
     awayTeamId: Mapped[int] = mapped_column(Integer, ForeignKey("Club.id"))
     finished: Mapped[bool] = mapped_column(Boolean, default=False)
+    homeDifficulty: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    awayDifficulty: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class PlayerPriceHistory(Base):
