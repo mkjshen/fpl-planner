@@ -216,6 +216,10 @@ export async function getLineup(userId: string, gameweekNumber: number): Promise
   return response.json();
 }
 
+// Whether a player's price has already moved today (the backend's
+// services/price_trends.py) — the realized move only, not a prediction.
+export type PriceDirection = "risen" | "fallen" | "unchanged";
+
 export type SuggestedTransfer = {
   outPlayer: PlayerListItem;
   inPlayer: PlayerListItem;
@@ -225,6 +229,8 @@ export type SuggestedTransfer = {
   outPlayerSellingPrice: number;
   projectedGain: number;
   requiresHit: boolean;
+  outPlayerPriceDirection: PriceDirection;
+  inPlayerPriceDirection: PriceDirection;
 };
 
 export type Suggestions = {

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 from app.schemas.players import PlayerListItemOut
+from app.services.price_trends import PriceDirection
 
 
 class SuggestedTransferOut(BaseModel):
@@ -19,6 +20,12 @@ class SuggestedTransferOut(BaseModel):
     # beyond this gameweek's free transfers) — the frontend labels these
     # distinctly rather than the score trying to net the cost in.
     requiresHit: bool
+    # Whether each side's price has already moved today (see
+    # services/price_trends.py) — the realized move only, not a prediction.
+    # Carried here rather than on PlayerListItemOut so search results don't
+    # grow a field only this panel shows.
+    outPlayerPriceDirection: PriceDirection
+    inPlayerPriceDirection: PriceDirection
 
 
 class SuggestionsOut(BaseModel):

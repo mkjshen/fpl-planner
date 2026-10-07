@@ -283,3 +283,32 @@ async def test_a_marginal_gain_is_not_worth_suggesting(db_session):
     result = await suggest_transfers(db_session, fpl_team, gameweek_number=1)
 
     assert result.suggestions == []
+
+
+async def test_each_side_of_a_suggestion_carries_its_own_price_direction(db_session):
+    """costChangeEvent is read per player, not shared across the pair — a
+    falling owned player swapped for a rising one should be labeled as
+    exactly that, and a player imported before the field existed (None)
+    reads as unchanged rather than erroring."""
+    fpl_team, gameweek = await _seed_team(db_session, free_transfer_cap=2)
+    club_a, club_b = _club(1), _club(2)
+    db_session.add_all([club_a, club_b])
+    await db_session.flush()
+
+    falling_out = _player(1, club_a.id, Position.MID, 50, form=1.0, pointsPerGame=1.0, costChangeEvent=-1)
+    rising_in = _player(2, club_b.id, Position.MID, 50, form=6.0, pointsPerGame=6.0, costChangeEvent=1)
+    unknown_out = _player(3, club_a.id, Position.FWD, 50, form=1.0, pointsPerGame=1.0, costChangeEvent=None)
+    steady_in = _player(4, club_b.id, Position.FWD, 50, form=6.0, pointsPerGame=6.0, costChangeEvent=0)
+    db_session.add_all([falling_out, rising_in, unknown_out, steady_in])
+    await db_session.flush()
+    await _seed_squad(
+        db_session, fpl_team, gameweek, bank=0, owned=[(falling_out, 50, 50), (unknown_out, 50, 50)]
+    )
+
+    result = await suggest_transfers(db_session, fpl_team, gameweek_number=1)
+
+    by_out_id = {s.outPlayer.playerId: s for s in result.suggestions}
+    assert by_out_id[falling_out.id].outPlayerPriceDirection == "fallen"
+    assert by_out_id[falling_out.id].inPlayerPriceDirection == "risen"
+    assert by_out_id[unknown_out.id].outPlayerPriceDirection == "unchanged"
+    assert by_out_id[unknown_out.id].inPlayerPriceDirection == "unchanged"

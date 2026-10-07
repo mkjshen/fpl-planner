@@ -8,6 +8,7 @@ import type {
   Lineup,
   LineupPlayerInput,
   PlayerListItem,
+  PriceDirection,
   SquadPlayer,
   SuggestedTransfer,
 } from "@/lib/api";
@@ -106,6 +107,31 @@ export function filterVisibleSuggestions(
 ): SuggestedTransfer[] {
   return suggestions.filter(
     (s) => currentPlayerIds.has(s.outPlayer.playerId) && !currentPlayerIds.has(s.inPlayer.playerId),
+  );
+}
+
+// A realized move only (see the backend's price_direction): "unchanged"
+// renders nothing, so a card only gains a marker when there's news.
+export function priceChangeMarker(
+  direction: PriceDirection,
+): { symbol: string; label: string; className: string } | null {
+  if (direction === "risen") {
+    return { symbol: "▲", label: "Price rose today", className: "text-emerald-600 dark:text-emerald-400" };
+  }
+  if (direction === "fallen") {
+    return { symbol: "▼", label: "Price fell today", className: "text-red-600 dark:text-red-400" };
+  }
+  return null;
+}
+
+function PriceChangeMarker({ direction }: { direction: PriceDirection }) {
+  const marker = priceChangeMarker(direction);
+  if (marker === null) return null;
+  return (
+    <span title={marker.label} className={`shrink-0 text-[0.6rem] ${marker.className}`}>
+      <span aria-hidden="true">{marker.symbol}</span>
+      <span className="sr-only">{marker.label}</span>
+    </span>
   );
 }
 
@@ -887,11 +913,17 @@ export function LineupPlanner({
                       )}
                     </div>
                     <div className="flex w-full flex-col">
-                      <span className="truncate text-[0.7rem] text-zinc-400 line-through dark:text-zinc-500">
-                        {s.outPlayer.webName}
+                      <span className="flex items-center justify-center gap-1">
+                        <span className="truncate text-[0.7rem] text-zinc-400 line-through dark:text-zinc-500">
+                          {s.outPlayer.webName}
+                        </span>
+                        <PriceChangeMarker direction={s.outPlayerPriceDirection} />
                       </span>
-                      <span className="truncate text-sm font-semibold text-black dark:text-zinc-50">
-                        {s.inPlayer.webName}
+                      <span className="flex items-center justify-center gap-1">
+                        <span className="truncate text-sm font-semibold text-black dark:text-zinc-50">
+                          {s.inPlayer.webName}
+                        </span>
+                        <PriceChangeMarker direction={s.inPlayerPriceDirection} />
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">

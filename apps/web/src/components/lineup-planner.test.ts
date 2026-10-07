@@ -1,5 +1,5 @@
 import type { PlayerListItem, SquadPlayer, SuggestedTransfer } from "@/lib/api";
-import { canSwap, filterVisibleSuggestions, validationError } from "./lineup-planner";
+import { canSwap, filterVisibleSuggestions, priceChangeMarker, validationError } from "./lineup-planner";
 
 // A legal 15-player squad: 2 GK/5 DEF/5 MID/3 FWD total, 11 starting
 // (1 GK/3 DEF/4 MID/3 FWD — inside the 3-5/2-5/1-3 formation ranges),
@@ -166,6 +166,8 @@ function makeSuggestion(outId: number, inId: number): SuggestedTransfer {
     outPlayerSellingPrice: 50,
     projectedGain: 2.5,
     requiresHit: false,
+    outPlayerPriceDirection: "unchanged",
+    inPlayerPriceDirection: "unchanged",
   };
 }
 
@@ -197,5 +199,19 @@ describe("filterVisibleSuggestions", () => {
     // Owned: 1 (still has outPlayer 1) and 7 (already bought inPlayer 7);
     // player 5 (outAlreadyGone's outPlayer) is no longer owned.
     expect(filterVisibleSuggestions(suggestions, new Set([1, 7]))).toEqual([stillValid]);
+  });
+});
+
+describe("priceChangeMarker", () => {
+  it("marks a rise with an up arrow", () => {
+    expect(priceChangeMarker("risen")).toMatchObject({ symbol: "▲", label: "Price rose today" });
+  });
+
+  it("marks a fall with a down arrow", () => {
+    expect(priceChangeMarker("fallen")).toMatchObject({ symbol: "▼", label: "Price fell today" });
+  });
+
+  it("shows nothing when the price hasn't moved", () => {
+    expect(priceChangeMarker("unchanged")).toBeNull();
   });
 });

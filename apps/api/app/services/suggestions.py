@@ -18,6 +18,7 @@ from app.services.lineup import (
     _plan_slots,
     available_free_transfers,
 )
+from app.services.price_trends import price_direction
 
 FORM_WEIGHT = 0.6
 POINTS_PER_GAME_WEIGHT = 0.4
@@ -152,6 +153,8 @@ async def suggest_transfers(
                 outPlayerSellingPrice=selling_price,
                 projectedGain=round(gain, 2),
                 requiresHit=False,  # finalized below, once ranked
+                outPlayerPriceDirection=price_direction(out_player.costChangeEvent),
+                inPlayerPriceDirection=price_direction(in_player.costChangeEvent),
             )
         )
 
