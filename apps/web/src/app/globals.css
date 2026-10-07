@@ -45,8 +45,12 @@ body {
    (most interactive elements here sit on custom-colored backgrounds where
    the browser default is often invisible) and only drawn for real keyboard
    navigation via :focus-visible, not on every mouse click. */
+/* `outline-solid` matters: in Tailwind v4 `outline-none` also sets the
+   outline *style* to none, and `outline-2` only sets the width — without
+   restoring the style here, the ring was 2px of nothing and keyboard focus
+   was invisible across the whole app. */
 @utility focus-ring {
-  @apply outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-accent;
+  @apply outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:focus-visible:outline-accent;
 }
 
 /* Feedback-banner tones (components/feedback.tsx) — single source of truth

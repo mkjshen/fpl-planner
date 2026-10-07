@@ -53,6 +53,34 @@ export function playerPhotoUrl(photoCode: number): string {
   return `https://resources.premierleague.com/premierleague/photos/players/110x140/p${photoCode}.png`;
 }
 
+const POSITION_NAMES: Record<Position, string> = {
+  GK: "goalkeeper",
+  DEF: "defender",
+  MID: "midfielder",
+  FWD: "forward",
+};
+
+// What a screen reader announces for a squad card — everything the card
+// shows visually (price, fixture or points, armband), in one sentence,
+// plus its swap state, since the visual cues for those (a filled name
+// plate, a faded card) don't reach assistive tech on their own.
+export function playerCardLabel(
+  player: SquadPlayer,
+  { selected, disabled }: { selected?: boolean; disabled?: boolean } = {},
+): string {
+  const parts = [player.webName, POSITION_NAMES[player.position], formatPrice(player.currentPrice)];
+  if (player.actualPoints != null) {
+    parts.push(`${player.actualPoints} point${player.actualPoints === 1 ? "" : "s"} this gameweek`);
+  } else if (player.opponent) {
+    parts.push(`next fixture ${player.opponent}`);
+  }
+  if (player.isCaptain) parts.push("captain");
+  if (player.isViceCaptain) parts.push("vice-captain");
+  if (selected) parts.push("selected to substitute");
+  if (disabled) parts.push("can't swap with the selected player");
+  return parts.join(", ");
+}
+
 export function PlayerCard({
   player,
   muted,
@@ -94,12 +122,12 @@ export function PlayerCard({
       <button
         type="button"
         onClick={onActivate}
-        className={`focus-ring flex w-20 flex-col items-center text-center xl:w-32 ${
+        className={`focus-ring flex min-w-0 max-w-20 flex-1 flex-col items-center text-center xl:max-w-32 ${
           onActivate ? "cursor-pointer" : ""
         }`}
       >
         <div
-          className={`h-10 w-10 rounded-full border-2 border-dashed xl:h-14 xl:w-14 ${
+          className={`aspect-square w-full max-w-10 rounded-full border-2 border-dashed xl:max-w-14 ${
             activeBlank ? "border-primary dark:border-accent" : "border-black/20 dark:border-white/30"
           }`}
         />
@@ -119,30 +147,71 @@ export function PlayerCard({
     );
   }
 
+  // The shirt + price + name + fixture stack. A real <button> when the card
+  // does something (the planner), so it can be reached and used from the
+  // keyboard; plain markup when it's display-only (the squad view).
+  const face = (
+    <div className="flex w-full flex-col items-center overflow-hidden rounded-2xl bg-white/40 pt-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:pt-2">
+      <span className="text-[0.65rem] font-semibold text-zinc-700 drop-shadow-sm dark:text-zinc-200 xl:text-xs">
+        {formatPrice(player.currentPrice)}
+      </span>
+      {player.clubCode !== null && (
+        // alt="" is deliberate, not an oversight — the player's name is
+        // always rendered as adjacent visible text right below, so a
+        // descriptive alt here would just be redundant noise for screen
+        // readers.
+        <Image
+          src={shirtUrl(player.clubCode, player.position)}
+          alt=""
+          width={56}
+          height={56}
+          className="aspect-square h-auto w-full max-w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:max-w-14"
+        />
+      )}
+      <span
+        title={player.webName}
+        className={`mt-1.5 w-full truncate rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs font-bold shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
+          selected
+            ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
+            : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
+        }`}
+      >
+        {player.webName}
+      </span>
+      <span className="w-full truncate rounded-b-2xl border border-black/5 bg-zinc-100 px-0.5 py-0.5 text-[0.65rem] font-medium sm:px-2 text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:rounded-b-3xl xl:text-xs">
+        {player.actualPoints != null
+          ? `${player.actualPoints} pt${player.actualPoints === 1 ? "" : "s"}`
+          : (player.opponent ?? player.club)}
+      </span>
+    </div>
+  );
+
   return (
     <div
-      onClick={disabled ? undefined : onClick}
-      className={`group relative flex w-20 flex-col items-center text-center xl:w-32 ${
+      // Shrinks to share its row (a full back five on a phone) instead of
+      // wrapping, capped at the size it has always had, like the real FPL
+      // app's pitch.
+      className={`group relative flex min-w-0 max-w-20 flex-1 flex-col items-center text-center xl:max-w-32 ${
         muted ? "opacity-80" : ""
-      } ${disabled ? "cursor-not-allowed opacity-40" : onClick ? "cursor-pointer" : ""}`}
+      } ${disabled ? "opacity-40" : ""}`}
     >
       {onRemove && (
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
+          onClick={onRemove}
           aria-label={`Remove ${player.webName} from your team`}
           title="Remove from team"
-          className="focus-ring absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+          // Revealed on hover from md up, and also whenever anything in the
+          // card has keyboard focus, so it's never an invisible tab stop.
+          className="focus-ring absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
         >
           ×
         </button>
       )}
       {(player.isCaptain || player.isViceCaptain) && (
         <span
-          className={`absolute -top-1.5 -right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
+          aria-hidden="true"
+          className={`pointer-events-none absolute -top-1.5 -right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
             player.isCaptain
               ? "bg-accent text-accent-foreground"
               : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
@@ -151,44 +220,34 @@ export function PlayerCard({
           {player.isCaptain ? "C" : "VC"}
         </span>
       )}
-      <div className="flex w-full flex-col items-center overflow-hidden rounded-2xl bg-white/40 pt-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:pt-2">
-        <span className="text-[0.65rem] font-semibold text-zinc-700 drop-shadow-sm dark:text-zinc-200 xl:text-xs">
-          {formatPrice(player.currentPrice)}
-        </span>
-        {player.clubCode !== null && (
-          // alt="" is deliberate, not an oversight — the player's name is
-          // always rendered as adjacent visible text right below, so a
-          // descriptive alt here would just be redundant noise for screen
-          // readers.
-          <Image
-            src={shirtUrl(player.clubCode, player.position)}
-            alt=""
-            width={56}
-            height={56}
-            className="h-10 w-10 object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.4)] xl:h-14 xl:w-14"
-          />
-        )}
-        <span
-          title={player.webName}
-          className={`mt-1.5 w-full truncate rounded-t-md border border-b-0 px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
-            selected
-              ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
-              : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
-          }`}
+      {onClick ? (
+        <button
+          type="button"
+          // aria-disabled rather than disabled: a natively disabled button
+          // drops out of the tab order, and then a keyboard user can't
+          // reach it to hear *why* it can't be swapped right now.
+          aria-disabled={disabled || undefined}
+          aria-label={playerCardLabel(player, { selected, disabled })}
+          onClick={disabled ? undefined : onClick}
+          className={`focus-ring w-full rounded-2xl xl:rounded-3xl ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
         >
-          {player.webName}
-        </span>
-        <span className="w-full truncate rounded-b-2xl border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:rounded-b-3xl xl:text-xs">
-          {player.actualPoints != null
-            ? `${player.actualPoints} pt${player.actualPoints === 1 ? "" : "s"}`
-            : (player.opponent ?? player.club)}
-        </span>
-      </div>
+          {face}
+        </button>
+      ) : (
+        face
+      )}
     </div>
   );
 }
 
 const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];
+
+// Side padding per row, as a percent of the pitch's width, so a full row's
+// outer cards stay inside the trapezoid's sloped touchlines instead of being
+// clipped by them. Each row sits further down the pitch, where the clip-path
+// cuts in less (see PITCH_TOP_INSET): roughly the inset at that row's top
+// edge, since a card's upper corner is the part that pokes out first.
+const ROW_INSET_PERCENT: Record<Position, number> = { GK: 11, DEF: 8.5, MID: 5.5, FWD: 2.5 };
 
 // A forced-perspective trapezoid: narrower at the top (goalkeeper's end,
 // "far away") and full width at the bottom (attackers, "closest to you") —
@@ -301,9 +360,13 @@ export function Pitch({
         </svg>
       </div>
 
-      <div className="relative z-10 flex flex-col justify-between gap-4 px-2 py-10 sm:px-6">
+      <div className="relative z-10 flex flex-col justify-between gap-4 px-1 py-10 sm:px-6">
         {PITCH_ROWS.map((position) => (
-          <div key={position} className="flex flex-wrap items-center justify-center gap-2 xl:gap-6">
+          <div
+            key={position}
+            style={{ paddingInline: `${ROW_INSET_PERCENT[position]}%` }}
+            className="flex items-center justify-center gap-1 sm:gap-2 xl:gap-6"
+          >
             {byPosition(position).map((player) => (
               <PlayerCard
                 key={player.playerId}

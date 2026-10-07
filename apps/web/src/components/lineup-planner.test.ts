@@ -4,6 +4,7 @@ import {
   canSwap,
   difficultyClass,
   filterVisibleSuggestions,
+  fixtureStripSummary,
   gameweekProjectionLabel,
   priceChangeMarker,
   suggestionCostsHit,
@@ -227,16 +228,29 @@ describe("priceChangeMarker", () => {
 });
 
 describe("difficultyClass", () => {
-  it("colours easy fixtures green, average neutral and hard red", () => {
-    expect(difficultyClass(1)).toContain("emerald");
-    expect(difficultyClass(2)).toContain("emerald");
-    expect(difficultyClass(3)).toContain("zinc");
-    expect(difficultyClass(4)).toContain("red");
-    expect(difficultyClass(5)).toContain("red");
+  it("uses FPL's own five FDR colours, one per rating", () => {
+    const classes = [1, 2, 3, 4, 5].map(difficultyClass);
+    expect(new Set(classes).size).toBe(5);
+    expect(difficultyClass(1)).toContain("#375523");
+    expect(difficultyClass(5)).toContain("#80072d");
   });
 
-  it("makes the hardest fixture darker than a merely hard one", () => {
-    expect(difficultyClass(5)).not.toEqual(difficultyClass(4));
+  it("falls back to the average colour for an unexpected rating", () => {
+    expect(difficultyClass(9)).toEqual(difficultyClass(3));
+  });
+});
+
+describe("fixtureStripSummary", () => {
+  it("reads the whole horizon as one sentence, including doubles and blanks", () => {
+    expect(
+      fixtureStripSummary("Groß", [
+        { gameweekNumber: 6, inDifficulties: [2], outDifficulties: [], inProjectedPoints: 0, outProjectedPoints: 0 },
+        { gameweekNumber: 7, inDifficulties: [3, 4], outDifficulties: [], inProjectedPoints: 0, outProjectedPoints: 0 },
+        { gameweekNumber: 8, inDifficulties: [], outDifficulties: [], inProjectedPoints: 0, outProjectedPoints: 0 },
+      ]),
+    ).toBe(
+      "Groß's fixture difficulty, 1 easiest to 5 hardest: gameweek 6 2, gameweek 7 3 and 4, gameweek 8 no fixture.",
+    );
   });
 });
 

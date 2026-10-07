@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type {
   Chip,
@@ -19,6 +19,27 @@ import { formatPrice, Pitch, PlayerCard, shirtUrl, StatChip } from "@/components
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 import { Banner } from "@/components/feedback";
+import { Dialog } from "@/components/dialog";
+
+// Tailwind's `md` breakpoint. Read in JS for the transfer picker, which is
+// a sidebar from md up and a dialog below — the dialog has to be genuinely
+// unmounted on desktop rather than just CSS-hidden, or its focus trap and
+// scroll lock would still be live behind the sidebar.
+const MD_QUERY = "(min-width: 768px)";
+
+function subscribeToMd(onChange: () => void) {
+  const media = window.matchMedia(MD_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function useIsMdUp(): boolean {
+  return useSyncExternalStore(
+    subscribeToMd,
+    () => window.matchMedia(MD_QUERY).matches,
+    () => false,
+  );
+}
 
 type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 
@@ -155,7 +176,7 @@ export function priceChangeMarker(
   direction: PriceDirection,
 ): { symbol: string; label: string; className: string } | null {
   if (direction === "risen") {
-    return { symbol: "▲", label: "Price rose today", className: "text-emerald-600 dark:text-emerald-400" };
+    return { symbol: "▲", label: "Price rose today", className: "text-emerald-700 dark:text-emerald-400" };
   }
   if (direction === "fallen") {
     return { symbol: "▼", label: "Price fell today", className: "text-red-600 dark:text-red-400" };
@@ -174,12 +195,20 @@ function PriceChangeMarker({ direction }: { direction: PriceDirection }) {
   );
 }
 
-// FPL's own fixture difficulty colouring: greens for easy, neutral for
-// average, reds for hard.
+// FPL's own fixture difficulty (FDR) palette — the same five colours the
+// official site uses, so a manager reads the strip without a legend. Each
+// pairs a text colour that keeps the rating digit at 4.5:1 or better on
+// it, since the digit (not the colour) is what carries the meaning.
+const DIFFICULTY_CLASSES: Record<number, string> = {
+  1: "bg-[#375523] text-white",
+  2: "bg-[#01fc7a] text-[#0a0a0a]",
+  3: "bg-[#e7e7e7] text-zinc-800",
+  4: "bg-[#ff1751] text-[#0a0a0a]",
+  5: "bg-[#80072d] text-white",
+};
+
 export function difficultyClass(difficulty: number): string {
-  if (difficulty <= 2) return "bg-emerald-500 dark:bg-emerald-400";
-  if (difficulty === 3) return "bg-zinc-300 dark:bg-zinc-600";
-  return difficulty === 4 ? "bg-red-400 dark:bg-red-400" : "bg-red-700 dark:bg-red-500";
+  return DIFFICULTY_CLASSES[difficulty] ?? DIFFICULTY_CLASSES[3];
 }
 
 function describeFixtures(difficulties: number[]): string {
@@ -196,26 +225,58 @@ export function gameweekProjectionLabel(p: GameweekProjection): string {
   );
 }
 
-// The incoming player's upcoming fixtures, one cell per gameweek: split in
-// two on a double, an empty outline on a blank.
-function FixtureStrip({ projections }: { projections: GameweekProjection[] }) {
+// One sentence for screen readers in place of the strip — five
+// per-gameweek cell descriptions per card, across a whole strip of cards,
+// was far too much to listen through.
+export function fixtureStripSummary(playerName: string, projections: GameweekProjection[]): string {
+  const gameweeks = projections.map((p) => {
+    const fixtures = p.inDifficulties.length === 0 ? "no fixture" : p.inDifficulties.join(" and ");
+    return `gameweek ${p.gameweekNumber} ${fixtures}`;
+  });
+  return `${playerName}'s fixture difficulty, 1 easiest to 5 hardest: ${gameweeks.join(", ")}.`;
+}
+
+// The incoming player's upcoming fixtures, one cell per gameweek with the
+// FDR rating printed in it: split in two on a double, a dashed outline on
+// a blank. The gameweek range underneath anchors which weeks these are.
+function FixtureStrip({
+  playerName,
+  projections,
+}: {
+  playerName: string;
+  projections: GameweekProjection[];
+}) {
+  if (projections.length === 0) return null;
+  const first = projections[0].gameweekNumber;
+  const last = projections[projections.length - 1].gameweekNumber;
   return (
-    <ul className="flex w-full gap-0.5" aria-label="Incoming player's upcoming fixtures">
-      {projections.map((p) => (
-        <li
-          key={p.gameweekNumber}
-          title={gameweekProjectionLabel(p)}
-          className="flex h-1.5 flex-1 gap-px overflow-hidden rounded-sm"
-        >
-          <span className="sr-only">{gameweekProjectionLabel(p)}</span>
-          {p.inDifficulties.length === 0 ? (
-            <span className="flex-1 rounded-sm border border-zinc-300 dark:border-zinc-600" />
-          ) : (
-            p.inDifficulties.map((d, i) => <span key={i} className={`flex-1 ${difficultyClass(d)}`} />)
-          )}
-        </li>
-      ))}
-    </ul>
+    <div className="flex w-full flex-col items-center gap-0.5">
+      <p className="sr-only">{fixtureStripSummary(playerName, projections)}</p>
+      <div aria-hidden="true" className="flex w-full gap-0.5">
+        {projections.map((p) => (
+          <div
+            key={p.gameweekNumber}
+            title={gameweekProjectionLabel(p)}
+            className="flex h-5 flex-1 gap-px overflow-hidden rounded-sm text-xs leading-5 font-semibold tabular-nums"
+          >
+            {p.inDifficulties.length === 0 ? (
+              <span className="flex-1 rounded-sm border border-dashed border-zinc-400 text-zinc-500 dark:border-zinc-500 dark:text-zinc-400">
+                –
+              </span>
+            ) : (
+              p.inDifficulties.map((d, i) => (
+                <span key={i} className={`flex-1 ${difficultyClass(d)}`}>
+                  {d}
+                </span>
+              ))
+            )}
+          </div>
+        ))}
+      </div>
+      <span aria-hidden="true" className="text-xs text-zinc-500 dark:text-zinc-400">
+        GW{first}–{last}
+      </span>
+    </div>
   );
 }
 
@@ -249,6 +310,7 @@ export function LineupPlanner({
   ) => Promise<Suggestions | null>;
 }) {
   const router = useRouter();
+  const isMdUp = useIsMdUp();
   const [players, setPlayers] = useState(lineup.players);
   // The last state confirmed by the server — what "Reset" reverts to and
   // what "dirty" is measured against, since `lineup` (the prop) stays frozen
@@ -397,6 +459,12 @@ export function LineupPlanner({
   }
   const liveBank = savedBank + proceeds - spend;
   const liveTeamValue = savedTeamValue + valueChange;
+  const saveBlockedReason =
+    transferOutIds.length > 0
+      ? "Pick a replacement for every transferred-out player, or clear them, before saving."
+      : liveBank < 0
+        ? "Your bank balance is negative — sell a player or pick a cheaper replacement before saving."
+        : null;
   const liveTransferCost = chipIsTransferFree
     ? 0
     : Math.max(transfersMade - freeTransfers, 0) * 4;
@@ -766,6 +834,13 @@ export function LineupPlanner({
                     }`}
                   >
                     {CHIP_LABELS[c]}
+                    {/* The tooltip's explanation, for screen readers — read
+                        even while the chip is disabled. */}
+                    <span className="sr-only">
+                      : {title}.
+                      {windows.length > 0 &&
+                        ` ${windows.map((w) => `Gameweeks ${w.startEvent}-${w.stopEvent} ${w.status}`).join(", ")}.`}
+                    </span>
                     {/* One dot per usage window this season gives this chip
                         (real FPL: one for each half of the season) — filled
                         for a window already spent, a plain ring for one
@@ -775,7 +850,7 @@ export function LineupPlanner({
                         A quick "what's used, open, or lost" glance without
                         reading the tooltip. */}
                     {windows.length > 0 && (
-                      <span className="inline-flex gap-0.5">
+                      <span aria-hidden="true" className="inline-flex gap-0.5">
                         {windows.map((w, i) => (
                           <span
                             key={i}
@@ -829,42 +904,38 @@ export function LineupPlanner({
         )}
 
         {confirmingResetAll && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-            onClick={() => !resettingAll && setConfirmingResetAll(false)}
+          <Dialog
+            role="alertdialog"
+            labelledBy="reset-all-title"
+            onClose={() => setConfirmingResetAll(false)}
+            canClose={!resettingAll}
+            className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-xl dark:border-red-900 dark:bg-zinc-950"
           >
-            <div
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="reset-all-title"
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-xl border border-red-200 bg-white p-6 shadow-xl dark:border-red-900 dark:bg-zinc-950"
-            >
-              <p id="reset-all-title" className="text-base font-semibold text-red-800 dark:text-red-200">
-                Reset every gameweek&apos;s plan?
-              </p>
-              <p className="mt-2 text-sm text-red-700 dark:text-red-300">
-                This discards every planned lineup change for every future gameweek and reverts them
-                all to your current FPL squad. This action cannot be undone.
-              </p>
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={handleConfirmResetAll}
-                  disabled={resettingAll}
-                  className="focus-ring rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
-                >
-                  {resettingAll ? "Resetting…" : "Yes, reset everything"}
-                </button>
-                <button
-                  onClick={() => setConfirmingResetAll(false)}
-                  disabled={resettingAll}
-                  className="focus-ring rounded-md border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
-                >
-                  Cancel
-                </button>
-              </div>
+            <p id="reset-all-title" className="text-base font-semibold text-red-800 dark:text-red-200">
+              Reset every gameweek&apos;s plan?
+            </p>
+            <p className="mt-2 text-sm text-red-700 dark:text-red-300">
+              This discards every planned lineup change for every future gameweek and reverts them
+              all to your current FPL squad. This action cannot be undone.
+            </p>
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={handleConfirmResetAll}
+                disabled={resettingAll}
+                className="focus-ring rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+              >
+                {resettingAll ? "Resetting…" : "Yes, reset everything"}
+              </button>
+              <button
+                data-autofocus
+                onClick={() => setConfirmingResetAll(false)}
+                disabled={resettingAll}
+                className="focus-ring rounded-md border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
+              >
+                Cancel
+              </button>
             </div>
-          </div>
+          </Dialog>
         )}
 
         {lineup.isEditable && viewingPlayer && (
@@ -920,43 +991,38 @@ export function LineupPlanner({
 
         {/* Below md there's no room for the squad and the transfer picker
             side by side, so it falls back to a centered, dimmed modal. */}
-        {transferOutPlayer && (
-          <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm md:hidden"
-            onClick={handleClearActiveTransferOut}
+        {transferOutPlayer && !isMdUp && (
+          <Dialog
+            label={transferPanelTitle(transferOutPlayer)}
+            onClose={handleClearActiveTransferOut}
+            overlayClassName="items-end"
+            className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-xl dark:bg-zinc-950"
           >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label={transferPanelTitle(transferOutPlayer)}
-              onClick={(e) => e.stopPropagation()}
-              className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-xl dark:bg-zinc-950"
-            >
-              <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
-                <p className="text-base font-semibold text-black dark:text-zinc-50">
-                  {transferPanelTitle(transferOutPlayer)}
-                  {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
-                </p>
-                <button
-                  onClick={handleClearActiveTransferOut}
-                  className="focus-ring rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                >
-                  Close
-                </button>
-              </div>
-              <PlayerSearchResults
-                key={transferOutPlayer.playerId}
-                requiredPosition={transferOutPlayer.position}
-                anyPosition={chipIsTransferFree}
-                userId={userId}
-                gameweekNumber={selectedGameweek}
-                searchAction={searchAction}
-                profileAction={profileAction}
-                reincludePlayers={freedPlayers}
-                onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
-              />
+            <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
+              <p className="text-base font-semibold text-black dark:text-zinc-50">
+                {transferPanelTitle(transferOutPlayer)}
+                {transferOutIds.length > 1 && ` (${transferOutIds.length} pending)`}
+              </p>
+              <button
+                onClick={handleClearActiveTransferOut}
+                className="focus-ring rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              >
+                Close
+              </button>
             </div>
-          </div>
+            <PlayerSearchResults
+              key={transferOutPlayer.playerId}
+              autoFocus
+              requiredPosition={transferOutPlayer.position}
+              anyPosition={chipIsTransferFree}
+              userId={userId}
+              gameweekNumber={selectedGameweek}
+              searchAction={searchAction}
+              profileAction={profileAction}
+              reincludePlayers={freedPlayers}
+              onSelect={(inPlayer) => handleTransfer(transferOutPlayer.playerId, inPlayer)}
+            />
+          </Dialog>
         )}
 
         {lineup.isEditable && (
@@ -993,7 +1059,7 @@ export function LineupPlanner({
                           Best combination: {combination.transfers.length} transfers
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          <span className="text-emerald-600 dark:text-emerald-400">
+                          <span className="text-emerald-700 dark:text-emerald-400">
                             +{combination.netProjectedGain.toFixed(1)}
                           </span>{" "}
                           projected
@@ -1001,7 +1067,7 @@ export function LineupPlanner({
                             <>
                               {" "}
                               after{" "}
-                              <span className="text-amber-600 dark:text-amber-400">
+                              <span className="text-amber-700 dark:text-amber-400">
                                 −{combination.hits * 4}
                               </span>{" "}
                               in hits
@@ -1024,8 +1090,8 @@ export function LineupPlanner({
                           key={`${t.outPlayer.playerId}-${t.inPlayer.playerId}`}
                           className="flex items-center gap-1 text-zinc-600 dark:text-zinc-300"
                         >
-                          <span className="text-zinc-400 line-through dark:text-zinc-500">{t.outPlayer.webName}</span>
-                          <span aria-hidden="true" className="text-zinc-400">→</span>
+                          <span className="text-zinc-500 line-through dark:text-zinc-400">{t.outPlayer.webName}</span>
+                          <span aria-hidden="true" className="text-zinc-500 dark:text-zinc-400">→</span>
                           <span className="sr-only">replaced by</span>
                           <span className="font-medium text-black dark:text-zinc-50">{t.inPlayer.webName}</span>
                         </li>
@@ -1043,7 +1109,10 @@ export function LineupPlanner({
                   // A horizontal, scroll-snapped strip rather than a vertical
                   // list — native touch/trackpad scroll gives carousel-like
                   // browsing for free, no JS or extra state needed.
-                  <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+                  // `relative` so the cards' screen-reader-only text (absolutely
+                  // positioned, like all sr-only) is clipped by this scroller
+                  // too — otherwise it escapes it and widens the whole page.
+                  <div className="relative mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
                     {visibleSuggestions.map((s) => (
                       <div
                         key={`${s.outPlayer.playerId}-${s.inPlayer.playerId}`}
@@ -1059,7 +1128,7 @@ export function LineupPlanner({
                               className="h-[26px] w-[26px] object-contain opacity-40"
                             />
                           )}
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500">→</span>
+                          <span aria-hidden="true" className="text-xs text-zinc-500 dark:text-zinc-400">→</span>
                           {s.inPlayer.clubCode !== null && (
                             <Image
                               src={shirtUrl(s.inPlayer.clubCode, s.inPlayer.position)}
@@ -1072,7 +1141,7 @@ export function LineupPlanner({
                         </div>
                         <div className="flex w-full flex-col">
                           <span className="flex items-center justify-center gap-1">
-                            <span className="truncate text-[0.7rem] text-zinc-400 line-through dark:text-zinc-500">
+                            <span className="truncate text-[0.7rem] text-zinc-500 line-through dark:text-zinc-400">
                               {s.outPlayer.webName}
                             </span>
                             <PriceChangeMarker direction={s.outPlayerPriceDirection} />
@@ -1092,7 +1161,7 @@ export function LineupPlanner({
                                 ? "Projected points gained"
                                 : `Projected points gained over the next ${horizonGameweeks} gameweeks`
                             }
-                            className="text-emerald-600 dark:text-emerald-400"
+                            className="text-emerald-700 dark:text-emerald-400"
                           >
                             +{s.projectedGain.toFixed(1)}
                           </span>
@@ -1104,13 +1173,13 @@ export function LineupPlanner({
                           ) && (
                             <span
                               title="You've used your free transfers, so this one would cost 4 points"
-                              className="text-amber-600 dark:text-amber-400"
+                              className="text-amber-700 dark:text-amber-400"
                             >
                               −4
                             </span>
                           )}
                         </div>
-                        <FixtureStrip projections={s.gameweekProjections} />
+                        <FixtureStrip playerName={s.inPlayer.webName} projections={s.gameweekProjections} />
                         <button
                           type="button"
                           onClick={() => applySuggestion(s)}
@@ -1144,7 +1213,7 @@ export function LineupPlanner({
           />
         </div>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-2 rounded-2xl border border-border bg-black/[.03] p-4 xl:gap-6 dark:bg-white/[.04]">
+        <div className="mt-6 flex justify-center gap-1 rounded-2xl border border-border bg-black/[.03] p-3 sm:gap-2 sm:p-4 xl:gap-6 dark:bg-white/[.04]">
           {bench.map((player) => (
             <PlayerCard
               key={player.playerId}
@@ -1168,14 +1237,8 @@ export function LineupPlanner({
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleSave}
-                disabled={!dirty || saving || transferOutIds.length > 0 || liveBank < 0}
-                title={
-                  transferOutIds.length > 0
-                    ? "Pick a replacement for every transferred-out player, or clear them, first"
-                    : liveBank < 0
-                      ? "Your bank balance is negative — sell a player or pick a cheaper replacement first"
-                      : undefined
-                }
+                disabled={!dirty || saving || saveBlockedReason !== null}
+                aria-describedby={saveBlockedReason ? "save-blocked-reason" : undefined}
                 className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
               >
                 {saving ? "Saving…" : "Save"}
@@ -1188,6 +1251,14 @@ export function LineupPlanner({
                 Reset
               </button>
             </div>
+            {/* Shown as text rather than a tooltip on the disabled button:
+                a tooltip never appears on touch, and a disabled button can't
+                be focused to reveal one. */}
+            {dirty && saveBlockedReason && (
+              <p id="save-blocked-reason" className="text-sm text-zinc-600 dark:text-zinc-400">
+                {saveBlockedReason}
+              </p>
+            )}
             {message && messageTone && <Banner tone={messageTone}>{message}</Banner>}
           </div>
         )}
@@ -1214,6 +1285,7 @@ export function LineupPlanner({
           </div>
           <PlayerSearchResults
             key={transferOutPlayer?.playerId ?? "browse"}
+            autoFocus={transferOutPlayer !== null}
             requiredPosition={transferOutPlayer?.position ?? null}
             anyPosition={chipIsTransferFree}
             userId={userId}

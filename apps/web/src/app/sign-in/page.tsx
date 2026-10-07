@@ -74,7 +74,7 @@ export default async function SignInPage({
           </SubmitButton>
         </form>
 
-        <div className="mt-6 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-500">
+        <div className="mt-6 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
           <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
           or
           <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />

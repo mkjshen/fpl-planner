@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import { type ReactNode, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { PlayerProfile } from "@/lib/api";
+import { Dialog } from "@/components/dialog";
 import { formatPrice, playerPhotoUrl, StatChip } from "@/components/pitch";
 
 export type ProfileAction = (playerId: number) => Promise<PlayerProfile>;
@@ -80,14 +80,8 @@ function ProfileSkeleton() {
 // component instance is new, not because the effect resets it) and avoids
 // synchronous setState calls in the effect body.
 //
-// Rendered via a portal straight into document.body rather than in place:
-// this can be opened from inside the planner's `md:sticky` transfer-in
-// sidebar, and `position: sticky` establishes a new stacking context — a
-// `fixed` descendant's z-index is then only compared *within* that
-// context, so it can end up painting behind unrelated page content (the
-// pitch, confirmed by testing at the DOM level) no matter how high the
-// z-index goes. A portal sidesteps the whole class of bug by escaping the
-// component tree entirely instead of trying to out-z-index an ancestor.
+// Escape, focus handling, scroll lock and the portal out of the planner's
+// sticky sidebar all come from the shared Dialog (components/dialog.tsx).
 export function PlayerProfileModal({
   playerId,
   profileAction,
@@ -108,26 +102,6 @@ export function PlayerProfileModal({
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Lock the page behind the modal from scrolling while it's open —
-  // otherwise a scroll/wheel gesture over the backdrop scrolls the planner
-  // underneath instead of (or as well as) the modal's own content. Both
-  // <html> and <body> need it: whichever one the browser treats as the
-  // actual scrolling element (document.scrollingElement, normally <html>)
-  // is the one that matters, and that isn't guaranteed to be body alone.
-  // Restores whatever was there before, not just "visible", in case
-  // something else already constrained it.
-  useEffect(() => {
-    const root = document.documentElement;
-    const previousRootOverflow = root.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-    root.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    return () => {
-      root.style.overflow = previousRootOverflow;
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,131 +132,137 @@ export function PlayerProfileModal({
       (profile.status !== "a" && STATUS_LABELS[profile.status]) ||
       (profile.chanceOfPlayingNextRound !== null && profile.chanceOfPlayingNextRound < 100));
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
+  return (
+    <Dialog
+      onClose={onClose}
+      label={profile ? `${profile.webName}'s profile` : "Player profile"}
+      className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xl dark:bg-zinc-950"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={profile ? `${profile.webName}'s profile` : "Player profile"}
-        onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xl dark:bg-zinc-950"
-      >
-        {loading && <ProfileSkeleton />}
-        {error && <p className="py-24 text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
-        {profile && (
-          <div className="flex min-h-0 flex-col overflow-y-auto p-8">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
-                {profile.photoCode !== null && (
-                  <Image
-                    src={playerPhotoUrl(profile.photoCode)}
-                    alt=""
-                    width={76}
-                    height={97}
-                    className="h-24 w-[75px] shrink-0 rounded-lg object-cover"
-                  />
-                )}
-                <div>
-                  <p className="text-2xl font-semibold text-black dark:text-zinc-50">
-                    {profile.webName}
-                  </p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{profile.fullName}</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge>{profile.position}</Badge>
-                    <Badge>{profile.club}</Badge>
-                    <Badge>{formatPrice(profile.currentPrice)}</Badge>
-                  </div>
+      {loading && <ProfileSkeleton />}
+      {error && (
+        <div className="flex flex-col items-center gap-3 py-20">
+          <p role="alert" className="text-center text-sm text-red-600 dark:text-red-400">
+            {error}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="focus-ring rounded-full border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
+          >
+            Close
+          </button>
+        </div>
+      )}
+      {profile && (
+        <div className="flex min-h-0 flex-col overflow-y-auto p-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {profile.photoCode !== null && (
+                <Image
+                  src={playerPhotoUrl(profile.photoCode)}
+                  alt=""
+                  width={76}
+                  height={97}
+                  className="h-24 w-[75px] shrink-0 rounded-lg object-cover"
+                />
+              )}
+              <div>
+                <p className="text-2xl font-semibold text-black dark:text-zinc-50">
+                  {profile.webName}
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{profile.fullName}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Badge>{profile.position}</Badge>
+                  <Badge>{profile.club}</Badge>
+                  <Badge>{formatPrice(profile.currentPrice)}</Badge>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="focus-ring shrink-0 rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-              >
-                Close
-              </button>
             </div>
-
-            {availabilityNote && (
-              <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-                {STATUS_LABELS[profile.status] && (
-                  <span className="font-medium">{STATUS_LABELS[profile.status]}. </span>
-                )}
-                {profile.news && <span>{profile.news} </span>}
-                {profile.chanceOfPlayingNextRound !== null && (
-                  <span>{profile.chanceOfPlayingNextRound}% chance of playing next round.</span>
-                )}
-              </div>
-            )}
-
-            <div className="mt-5 flex flex-col gap-4">
-              <StatSection title="Season">
-                <StatChip label="Points" value={String(profile.totalPoints)} />
-                <StatChip
-                  label="Pts/game"
-                  value={profile.pointsPerGame.toFixed(1)}
-                  title="Average points per gameweek started or on the pitch"
-                />
-                <StatChip
-                  label="Form"
-                  value={profile.form.toFixed(1)}
-                  title="Average points over the last few gameweeks — a better read on current momentum than the season total"
-                />
-                <StatChip
-                  label="ICT"
-                  value={profile.ictIndex.toFixed(1)}
-                  title="FPL's own Influence/Creativity/Threat index — a composite score of how involved a player is in their team's attacking play, built specifically to help judge fantasy value"
-                />
-                <StatChip
-                  label="Value"
-                  value={profile.valueSeason.toFixed(1)}
-                  title="Total points per £1m spent — higher means better return on price"
-                />
-                <StatChip
-                  label="Owned by"
-                  value={`${profile.selectedByPercent.toFixed(1)}%`}
-                  title="Share of FPL managers who own this player — a very high number makes them a 'template' pick your rivals likely already have"
-                />
-                <StatChip
-                  label="Minutes"
-                  value={String(profile.minutes)}
-                  title="Total minutes played this season — low minutes on a fit player is a rotation-risk warning sign"
-                />
-              </StatSection>
-
-              <StatSection title="Returns">
-                <StatChip label="Goals" value={String(profile.goalsScored)} />
-                <StatChip label="Assists" value={String(profile.assists)} />
-                <StatChip label="Clean sheets" value={String(profile.cleanSheets)} />
-                <StatChip label="Bonus" value={String(profile.bonus)} />
-              </StatSection>
-
-              <StatSection title="Underlying stats">
-                <StatChip
-                  label="xG"
-                  value={profile.expectedGoals.toFixed(2)}
-                  title="Expected goals — how many goals their shots would be expected to produce on average. Well above actual goals scored suggests they're due more; well below suggests recent goals were fortunate"
-                />
-                <StatChip
-                  label="xA"
-                  value={profile.expectedAssists.toFixed(2)}
-                  title="Expected assists — the same idea as xG, for chances created that led (or should lead) to a goal"
-                />
-              </StatSection>
-            </div>
-
-            {actions && (
-              <div className="mt-5 border-t border-border pt-4">
-                {actions(profile)}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close profile"
+              className="focus-ring shrink-0 rounded text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            >
+              Close
+            </button>
           </div>
-        )}
-      </div>
-    </div>,
-    document.body,
+
+          {availabilityNote && (
+            <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+              {STATUS_LABELS[profile.status] && (
+                <span className="font-medium">{STATUS_LABELS[profile.status]}. </span>
+              )}
+              {profile.news && <span>{profile.news} </span>}
+              {profile.chanceOfPlayingNextRound !== null && (
+                <span>{profile.chanceOfPlayingNextRound}% chance of playing next round.</span>
+              )}
+            </div>
+          )}
+
+          <div className="mt-5 flex flex-col gap-4">
+            <StatSection title="Season">
+              <StatChip label="Points" value={String(profile.totalPoints)} />
+              <StatChip
+                label="Pts/game"
+                value={profile.pointsPerGame.toFixed(1)}
+                title="Average points per gameweek started or on the pitch"
+              />
+              <StatChip
+                label="Form"
+                value={profile.form.toFixed(1)}
+                title="Average points over the last few gameweeks — a better read on current momentum than the season total"
+              />
+              <StatChip
+                label="ICT"
+                value={profile.ictIndex.toFixed(1)}
+                title="FPL's own Influence/Creativity/Threat index — a composite score of how involved a player is in their team's attacking play, built specifically to help judge fantasy value"
+              />
+              <StatChip
+                label="Value"
+                value={profile.valueSeason.toFixed(1)}
+                title="Total points per £1m spent — higher means better return on price"
+              />
+              <StatChip
+                label="Owned by"
+                value={`${profile.selectedByPercent.toFixed(1)}%`}
+                title="Share of FPL managers who own this player — a very high number makes them a 'template' pick your rivals likely already have"
+              />
+              <StatChip
+                label="Minutes"
+                value={String(profile.minutes)}
+                title="Total minutes played this season — low minutes on a fit player is a rotation-risk warning sign"
+              />
+            </StatSection>
+
+            <StatSection title="Returns">
+              <StatChip label="Goals" value={String(profile.goalsScored)} />
+              <StatChip label="Assists" value={String(profile.assists)} />
+              <StatChip label="Clean sheets" value={String(profile.cleanSheets)} />
+              <StatChip label="Bonus" value={String(profile.bonus)} />
+            </StatSection>
+
+            <StatSection title="Underlying stats">
+              <StatChip
+                label="xG"
+                value={profile.expectedGoals.toFixed(2)}
+                title="Expected goals — how many goals their shots would be expected to produce on average. Well above actual goals scored suggests they're due more; well below suggests recent goals were fortunate"
+              />
+              <StatChip
+                label="xA"
+                value={profile.expectedAssists.toFixed(2)}
+                title="Expected assists — the same idea as xG, for chances created that led (or should lead) to a goal"
+              />
+            </StatSection>
+          </div>
+
+          {actions && (
+            <div className="mt-5 border-t border-border pt-4">
+              {actions(profile)}
+            </div>
+          )}
+        </div>
+      )}
+    </Dialog>
   );
 }

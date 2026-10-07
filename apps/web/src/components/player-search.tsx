@@ -98,6 +98,7 @@ export function PlayerSearchResults({
   profileAction,
   onSelect,
   reincludePlayers = [],
+  autoFocus = false,
 }: {
   // The only position that can actually complete this transfer — a
   // same-position-only rule enforced by the backend (see CLAUDE.md's
@@ -123,6 +124,10 @@ export function PlayerSearchResults({
   // (matching the position filter and current search text) rather than
   // merged into them, so they're easy to spot and get back.
   reincludePlayers?: PlayerListItem[];
+  // Only when the user just asked to pick someone (a transfer-out). The
+  // sidebar copy of this panel is always mounted from md up, so focusing
+  // unconditionally would yank keyboard focus into it on every page load.
+  autoFocus?: boolean;
 }) {
   const [query, setQuery] = useState("");
   // Empty = no filter, every position shown, nothing pressed — the default
@@ -261,8 +266,9 @@ export function PlayerSearchResults({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <input
-        autoFocus
-        type="text"
+        autoFocus={autoFocus}
+        type="search"
+        aria-label="Search players by name"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name…"
@@ -331,7 +337,7 @@ export function PlayerSearchResults({
                       onClick={() => setViewingPlayerId(player.playerId)}
                       aria-label={`View ${player.webName}'s profile`}
                       title="View player profile"
-                      className="focus-ring shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-black/[.04] hover:text-zinc-600 dark:text-zinc-500 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
+                      className="focus-ring shrink-0 rounded-full p-1.5 text-zinc-500 transition-colors hover:bg-black/[.04] hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-white/[.08] dark:hover:text-zinc-300"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"

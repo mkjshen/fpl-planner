@@ -4,8 +4,8 @@
 // of a blank screen or plain "Loading…" text.
 export default function DashboardLoading() {
   return (
-    <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
-      <div className="w-full max-w-5xl animate-pulse rounded-xl border border-border bg-white p-8 dark:bg-zinc-950">
+    <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-2 py-4 sm:px-4 sm:py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
+      <div className="w-full max-w-5xl animate-pulse rounded-xl border border-border bg-white p-4 sm:p-8 dark:bg-zinc-950">
         <div className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-2">
