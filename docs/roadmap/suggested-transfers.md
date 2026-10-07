@@ -12,7 +12,7 @@ This roadmap improves it in four phases. In line with the project's non-goals, e
 | 2. Price-change risk groundwork | Done (`577e482`) |
 | 2b. Show the price signal | Done |
 | 3. Multi-gameweek horizon | Done |
-| 4. Multi-transfer optimization | Not started |
+| 4. Multi-transfer optimization | Done |
 
 ## Done
 
@@ -48,18 +48,25 @@ Neither phase changed how suggestions are scored.
 - The card shows a 5-cell fixture strip for the incoming player, coloured by difficulty. A double is split into two segments and a blank is an empty outline. Hovering a cell shows both players' numbers for that gameweek.
 - Every constant (`HORIZON_GAMEWEEKS`, `HORIZON_DECAY`, `DIFFICULTY_MULTIPLIER`, thresholds) is hand-picked, not fitted to past results.
 
-## Remaining
-
 ### 4. Multi-transfer optimization
 
-- Add PuLP to `apps/api/requirements.txt`. It's pure Python, so it installs easily without Docker.
-- Replace the one-player-at-a-time greedy loop with a small 0/1 integer program:
-  - inputs: free transfers available and the -4 hit cost
-  - constraints: bank plus sell prices, max 3 players per club, and a valid 2/5/5/3 squad
-  - goal: the biggest total projected gain from Phase 3, minus any hits
-- The same approach can cover Wildcard and Free Hit gameweeks (no hit cost, any mix of positions).
-- Add integration tests that check every constraint across all the chosen swaps at once, not just each swap on its own.
-- Frontend: show the suggested set of transfers, possibly with an "apply all" into the planner.
+- `apps/api/app/services/transfer_optimizer.py:best_transfer_set` picks the whole set of sells and buys at once, as a 0/1 integer program in PuLP, solved by HiGHS (`highspy`):
+  - **objective:** maximize projected gain, charging every transfer the 2.0 margin and every hit an extra 4, so it uses the same bars as the single-transfer cards
+  - **constraints, on the final squad:** each position sells as many as it buys (2/5/5/3 is kept), purchases are covered by bank plus sell prices, and no club has more than 3 players
+  - **at most 2 hits (−8).** Uncapped, it recommended 9 transfers for −24 on a real squad: each hit only has to beat a 5-gameweek projection built from noisy form stats, so the solver can always find enough apparent gains to justify one more. A bigger overhaul is what a Wildcard is for.
+- It finds moves the single-transfer cards can't, such as downgrading one player to fund an upgrade elsewhere.
+- The module has no database access: plain data in, plain data out. It runs in a worker thread (`asyncio.to_thread`) so it doesn't block the event loop. It solves in about 25–60 ms on real squads, with a 5-second limit after which no combination is returned.
+- The response has a `bestCombination` field (pairs, total gain, hits, net gain). The planner shows it above the cards with an **Apply all** button, which applies each pair through the same handler as a single card. It only appears when:
+  - it has 2 or more transfers
+  - no transfers have been made or started yet
+  - no Wildcard or Free Hit is active
+- **Why HiGHS rather than CBC:** PuLP 3.3 deprecates its bundled CBC, and the recommended replacement package (`cbcbox`) had no single version published for both macOS arm64 and Linux x86_64 (CI).
+
+## Possible next steps
+
+- Solve Wildcard and Free Hit gameweeks: no hit cost and any mix of positions. This needs the active chip passed to the endpoint, since today the chip is only planner state until Save.
+- A "large net transfers in, no rise yet" price warning (see 2b).
+- Re-tune the hand-picked constants once there's a way to compare suggestions with real points afterwards.
 
 ## Applies to every phase
 

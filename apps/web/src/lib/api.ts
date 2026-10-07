@@ -249,11 +249,23 @@ export type SuggestedTransfer = {
   gameweekProjections: GameweekProjection[];
 };
 
+// The best *set* of transfers chosen jointly by the backend's solver
+// (services/transfer_optimizer.py) — budget, club limit and hits hold for
+// the set as a whole, so it can include moves that only work together.
+export type TransferCombination = {
+  transfers: SuggestedTransfer[];
+  totalProjectedGain: number;
+  hits: number;
+  // totalProjectedGain minus 4 per hit.
+  netProjectedGain: number;
+};
+
 export type Suggestions = {
   suggestions: SuggestedTransfer[];
   freeTransfersAvailable: number;
   // How many gameweeks (from the requested one) projectedGain covers.
   horizonGameweeks: number;
+  bestCombination: TransferCombination | null;
 };
 
 export async function getSuggestedTransfers(

@@ -51,8 +51,28 @@ class SuggestedTransferOut(BaseModel):
     gameweekProjections: list[GameweekProjectionOut]
 
 
+class TransferCombinationOut(BaseModel):
+    """The best *set* of transfers chosen jointly (see
+    services/transfer_optimizer.py), as opposed to `suggestions`' independent
+    one-for-one picks — budget, club limit and hits are satisfied by the set
+    as a whole, so it can include moves that only make sense together (e.g.
+    a downgrade that funds an upgrade elsewhere). Pairs are same-position;
+    which outgoing player is paired with which incoming one within a
+    position is presentational, since every constraint is on the final
+    squad."""
+
+    transfers: list[SuggestedTransferOut]
+    totalProjectedGain: float
+    # How many of `transfers` go beyond the free allowance, each costing -4.
+    hits: int
+    # totalProjectedGain minus 4 per hit.
+    netProjectedGain: float
+
+
 class SuggestionsOut(BaseModel):
     suggestions: list[SuggestedTransferOut]
     freeTransfersAvailable: int
     # How many gameweeks (from the requested one) projectedGain covers.
     horizonGameweeks: int
+    # None when no transfer is worth making, or the solver didn't finish.
+    bestCombination: TransferCombinationOut | None

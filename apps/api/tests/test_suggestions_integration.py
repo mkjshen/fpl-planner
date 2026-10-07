@@ -469,3 +469,51 @@ async def test_a_double_gameweek_counts_both_fixtures_and_a_blank_counts_zero(db
     assert gw2.inDifficulties == [3, 3]
     assert gw2.outProjectedPoints == 0.0
     assert gw2.inProjectedPoints == round(2 * 5.0 * HORIZON_DECAY, 2)
+
+
+async def test_the_best_combination_finds_a_downgrade_that_funds_an_upgrade(db_session):
+    """The greedy list checks each swap against bank + that one player's
+    sale, so it can't see that selling an expensive midfielder for an
+    equally good cheap one frees the cash for a forward upgrade. The joint
+    combination should find exactly that pair of moves."""
+    fpl_team, gameweek = await _seed_team(db_session, free_transfer_cap=2)
+    clubs = [_club(i) for i in range(1, 5)]
+    db_session.add_all(clubs)
+    await db_session.flush()
+
+    pricey_mid = _player(1, clubs[0].id, Position.MID, 100, form=5.0, pointsPerGame=5.0)
+    weak_fwd = _player(2, clubs[1].id, Position.FWD, 60, form=1.0, pointsPerGame=1.0)
+    cheap_mid = _player(3, clubs[2].id, Position.MID, 50, form=5.0, pointsPerGame=5.0)  # same score, 50 cheaper
+    star_fwd = _player(4, clubs[3].id, Position.FWD, 110, form=10.0, pointsPerGame=10.0)  # 110 > 0 + 60
+    db_session.add_all([pricey_mid, weak_fwd, cheap_mid, star_fwd])
+    await db_session.flush()
+    await _seed_squad(db_session, fpl_team, gameweek, bank=0, owned=[(pricey_mid, 100, 100), (weak_fwd, 60, 60)])
+
+    result = await suggest_transfers(db_session, fpl_team, gameweek_number=1)
+
+    assert result.suggestions == []  # greedy: nothing affordable worth suggesting
+    combination = result.bestCombination
+    assert combination is not None
+    pairs = [(t.outPlayer.playerId, t.inPlayer.playerId) for t in combination.transfers]
+    assert pairs == [(weak_fwd.id, star_fwd.id), (pricey_mid.id, cheap_mid.id)]  # best pair first
+    assert combination.totalProjectedGain == 9.0
+    assert combination.hits == 0
+    assert combination.netProjectedGain == 9.0
+    assert all(not t.requiresHit for t in combination.transfers)
+
+
+async def test_no_combination_is_returned_when_nothing_is_worth_doing(db_session):
+    fpl_team, gameweek = await _seed_team(db_session)
+    clubs = [_club(i) for i in range(1, 3)]
+    db_session.add_all(clubs)
+    await db_session.flush()
+
+    out = _player(1, clubs[0].id, Position.GK, 50, form=5.0, pointsPerGame=5.0)
+    barely_better = _player(2, clubs[1].id, Position.GK, 50, form=6.0, pointsPerGame=6.0)
+    db_session.add_all([out, barely_better])
+    await db_session.flush()
+    await _seed_squad(db_session, fpl_team, gameweek, bank=100, owned=[(out, 50, 50)])
+
+    result = await suggest_transfers(db_session, fpl_team, gameweek_number=1)
+
+    assert result.bestCombination is None

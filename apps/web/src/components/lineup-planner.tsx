@@ -13,6 +13,7 @@ import type {
   SquadPlayer,
   SuggestedTransfer,
   Suggestions,
+  TransferCombination,
 } from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard, shirtUrl, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
@@ -110,6 +111,24 @@ export function filterVisibleSuggestions(
   return suggestions.filter(
     (s) => currentPlayerIds.has(s.outPlayer.playerId) && !currentPlayerIds.has(s.inPlayer.playerId),
   );
+}
+
+// The combination only makes sense as a whole, applied to the squad it was
+// computed for: hidden once any transfer has been made or started (its
+// budget and hit count assume none have), under Wildcard/Free Hit (it was
+// solved with hits and same-position swaps, which those chips lift), when
+// it's a single move (the top card already shows that), or if any of its
+// players no longer fit the live squad.
+export function applicableCombination(
+  combination: TransferCombination | null,
+  currentPlayerIds: Set<number>,
+  hasTransferEdits: boolean,
+  chipIsTransferFree: boolean,
+): TransferCombination | null {
+  if (combination === null || hasTransferEdits || chipIsTransferFree) return null;
+  if (combination.transfers.length < 2) return null;
+  const stillFits = filterVisibleSuggestions(combination.transfers, currentPlayerIds);
+  return stillFits.length === combination.transfers.length ? combination : null;
 }
 
 // Whether applying this one suggestion, on top of the transfers already
@@ -267,6 +286,7 @@ export function LineupPlanner({
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [horizonGameweeks, setHorizonGameweeks] = useState<number | null>(null);
+  const [bestCombination, setBestCombination] = useState<TransferCombination | null>(null);
 
   // One fetch per mount (this component remounts per gameweek via the
   // parent's `key={selectedGameweek}`, same pattern PlayerSearchResults
@@ -294,6 +314,7 @@ export function LineupPlanner({
         if (cancelled) return;
         setSuggestions(result?.suggestions ?? []);
         setHorizonGameweeks(result?.horizonGameweeks ?? null);
+        setBestCombination(result?.bestCombination ?? null);
       })
       .catch(() => {
         if (!cancelled) setSuggestionsError("Couldn't load suggested transfers.");
@@ -398,6 +419,12 @@ export function LineupPlanner({
 
   const currentPlayerIds = new Set(players.map((p) => p.playerId));
   const visibleSuggestions = filterVisibleSuggestions(suggestions, currentPlayerIds);
+  const combination = applicableCombination(
+    bestCombination,
+    currentPlayerIds,
+    transfersMade > 0 || transferOutIds.length > 0,
+    chipIsTransferFree,
+  );
 
   function handlePlayerClick(player: SquadPlayer) {
     if (!lineup.isEditable) return;
@@ -484,6 +511,14 @@ export function LineupPlanner({
   // transfers.
   function applySuggestion(suggestion: SuggestedTransfer) {
     handleTransfer(suggestion.outPlayer.playerId, suggestion.inPlayer);
+  }
+
+  // Same path again, once per pair — handleTransfer's setPlayers is a
+  // functional update, so consecutive calls compose. Bank and the club
+  // limit are only checked on Save, against the final squad, so the order
+  // pairs are applied in doesn't matter.
+  function applyCombination(toApply: TransferCombination) {
+    for (const transfer of toApply.transfers) applySuggestion(transfer);
   }
 
   function handleTransferOutClick(playerId: number) {
@@ -948,92 +983,146 @@ export function LineupPlanner({
               </div>
             ) : suggestionsError ? (
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{suggestionsError}</p>
-            ) : visibleSuggestions.length === 0 ? (
-              <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-                No standout swaps found for this squad right now.
-              </p>
             ) : (
-              // A horizontal, scroll-snapped strip rather than a vertical
-              // list — native touch/trackpad scroll gives carousel-like
-              // browsing for free, no JS or extra state needed.
-              <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
-                {visibleSuggestions.map((s) => (
-                  <div
-                    key={`${s.outPlayer.playerId}-${s.inPlayer.playerId}`}
-                    className="flex w-36 shrink-0 snap-start flex-col items-center gap-1.5 rounded-xl border border-border bg-white p-3 text-center dark:bg-zinc-950"
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      {s.outPlayer.clubCode !== null && (
-                        <Image
-                          src={shirtUrl(s.outPlayer.clubCode, s.outPlayer.position)}
-                          alt=""
-                          width={26}
-                          height={26}
-                          className="h-[26px] w-[26px] object-contain opacity-40"
-                        />
-                      )}
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500">→</span>
-                      {s.inPlayer.clubCode !== null && (
-                        <Image
-                          src={shirtUrl(s.inPlayer.clubCode, s.inPlayer.position)}
-                          alt=""
-                          width={30}
-                          height={30}
-                          className="h-[30px] w-[30px] object-contain"
-                        />
-                      )}
-                    </div>
-                    <div className="flex w-full flex-col">
-                      <span className="flex items-center justify-center gap-1">
-                        <span className="truncate text-[0.7rem] text-zinc-400 line-through dark:text-zinc-500">
-                          {s.outPlayer.webName}
-                        </span>
-                        <PriceChangeMarker direction={s.outPlayerPriceDirection} />
-                      </span>
-                      <span className="flex items-center justify-center gap-1">
-                        <span className="truncate text-sm font-semibold text-black dark:text-zinc-50">
-                          {s.inPlayer.webName}
-                        </span>
-                        <PriceChangeMarker direction={s.inPlayerPriceDirection} />
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      <span>{formatPrice(s.inPlayer.currentPrice)}</span>
-                      <span
-                        title={
-                          horizonGameweeks === null
-                            ? "Projected points gained"
-                            : `Projected points gained over the next ${horizonGameweeks} gameweeks`
-                        }
-                        className="text-emerald-600 dark:text-emerald-400"
+              <>
+                {combination !== null && (
+                  <div className="mt-3 rounded-xl border border-primary/20 bg-white p-3 dark:border-accent/30 dark:bg-zinc-950">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-black dark:text-zinc-50">
+                          Best combination: {combination.transfers.length} transfers
+                        </p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            +{combination.netProjectedGain.toFixed(1)}
+                          </span>{" "}
+                          projected
+                          {combination.hits > 0 && (
+                            <>
+                              {" "}
+                              after{" "}
+                              <span className="text-amber-600 dark:text-amber-400">
+                                −{combination.hits * 4}
+                              </span>{" "}
+                              in hits
+                            </>
+                          )}
+                          {" "}· chosen together, so it can include moves that only work as a set
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => applyCombination(combination)}
+                        className="focus-ring shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-primary/90 dark:bg-accent dark:text-zinc-950 dark:hover:bg-accent/90"
                       >
-                        +{s.projectedGain.toFixed(1)}
-                      </span>
-                      {suggestionCostsHit(
-                        transferOutIdSet.has(s.outPlayer.playerId),
-                        transfersMade,
-                        freeTransfers,
-                        chipIsTransferFree,
-                      ) && (
-                        <span
-                          title="You've used your free transfers, so this one would cost 4 points"
-                          className="text-amber-600 dark:text-amber-400"
-                        >
-                          −4
-                        </span>
-                      )}
+                        Apply all
+                      </button>
                     </div>
-                    <FixtureStrip projections={s.gameweekProjections} />
-                    <button
-                      type="button"
-                      onClick={() => applySuggestion(s)}
-                      className="focus-ring mt-1 w-full shrink-0 rounded-full border border-primary/30 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 dark:border-accent/40 dark:text-accent dark:hover:bg-accent/10"
-                    >
-                      Apply
-                    </button>
+                    <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {combination.transfers.map((t) => (
+                        <li
+                          key={`${t.outPlayer.playerId}-${t.inPlayer.playerId}`}
+                          className="flex items-center gap-1 text-zinc-600 dark:text-zinc-300"
+                        >
+                          <span className="text-zinc-400 line-through dark:text-zinc-500">{t.outPlayer.webName}</span>
+                          <span aria-hidden="true" className="text-zinc-400">→</span>
+                          <span className="sr-only">replaced by</span>
+                          <span className="font-medium text-black dark:text-zinc-50">{t.inPlayer.webName}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
-              </div>
+                )}
+                {visibleSuggestions.length === 0 ? (
+                  combination === null && (
+                    <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                      No standout swaps found for this squad right now.
+                    </p>
+                  )
+                ) : (
+                  // A horizontal, scroll-snapped strip rather than a vertical
+                  // list — native touch/trackpad scroll gives carousel-like
+                  // browsing for free, no JS or extra state needed.
+                  <div className="mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
+                    {visibleSuggestions.map((s) => (
+                      <div
+                        key={`${s.outPlayer.playerId}-${s.inPlayer.playerId}`}
+                        className="flex w-36 shrink-0 snap-start flex-col items-center gap-1.5 rounded-xl border border-border bg-white p-3 text-center dark:bg-zinc-950"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          {s.outPlayer.clubCode !== null && (
+                            <Image
+                              src={shirtUrl(s.outPlayer.clubCode, s.outPlayer.position)}
+                              alt=""
+                              width={26}
+                              height={26}
+                              className="h-[26px] w-[26px] object-contain opacity-40"
+                            />
+                          )}
+                          <span className="text-xs text-zinc-400 dark:text-zinc-500">→</span>
+                          {s.inPlayer.clubCode !== null && (
+                            <Image
+                              src={shirtUrl(s.inPlayer.clubCode, s.inPlayer.position)}
+                              alt=""
+                              width={30}
+                              height={30}
+                              className="h-[30px] w-[30px] object-contain"
+                            />
+                          )}
+                        </div>
+                        <div className="flex w-full flex-col">
+                          <span className="flex items-center justify-center gap-1">
+                            <span className="truncate text-[0.7rem] text-zinc-400 line-through dark:text-zinc-500">
+                              {s.outPlayer.webName}
+                            </span>
+                            <PriceChangeMarker direction={s.outPlayerPriceDirection} />
+                          </span>
+                          <span className="flex items-center justify-center gap-1">
+                            <span className="truncate text-sm font-semibold text-black dark:text-zinc-50">
+                              {s.inPlayer.webName}
+                            </span>
+                            <PriceChangeMarker direction={s.inPlayerPriceDirection} />
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span>{formatPrice(s.inPlayer.currentPrice)}</span>
+                          <span
+                            title={
+                              horizonGameweeks === null
+                                ? "Projected points gained"
+                                : `Projected points gained over the next ${horizonGameweeks} gameweeks`
+                            }
+                            className="text-emerald-600 dark:text-emerald-400"
+                          >
+                            +{s.projectedGain.toFixed(1)}
+                          </span>
+                          {suggestionCostsHit(
+                            transferOutIdSet.has(s.outPlayer.playerId),
+                            transfersMade,
+                            freeTransfers,
+                            chipIsTransferFree,
+                          ) && (
+                            <span
+                              title="You've used your free transfers, so this one would cost 4 points"
+                              className="text-amber-600 dark:text-amber-400"
+                            >
+                              −4
+                            </span>
+                          )}
+                        </div>
+                        <FixtureStrip projections={s.gameweekProjections} />
+                        <button
+                          type="button"
+                          onClick={() => applySuggestion(s)}
+                          className="focus-ring mt-1 w-full shrink-0 rounded-full border border-primary/30 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 dark:border-accent/40 dark:text-accent dark:hover:bg-accent/10"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

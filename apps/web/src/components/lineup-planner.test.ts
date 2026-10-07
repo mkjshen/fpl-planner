@@ -1,5 +1,6 @@
-import type { PlayerListItem, SquadPlayer, SuggestedTransfer } from "@/lib/api";
+import type { PlayerListItem, SquadPlayer, SuggestedTransfer, TransferCombination } from "@/lib/api";
 import {
+  applicableCombination,
   canSwap,
   difficultyClass,
   filterVisibleSuggestions,
@@ -287,5 +288,57 @@ describe("suggestionCostsHit", () => {
 
   it("is never a hit under Wildcard or Free Hit", () => {
     expect(suggestionCostsHit(false, 5, 0, true)).toBe(false);
+  });
+});
+
+describe("applicableCombination", () => {
+  function makeCombination(pairs: [number, number][]): TransferCombination {
+    return {
+      transfers: pairs.map(([outId, inId]) => makeSuggestion(outId, inId)),
+      totalProjectedGain: 10,
+      hits: 0,
+      netProjectedGain: 10,
+    };
+  }
+
+  it("shows a multi-transfer combination for an untouched squad", () => {
+    const combination = makeCombination([
+      [1, 10],
+      [2, 20],
+    ]);
+    expect(applicableCombination(combination, new Set([1, 2, 3]), false, false)).toBe(combination);
+  });
+
+  it("hides once any transfer has been made, since its budget assumed none", () => {
+    const combination = makeCombination([
+      [1, 10],
+      [2, 20],
+    ]);
+    expect(applicableCombination(combination, new Set([1, 2, 3]), true, false)).toBeNull();
+  });
+
+  it("hides under Wildcard or Free Hit, which it wasn't solved for", () => {
+    const combination = makeCombination([
+      [1, 10],
+      [2, 20],
+    ]);
+    expect(applicableCombination(combination, new Set([1, 2, 3]), false, true)).toBeNull();
+  });
+
+  it("hides a single-move combination, which the top card already shows", () => {
+    expect(applicableCombination(makeCombination([[1, 10]]), new Set([1]), false, false)).toBeNull();
+  });
+
+  it("hides if any of its players no longer fit the squad", () => {
+    // Player 10 is somehow already owned.
+    const combination = makeCombination([
+      [1, 10],
+      [2, 20],
+    ]);
+    expect(applicableCombination(combination, new Set([1, 2, 10]), false, false)).toBeNull();
+  });
+
+  it("hides when there's no combination at all", () => {
+    expect(applicableCombination(null, new Set([1]), false, false)).toBeNull();
   });
 });

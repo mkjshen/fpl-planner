@@ -6,12 +6,20 @@ affordable within bank + that player's real sell price, ranked by projected
 points over the next HORIZON_GAMEWEEKS gameweeks' fixtures (see
 _horizon_projection)."""
 
+import asyncio
+from collections.abc import Callable
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Club, FplTeam, Gameweek, Player
 from app.schemas.players import PlayerListItemOut
-from app.schemas.suggestions import GameweekProjectionOut, SuggestedTransferOut, SuggestionsOut
+from app.schemas.suggestions import (
+    GameweekProjectionOut,
+    SuggestedTransferOut,
+    SuggestionsOut,
+    TransferCombinationOut,
+)
 from app.services.lineup import (
     GameweekNotFoundError,
     Slot,
@@ -22,6 +30,7 @@ from app.services.lineup import (
 )
 from app.services.fixtures import upcoming_difficulty
 from app.services.price_trends import price_direction
+from app.services.transfer_optimizer import OwnedOption, PoolOption, TransferSet, best_transfer_set
 
 FORM_WEIGHT = 0.6
 POINTS_PER_GAME_WEIGHT = 0.4
@@ -51,6 +60,12 @@ MIN_GAIN_TO_SUGGEST = 2.0
 # a free one needs.
 HIT_COST = 4
 MIN_GAIN_TO_JUSTIFY_HIT = HIT_COST + MIN_GAIN_TO_SUGGEST
+# The most hits the best-combination solve may take. Each hit only has to
+# beat a 5-gameweek projection built from noisy form stats, and with 15
+# players to choose from the solver can always find enough apparent gains to
+# justify one more — uncapped, it recommended 9 transfers for -24 on a real
+# squad. A squad that needs more than -8 of changes is what a Wildcard is for.
+MAX_HITS_IN_COMBINATION = 2
 MAX_SUGGESTIONS = 10
 UNAVAILABLE_STATUSES = ("i", "s", "u")
 DOUBTFUL_STATUS = "d"
@@ -182,19 +197,44 @@ async def suggest_transfers(
     }
     difficulties_by_club = await upcoming_difficulty(db, club_ids, gameweek_number, HORIZON_GAMEWEEKS)
 
-    def projection(player: Player) -> list[float]:
-        return _horizon_projection(_player_score(player), difficulties_by_club[player.clubId], gameweek_numbers)
+    # Computed once per player up front — both the greedy list and the
+    # combination solve below read every player's projection repeatedly.
+    projections = {
+        player.id: _horizon_projection(_player_score(player), difficulties_by_club[player.clubId], gameweek_numbers)
+        for player, _ in [
+            *owned_players.values(),
+            *(row for candidates in pool_by_position.values() for row in candidates),
+        ]
+    }
+
+    def to_suggestion(out_player: Player, out_club: Club, in_player: Player, in_club: Club) -> SuggestedTransferOut:
+        out_projection, in_projection = projections[out_player.id], projections[in_player.id]
+        return SuggestedTransferOut(
+            outPlayer=_to_list_item(out_player, out_club),
+            inPlayer=_to_list_item(in_player, in_club),
+            outPlayerSellingPrice=selling_price_by_id[out_player.id],
+            projectedGain=round(sum(in_projection) - sum(out_projection), 2),
+            requiresHit=False,  # set by the caller, once ranked
+            outPlayerPriceDirection=price_direction(out_player.costChangeEvent),
+            inPlayerPriceDirection=price_direction(in_player.costChangeEvent),
+            gameweekProjections=_to_gameweek_projections(
+                gameweek_numbers,
+                difficulties_by_club[out_player.clubId],
+                difficulties_by_club[in_player.clubId],
+                out_projection,
+                in_projection,
+            ),
+        )
 
     free_transfers = await available_free_transfers(db, fpl_team, gameweek_number)
 
     candidates: list[SuggestedTransferOut] = []
     for out_player, out_club in owned_players.values():
-        out_projection = projection(out_player)
-        out_total = sum(out_projection)
+        out_total = sum(projections[out_player.id])
         selling_price = selling_price_by_id[out_player.id]
         budget = bank + selling_price
 
-        best: tuple[float, Player, Club, list[float]] | None = None
+        best: tuple[float, Player, Club] | None = None
         for in_player, in_club in pool_by_position.get(out_player.position.value, []):
             if in_player.currentPrice > budget:
                 continue
@@ -203,34 +243,16 @@ async def suggest_transfers(
             # max-3 limit.
             if in_player.clubId != out_player.clubId and club_counts.get(in_player.clubId, 0) >= 3:
                 continue
-            in_projection = projection(in_player)
-            gain = sum(in_projection) - out_total
+            gain = sum(projections[in_player.id]) - out_total
             if best is None or gain > best[0]:
-                best = (gain, in_player, in_club, in_projection)
+                best = (gain, in_player, in_club)
 
         if best is None:
             continue
-        gain, in_player, in_club, in_projection = best
+        gain, in_player, in_club = best
         if gain < MIN_GAIN_TO_SUGGEST:
             continue
-        candidates.append(
-            SuggestedTransferOut(
-                outPlayer=_to_list_item(out_player, out_club),
-                inPlayer=_to_list_item(in_player, in_club),
-                outPlayerSellingPrice=selling_price,
-                projectedGain=round(gain, 2),
-                requiresHit=False,  # finalized below, once ranked
-                outPlayerPriceDirection=price_direction(out_player.costChangeEvent),
-                inPlayerPriceDirection=price_direction(in_player.costChangeEvent),
-                gameweekProjections=_to_gameweek_projections(
-                    gameweek_numbers,
-                    difficulties_by_club[out_player.clubId],
-                    difficulties_by_club[in_player.clubId],
-                    out_projection,
-                    in_projection,
-                ),
-            )
-        )
+        candidates.append(to_suggestion(out_player, out_club, in_player, in_club))
 
     candidates.sort(key=lambda c: c.projectedGain, reverse=True)
 
@@ -257,6 +279,69 @@ async def suggest_transfers(
         if len(kept) >= limit:
             break
 
+    pool_players = {player.id: (player, club) for rows in pool_by_position.values() for player, club in rows}
+    transfer_set = await asyncio.to_thread(
+        best_transfer_set,
+        owned=[
+            OwnedOption(
+                player_id=player.id,
+                position=player.position.value,
+                club_id=player.clubId,
+                selling_price=selling_price_by_id[player.id],
+                projected_points=sum(projections[player.id]),
+            )
+            for player, _ in owned_players.values()
+        ],
+        pool=[
+            PoolOption(
+                player_id=player.id,
+                position=player.position.value,
+                club_id=player.clubId,
+                price=player.currentPrice,
+                projected_points=sum(projections[player.id]),
+            )
+            for player, _ in pool_players.values()
+        ],
+        bank=bank,
+        free_transfers=free_transfers,
+        # The same bars the greedy list uses: every transfer must earn
+        # MIN_GAIN_TO_SUGGEST, and every hit must also earn back its -4.
+        transfer_margin=MIN_GAIN_TO_SUGGEST,
+        hit_cost=HIT_COST,
+        max_hits=MAX_HITS_IN_COMBINATION,
+    )
+
     return SuggestionsOut(
-        suggestions=kept, freeTransfersAvailable=free_transfers, horizonGameweeks=HORIZON_GAMEWEEKS
+        suggestions=kept,
+        freeTransfersAvailable=free_transfers,
+        horizonGameweeks=HORIZON_GAMEWEEKS,
+        bestCombination=_to_combination(transfer_set, owned_players, pool_players, free_transfers, to_suggestion),
+    )
+
+
+def _to_combination(
+    transfer_set: TransferSet | None,
+    owned_players: dict[int, tuple[Player, Club]],
+    pool_players: dict[int, tuple[Player, Club]],
+    free_transfers: int,
+    to_suggestion: Callable[[Player, Club, Player, Club], SuggestedTransferOut],
+) -> TransferCombinationOut | None:
+    """The solver's chosen set as API output, best pair first — the ones
+    past the free allowance are the hits, matching how `suggestions` labels
+    rank order."""
+    if transfer_set is None or not transfer_set.pairs:
+        return None
+    transfers = sorted(
+        (to_suggestion(*owned_players[out_id], *pool_players[in_id]) for out_id, in_id in transfer_set.pairs),
+        key=lambda t: t.projectedGain,
+        reverse=True,
+    )
+    for index, transfer in enumerate(transfers):
+        transfer.requiresHit = index >= free_transfers
+    total_gain = sum(t.projectedGain for t in transfers)
+    return TransferCombinationOut(
+        transfers=transfers,
+        totalProjectedGain=round(total_gain, 2),
+        hits=transfer_set.hits,
+        netProjectedGain=round(total_gain - HIT_COST * transfer_set.hits, 2),
     )
