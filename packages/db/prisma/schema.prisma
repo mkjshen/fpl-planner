@@ -217,6 +217,17 @@ model Player {
   // fetched it, or for a gameweek with no live data yet.
   currentGameweekPoints Int?
 
+  // Transfer-momentum signals for price-change risk — how many managers
+  // have moved this player in/out today, and whether their price has
+  // already moved today as a result (signed: positive = risen, negative =
+  // fallen). Same refreshed-snapshot treatment as currentPrice, not a
+  // history of its own — PlayerPriceHistory below is what accumulates a
+  // real trajectory. Nullable only because rows imported before this
+  // column existed won't have a value until their next import.
+  transfersInEvent  Int?
+  transfersOutEvent Int?
+  costChangeEvent   Int?
+
   club              Club                 @relation(fields: [clubId], references: [id])
   priceHistory      PlayerPriceHistory[]
   squadPlayers      SquadPlayer[]

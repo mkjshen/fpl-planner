@@ -56,6 +56,17 @@ class FplElement(BaseModel):
     value_season: float
     chance_of_playing_next_round: int | None
     news: str
+    # Transfer-momentum signals for price-change risk — how many managers
+    # have moved this player in/out today, and whether their price has
+    # already moved today as a result. Confirmed against the live API:
+    # cost_change_event is signed (positive = risen, negative = fallen) and
+    # is the only one of the four cost_change_* fields worth keeping —
+    # cost_change_event_fall and the season-cumulative cost_change_start*
+    # fields are redundant with it (just its negation, or the same signal
+    # over a longer window).
+    transfers_in_event: int
+    transfers_out_event: int
+    cost_change_event: int
 
 
 class FplChip(BaseModel):

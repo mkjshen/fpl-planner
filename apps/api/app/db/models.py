@@ -128,6 +128,9 @@ class Player(Base):
     chanceOfPlayingNextRound: Mapped[int | None] = mapped_column(Integer, nullable=True)
     news: Mapped[str] = mapped_column(String, default="")
     currentGameweekPoints: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    transfersInEvent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    transfersOutEvent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    costChangeEvent: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class Fixture(Base):

@@ -12,6 +12,7 @@ from app.db.models import (
     FplTeam,
     Gameweek,
     Player,
+    PlayerPriceHistory,
     Position,
     Season,
     SquadPlayer,
@@ -148,6 +149,52 @@ def _photo_code(photo: str) -> int | None:
         return None
 
 
+async def _record_price_history(db: AsyncSession, bootstrap: FplBootstrap) -> None:
+    """Append a PlayerPriceHistory row for a player only when their price
+    has actually changed since the last recorded entry, or when they have
+    no history yet at all (a one-time baseline, the same lazy-backfill
+    treatment as fixture difficulty) — avoids flooding the table with a
+    duplicate row on every import for the large majority of players whose
+    price hasn't moved since last time. Must run before
+    _upsert_clubs_and_players overwrites Player.currentPrice, since it
+    reads the *previous* stored price to detect a change; comparing against
+    the FPL API's own now_cost instead would just restate the live value,
+    not detect a change against what this app last saw.
+
+    A brand-new element with no existing Player row yet (confirmed against
+    the live API: mid-season squad changes do add new ids) is skipped here
+    rather than inserted — PlayerPriceHistory.playerId is a foreign key, and
+    _upsert_clubs_and_players, which creates that Player row, hasn't run
+    yet. It gets its baseline on the *next* import instead, once the row
+    exists."""
+    if not bootstrap.elements:
+        return
+
+    player_ids = [e.id for e in bootstrap.elements]
+    previous_prices = dict(
+        (await db.execute(select(Player.id, Player.currentPrice).where(Player.id.in_(player_ids)))).all()
+    )
+    players_with_history = set(
+        (
+            await db.execute(
+                select(PlayerPriceHistory.playerId)
+                .where(PlayerPriceHistory.playerId.in_(player_ids))
+                .distinct()
+            )
+        ).scalars()
+    )
+
+    rows = [
+        {"playerId": e.id, "price": e.now_cost}
+        for e in bootstrap.elements
+        if e.id in previous_prices
+        and (e.id not in players_with_history or previous_prices[e.id] != e.now_cost)
+    ]
+    if not rows:
+        return
+    await db.execute(pg_insert(PlayerPriceHistory).values(rows))
+
+
 async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -> None:
     if bootstrap.teams:
         club_rows = [
@@ -191,6 +238,9 @@ async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -
                 "valueSeason": e.value_season,
                 "chanceOfPlayingNextRound": e.chance_of_playing_next_round,
                 "news": e.news,
+                "transfersInEvent": e.transfers_in_event,
+                "transfersOutEvent": e.transfers_out_event,
+                "costChangeEvent": e.cost_change_event,
             }
             for e in bootstrap.elements
         ]
@@ -220,6 +270,9 @@ async def _upsert_clubs_and_players(db: AsyncSession, bootstrap: FplBootstrap) -
                 "valueSeason": stmt.excluded.valueSeason,
                 "chanceOfPlayingNextRound": stmt.excluded.chanceOfPlayingNextRound,
                 "news": stmt.excluded.news,
+                "transfersInEvent": stmt.excluded.transfersInEvent,
+                "transfersOutEvent": stmt.excluded.transfersOutEvent,
+                "costChangeEvent": stmt.excluded.costChangeEvent,
             },
         )
         await db.execute(stmt)
@@ -480,6 +533,7 @@ async def import_team(db: AsyncSession, user_id: str, fpl_team_id: int) -> FplTe
     season = await _upsert_season(db, bootstrap)
     await _upsert_chip_windows(db, season, bootstrap)
     gameweeks = await _upsert_gameweeks(db, season, bootstrap)
+    await _record_price_history(db, bootstrap)
     await _upsert_clubs_and_players(db, bootstrap)
     await _upsert_fixtures(db, gameweeks, fixtures)
     await _upsert_current_gameweek_points(db, live)
