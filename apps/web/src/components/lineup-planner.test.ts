@@ -1,5 +1,13 @@
 import type { PlayerListItem, SquadPlayer, SuggestedTransfer } from "@/lib/api";
-import { canSwap, filterVisibleSuggestions, priceChangeMarker, validationError } from "./lineup-planner";
+import {
+  canSwap,
+  difficultyClass,
+  filterVisibleSuggestions,
+  gameweekProjectionLabel,
+  priceChangeMarker,
+  suggestionCostsHit,
+  validationError,
+} from "./lineup-planner";
 
 // A legal 15-player squad: 2 GK/5 DEF/5 MID/3 FWD total, 11 starting
 // (1 GK/3 DEF/4 MID/3 FWD — inside the 3-5/2-5/1-3 formation ranges),
@@ -168,6 +176,7 @@ function makeSuggestion(outId: number, inId: number): SuggestedTransfer {
     requiresHit: false,
     outPlayerPriceDirection: "unchanged",
     inPlayerPriceDirection: "unchanged",
+    gameweekProjections: [],
   };
 }
 
@@ -213,5 +222,70 @@ describe("priceChangeMarker", () => {
 
   it("shows nothing when the price hasn't moved", () => {
     expect(priceChangeMarker("unchanged")).toBeNull();
+  });
+});
+
+describe("difficultyClass", () => {
+  it("colours easy fixtures green, average neutral and hard red", () => {
+    expect(difficultyClass(1)).toContain("emerald");
+    expect(difficultyClass(2)).toContain("emerald");
+    expect(difficultyClass(3)).toContain("zinc");
+    expect(difficultyClass(4)).toContain("red");
+    expect(difficultyClass(5)).toContain("red");
+  });
+
+  it("makes the hardest fixture darker than a merely hard one", () => {
+    expect(difficultyClass(5)).not.toEqual(difficultyClass(4));
+  });
+});
+
+describe("gameweekProjectionLabel", () => {
+  it("spells out both sides of a single-fixture gameweek", () => {
+    expect(
+      gameweekProjectionLabel({
+        gameweekNumber: 6,
+        inDifficulties: [2],
+        outDifficulties: [4],
+        inProjectedPoints: 5.75,
+        outProjectedPoints: 1.2,
+      }),
+    ).toBe("GW6: in difficulty 2, 5.8 pts · out difficulty 4, 1.2 pts");
+  });
+
+  it("describes a double and a blank", () => {
+    expect(
+      gameweekProjectionLabel({
+        gameweekNumber: 7,
+        inDifficulties: [3, 2],
+        outDifficulties: [],
+        inProjectedPoints: 9,
+        outProjectedPoints: 0,
+      }),
+    ).toBe("GW7: in difficulty 3 + difficulty 2, 9.0 pts · out no fixture, 0.0 pts");
+  });
+});
+
+describe("suggestionCostsHit", () => {
+  it("is free when it's the only transfer and one is available", () => {
+    // The reported case: a lower-ranked suggestion applied on its own
+    // shouldn't read as a hit just because it ranked below others.
+    expect(suggestionCostsHit(false, 0, 1, false)).toBe(false);
+  });
+
+  it("costs a hit once the free transfers are already used", () => {
+    expect(suggestionCostsHit(false, 1, 1, false)).toBe(true);
+  });
+
+  it("stays free with rolled-over transfers still left", () => {
+    expect(suggestionCostsHit(false, 1, 2, false)).toBe(false);
+  });
+
+  it("doesn't count filling an already-pending transfer-out slot as an extra transfer", () => {
+    // The outgoing player is already counted in transfersMade (1 of 1).
+    expect(suggestionCostsHit(true, 1, 1, false)).toBe(false);
+  });
+
+  it("is never a hit under Wildcard or Free Hit", () => {
+    expect(suggestionCostsHit(false, 5, 0, true)).toBe(false);
   });
 });

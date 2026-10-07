@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   Chip,
+  GameweekProjection,
   Lineup,
   LineupPlayerInput,
   PlayerListItem,
   PriceDirection,
   SquadPlayer,
   SuggestedTransfer,
+  Suggestions,
 } from "@/lib/api";
 import { formatPrice, Pitch, PlayerCard, shirtUrl, StatChip } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
@@ -110,6 +112,24 @@ export function filterVisibleSuggestions(
   );
 }
 
+// Whether applying this one suggestion, on top of the transfers already
+// made in the planner, would cost a -4 — judged against the live squad
+// rather than the backend's `requiresHit`, which assumes the whole list is
+// taken in rank order (so a lower-ranked swap read as a hit even when it
+// was the only one made). An outgoing player already transferred out but
+// not yet replaced is counted in `transfersMade` already, so filling that
+// slot isn't an extra transfer.
+export function suggestionCostsHit(
+  outPlayerAlreadyPending: boolean,
+  transfersMade: number,
+  freeTransfers: number,
+  chipIsTransferFree: boolean,
+): boolean {
+  if (chipIsTransferFree) return false;
+  const transfersAfterApplying = transfersMade + (outPlayerAlreadyPending ? 0 : 1);
+  return transfersAfterApplying > freeTransfers;
+}
+
 // A realized move only (see the backend's price_direction): "unchanged"
 // renders nothing, so a card only gains a marker when there's news.
 export function priceChangeMarker(
@@ -132,6 +152,51 @@ function PriceChangeMarker({ direction }: { direction: PriceDirection }) {
       <span aria-hidden="true">{marker.symbol}</span>
       <span className="sr-only">{marker.label}</span>
     </span>
+  );
+}
+
+// FPL's own fixture difficulty colouring: greens for easy, neutral for
+// average, reds for hard.
+export function difficultyClass(difficulty: number): string {
+  if (difficulty <= 2) return "bg-emerald-500 dark:bg-emerald-400";
+  if (difficulty === 3) return "bg-zinc-300 dark:bg-zinc-600";
+  return difficulty === 4 ? "bg-red-400 dark:bg-red-400" : "bg-red-700 dark:bg-red-500";
+}
+
+function describeFixtures(difficulties: number[]): string {
+  if (difficulties.length === 0) return "no fixture";
+  return difficulties.map((d) => `difficulty ${d}`).join(" + ");
+}
+
+// The tooltip / screen-reader text for one gameweek of the strip — spells
+// out both sides so the numbers behind the headline gain are visible.
+export function gameweekProjectionLabel(p: GameweekProjection): string {
+  return (
+    `GW${p.gameweekNumber}: in ${describeFixtures(p.inDifficulties)}, ${p.inProjectedPoints.toFixed(1)} pts` +
+    ` · out ${describeFixtures(p.outDifficulties)}, ${p.outProjectedPoints.toFixed(1)} pts`
+  );
+}
+
+// The incoming player's upcoming fixtures, one cell per gameweek: split in
+// two on a double, an empty outline on a blank.
+function FixtureStrip({ projections }: { projections: GameweekProjection[] }) {
+  return (
+    <ul className="flex w-full gap-0.5" aria-label="Incoming player's upcoming fixtures">
+      {projections.map((p) => (
+        <li
+          key={p.gameweekNumber}
+          title={gameweekProjectionLabel(p)}
+          className="flex h-1.5 flex-1 gap-px overflow-hidden rounded-sm"
+        >
+          <span className="sr-only">{gameweekProjectionLabel(p)}</span>
+          {p.inDifficulties.length === 0 ? (
+            <span className="flex-1 rounded-sm border border-zinc-300 dark:border-zinc-600" />
+          ) : (
+            p.inDifficulties.map((d, i) => <span key={i} className={`flex-1 ${difficultyClass(d)}`} />)
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -162,7 +227,7 @@ export function LineupPlanner({
   suggestionsAction: (
     userId: string,
     gameweekNumber: number,
-  ) => Promise<{ suggestions: SuggestedTransfer[]; freeTransfersAvailable: number } | null>;
+  ) => Promise<Suggestions | null>;
 }) {
   const router = useRouter();
   const [players, setPlayers] = useState(lineup.players);
@@ -201,6 +266,7 @@ export function LineupPlanner({
   const [suggestions, setSuggestions] = useState<SuggestedTransfer[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [horizonGameweeks, setHorizonGameweeks] = useState<number | null>(null);
 
   // One fetch per mount (this component remounts per gameweek via the
   // parent's `key={selectedGameweek}`, same pattern PlayerSearchResults
@@ -225,7 +291,9 @@ export function LineupPlanner({
     let cancelled = false;
     suggestionsAction(userId, selectedGameweek)
       .then((result) => {
-        if (!cancelled) setSuggestions(result?.suggestions ?? []);
+        if (cancelled) return;
+        setSuggestions(result?.suggestions ?? []);
+        setHorizonGameweeks(result?.horizonGameweeks ?? null);
       })
       .catch(() => {
         if (!cancelled) setSuggestionsError("Couldn't load suggested transfers.");
@@ -862,7 +930,10 @@ export function LineupPlanner({
               <p className="text-sm font-semibold text-black dark:text-zinc-50">Suggested transfers</p>
               {!loadingSuggestions && visibleSuggestions.length > 0 && (
                 <span className="hidden shrink-0 text-xs text-zinc-500 sm:inline dark:text-zinc-400">
-                  Based on recent form + points per game — not a prediction
+                  {horizonGameweeks === null
+                    ? "Based on form, points per game and upcoming fixtures"
+                    : `Form, points per game and the next ${horizonGameweeks} gameweeks' fixtures`}{" "}
+                  — not a prediction
                 </span>
               )}
             </div>
@@ -928,13 +999,31 @@ export function LineupPlanner({
                     </div>
                     <div className="flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                       <span>{formatPrice(s.inPlayer.currentPrice)}</span>
-                      <span className="text-emerald-600 dark:text-emerald-400">
+                      <span
+                        title={
+                          horizonGameweeks === null
+                            ? "Projected points gained"
+                            : `Projected points gained over the next ${horizonGameweeks} gameweeks`
+                        }
+                        className="text-emerald-600 dark:text-emerald-400"
+                      >
                         +{s.projectedGain.toFixed(1)}
                       </span>
-                      {s.requiresHit && (
-                        <span className="text-amber-600 dark:text-amber-400">−4</span>
+                      {suggestionCostsHit(
+                        transferOutIdSet.has(s.outPlayer.playerId),
+                        transfersMade,
+                        freeTransfers,
+                        chipIsTransferFree,
+                      ) && (
+                        <span
+                          title="You've used your free transfers, so this one would cost 4 points"
+                          className="text-amber-600 dark:text-amber-400"
+                        >
+                          −4
+                        </span>
                       )}
                     </div>
+                    <FixtureStrip projections={s.gameweekProjections} />
                     <button
                       type="button"
                       onClick={() => applySuggestion(s)}

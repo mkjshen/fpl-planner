@@ -11,7 +11,7 @@ This roadmap improves it in four phases. In line with the project's non-goals, e
 | 1. Fixture-difficulty groundwork | Done (`cf07335`) |
 | 2. Price-change risk groundwork | Done (`577e482`) |
 | 2b. Show the price signal | Done |
-| 3. Multi-gameweek horizon | Not started |
+| 3. Multi-gameweek horizon | Done |
 | 4. Multi-transfer optimization | Not started |
 
 ## Done
@@ -36,20 +36,21 @@ Neither phase changed how suggestions are scored.
 - It's display only and doesn't affect the score or ranking.
 - Still to do, optionally: a "large net transfers in, no rise yet" warning using `transfersInEvent - transfersOutEvent`. Label it as a heuristic, because FPL doesn't publish its price-change thresholds.
 
+### 3. Multi-gameweek horizon
+
+- `projectedGain` is now total projected points over the planned gameweek plus the next 4, not one gameweek's form. `_horizon_projection` in `suggestions.py` computes it:
+  - each fixture scales the player's `_player_score` by a difficulty multiplier (FDR 1 → 1.3×, 2 → 1.15×, 3 → 1.0×, 4 → 0.85×, 5 → 0.7×)
+  - a double gameweek adds both fixtures; a blank counts as 0
+  - each gameweek further out counts 0.85× the one before
+  - availability applies to the whole horizon, because FPL only reports chance of playing for the next round
+- Thresholds were re-set for the new scale. A free suggestion needs a gain of at least 2.0. A hit needs to beat the -4 itself plus that same margin (6.0), so the hit is compared directly instead of through a payback rule of thumb.
+- Each suggestion has a `gameweekProjections` breakdown (fixture ratings and projected points for each side per gameweek), and the response includes `horizonGameweeks`.
+- The card shows a 5-cell fixture strip for the incoming player, coloured by difficulty. A double is split into two segments and a blank is an empty outline. Hovering a cell shows both players' numbers for that gameweek.
+- Every constant (`HORIZON_GAMEWEEKS`, `HORIZON_DECAY`, `DIFFICULTY_MULTIPLIER`, thresholds) is hand-picked, not fitted to past results.
+
 ## Remaining
 
-### 3. Multi-gameweek horizon (depends on Phase 1)
-
-- Add a new scoring function next to `_player_score` in `suggestions.py`. It projects value over the next N gameweeks using `upcoming_difficulty()`:
-  - each gameweek's base value (from form/PPG) is scaled by a difficulty multiplier
-  - gameweeks further out count for less
-  - a double gameweek adds the value of each fixture; a blank counts as 0
-- Numbers to decide before building: N (e.g. 5), how fast later gameweeks lose weight, and how difficulty maps to a multiplier.
-- Add a per-gameweek breakdown to `SuggestedTransferOut` and show it on the suggestion card, so users can see why a player is favoured.
-- Re-tune the existing minimum-gain and hit-payback thresholds for the new score scale.
-- Tests: pure tests for the projection maths (including double and blank gameweeks), plus updates to `test_suggestions_integration.py`.
-
-### 4. Multi-transfer optimization (last)
+### 4. Multi-transfer optimization
 
 - Add PuLP to `apps/api/requirements.txt`. It's pure Python, so it installs easily without Docker.
 - Replace the one-player-at-a-time greedy loop with a small 0/1 integer program:

@@ -220,6 +220,18 @@ export async function getLineup(userId: string, gameweekNumber: number): Promise
 // services/price_trends.py) — the realized move only, not a prediction.
 export type PriceDirection = "risen" | "fallen" | "unchanged";
 
+// One gameweek of a suggestion's projection horizon (the backend's
+// GameweekProjectionOut): FPL's 1 (easiest) - 5 (hardest) fixture ratings —
+// empty on a blank, two on a double — and the projected points they give
+// each side, already down-weighted for how far out the gameweek is.
+export type GameweekProjection = {
+  gameweekNumber: number;
+  outDifficulties: number[];
+  inDifficulties: number[];
+  outProjectedPoints: number;
+  inProjectedPoints: number;
+};
+
 export type SuggestedTransfer = {
   outPlayer: PlayerListItem;
   inPlayer: PlayerListItem;
@@ -228,14 +240,20 @@ export type SuggestedTransfer = {
   // this is what the Apply flow needs to preview the bank impact.
   outPlayerSellingPrice: number;
   projectedGain: number;
+  // Whether this would be a hit if the whole list were taken in rank order.
+  // Not what the card shows — see suggestionCostsHit in lineup-planner.tsx,
+  // which judges against the transfers actually made so far.
   requiresHit: boolean;
   outPlayerPriceDirection: PriceDirection;
   inPlayerPriceDirection: PriceDirection;
+  gameweekProjections: GameweekProjection[];
 };
 
 export type Suggestions = {
   suggestions: SuggestedTransfer[];
   freeTransfersAvailable: number;
+  // How many gameweeks (from the requested one) projectedGain covers.
+  horizonGameweeks: number;
 };
 
 export async function getSuggestedTransfers(
