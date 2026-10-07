@@ -169,6 +169,7 @@ export function PlayerCard({
           />
         )}
         <span
+          title={player.webName}
           className={`mt-1.5 w-full truncate rounded-t-md border border-b-0 px-2 py-0.5 text-xs font-bold shadow-sm xl:px-2.5 xl:py-1 xl:text-sm ${
             selected
               ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"

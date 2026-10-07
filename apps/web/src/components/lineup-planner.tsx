@@ -958,11 +958,13 @@ export function LineupPlanner({
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleSave}
-                disabled={!dirty || saving || transferOutIds.length > 0}
+                disabled={!dirty || saving || transferOutIds.length > 0 || liveBank < 0}
                 title={
                   transferOutIds.length > 0
                     ? "Pick a replacement for every transferred-out player, or clear them, first"
-                    : undefined
+                    : liveBank < 0
+                      ? "Your bank balance is negative — sell a player or pick a cheaper replacement first"
+                      : undefined
                 }
                 className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
               >
