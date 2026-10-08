@@ -4,7 +4,8 @@ non-goals: this app isn't chasing state-of-the-art prediction). Single-swap
 only: for each owned player, the best-value same-position replacement
 affordable within bank + that player's real sell price, ranked by projected
 points over the next HORIZON_GAMEWEEKS gameweeks' fixtures (see
-_horizon_projection)."""
+_horizon_projection), counted only as much as the outgoing player's squad
+slot counts (see _slot_weight: a benched player's points mostly don't)."""
 
 import asyncio
 from collections.abc import Callable
@@ -68,6 +69,16 @@ MIN_GAIN_TO_JUSTIFY_HIT = HIT_COST + MIN_GAIN_TO_SUGGEST
 # squad. A squad that needs more than -8 of changes is what a Wildcard is for.
 MAX_HITS_IN_COMBINATION = 2
 MAX_SUGGESTIONS = 10
+# How much a squad slot's points count toward a transfer's gain. A starter's
+# points all count; a bench player's only count when an auto-sub brings them
+# on, which happens a minority of the time for outfield subs and almost never
+# for the bench goalkeeper (only when the starting keeper doesn't play). Hand
+# picked, like the rest of this formula. Without this, swapping a benched
+# keeper scored the same as upgrading a starter (+25 "points" for a player
+# who would almost never play).
+STARTER_WEIGHT = 1.0
+BENCH_OUTFIELD_WEIGHT = 0.15
+BENCH_GOALKEEPER_WEIGHT = 0.05
 UNAVAILABLE_STATUSES = ("i", "s", "u")
 DOUBTFUL_STATUS = "d"
 
@@ -129,6 +140,12 @@ def _to_gameweek_projections(
     ]
 
 
+def _slot_weight(is_starting: bool, position: str) -> float:
+    if is_starting:
+        return STARTER_WEIGHT
+    return BENCH_GOALKEEPER_WEIGHT if position == "GK" else BENCH_OUTFIELD_WEIGHT
+
+
 async def _owned_slots_and_bank(
     db: AsyncSession, fpl_team: FplTeam, gameweek: Gameweek
 ) -> tuple[list[Slot], int]:
@@ -168,11 +185,16 @@ async def suggest_transfers(
     owned_slots, bank = await _owned_slots_and_bank(db, fpl_team, gameweek)
     owned_ids = {slot[0] for slot in owned_slots}
     selling_price_by_id = {slot[0]: slot[6] for slot in owned_slots}
+    is_starting_by_id = {slot[0]: slot[1] for slot in owned_slots}
 
     owned_rows = await db.execute(
         select(Player, Club).join(Club, Player.clubId == Club.id).where(Player.id.in_(owned_ids))
     )
     owned_players = {player.id: (player, club) for player, club in owned_rows.all()}
+    weight_by_id = {
+        player.id: _slot_weight(is_starting_by_id[player.id], player.position.value)
+        for player, _ in owned_players.values()
+    }
 
     club_counts: dict[int, int] = {}
     for player, _ in owned_players.values():
@@ -210,13 +232,22 @@ async def suggest_transfers(
         ]
     }
 
+    def gain(out_player: Player, in_player: Player) -> float:
+        """The incoming player's projected points minus the outgoing
+        player's over the horizon, scaled by the outgoing player's slot."""
+        difference = sum(projections[in_player.id]) - sum(projections[out_player.id])
+        return difference * weight_by_id[out_player.id]
+
     def to_suggestion(out_player: Player, out_club: Club, in_player: Player, in_club: Club) -> SuggestedTransferOut:
         out_projection, in_projection = projections[out_player.id], projections[in_player.id]
+        total = gain(out_player, in_player)
         return SuggestedTransferOut(
             outPlayer=_to_list_item(out_player, out_club, opponents.get(out_player.clubId)),
             inPlayer=_to_list_item(in_player, in_club, opponents.get(in_player.clubId)),
             outPlayerSellingPrice=selling_price_by_id[out_player.id],
-            projectedGain=round(sum(in_projection) - sum(out_projection), 2),
+            projectedGain=round(total, 2),
+            projectedGainPerGameweek=round(total / HORIZON_GAMEWEEKS, 2),
+            outPlayerStarting=is_starting_by_id[out_player.id],
             requiresHit=False,  # set by the caller, once ranked
             outPlayerPriceDirection=price_direction(out_player.costChangeEvent),
             inPlayerPriceDirection=price_direction(in_player.costChangeEvent),
@@ -233,7 +264,6 @@ async def suggest_transfers(
 
     candidates: list[SuggestedTransferOut] = []
     for out_player, out_club in owned_players.values():
-        out_total = sum(projections[out_player.id])
         selling_price = selling_price_by_id[out_player.id]
         budget = bank + selling_price
 
@@ -246,14 +276,14 @@ async def suggest_transfers(
             # max-3 limit.
             if in_player.clubId != out_player.clubId and club_counts.get(in_player.clubId, 0) >= 3:
                 continue
-            gain = sum(projections[in_player.id]) - out_total
-            if best is None or gain > best[0]:
-                best = (gain, in_player, in_club)
+            swap_gain = gain(out_player, in_player)
+            if best is None or swap_gain > best[0]:
+                best = (swap_gain, in_player, in_club)
 
         if best is None:
             continue
-        gain, in_player, in_club = best
-        if gain < MIN_GAIN_TO_SUGGEST:
+        best_gain, in_player, in_club = best
+        if best_gain < MIN_GAIN_TO_SUGGEST:
             continue
         candidates.append(to_suggestion(out_player, out_club, in_player, in_club))
 
@@ -292,6 +322,7 @@ async def suggest_transfers(
                 club_id=player.clubId,
                 selling_price=selling_price_by_id[player.id],
                 projected_points=sum(projections[player.id]),
+                weight=weight_by_id[player.id],
             )
             for player, _ in owned_players.values()
         ],
@@ -342,9 +373,11 @@ def _to_combination(
     for index, transfer in enumerate(transfers):
         transfer.requiresHit = index >= free_transfers
     total_gain = sum(t.projectedGain for t in transfers)
+    net_gain = total_gain - HIT_COST * transfer_set.hits
     return TransferCombinationOut(
         transfers=transfers,
         totalProjectedGain=round(total_gain, 2),
         hits=transfer_set.hits,
-        netProjectedGain=round(total_gain - HIT_COST * transfer_set.hits, 2),
+        netProjectedGain=round(net_gain, 2),
+        netProjectedGainPerGameweek=round(net_gain / HORIZON_GAMEWEEKS, 2),
     )

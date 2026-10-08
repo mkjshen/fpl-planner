@@ -1,4 +1,5 @@
 import { signOut } from "@/auth";
+import { GuardedForm } from "@/components/guarded-form";
 
 function LogOutIcon() {
   return (
@@ -22,7 +23,7 @@ function LogOutIcon() {
 
 export function SignOutButton() {
   return (
-    <form
+    <GuardedForm
       action={async () => {
         "use server";
         await signOut({ redirectTo: "/" });
@@ -36,6 +37,6 @@ export function SignOutButton() {
       >
         <LogOutIcon />
       </button>
-    </form>
+    </GuardedForm>
   );
 }

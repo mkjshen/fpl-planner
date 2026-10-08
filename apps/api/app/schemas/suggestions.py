@@ -35,6 +35,13 @@ class SuggestedTransferOut(BaseModel):
     # formula) — a rough estimate, not a point guarantee. Not netted against
     # a -4 hit; requiresHit flags that separately.
     projectedGain: float
+    # projectedGain averaged over the horizon — the figure the UI shows,
+    # since managers think in points per gameweek, not five-week totals.
+    projectedGainPerGameweek: float
+    # Whether the outgoing player is in the starting XI. projectedGain is
+    # already scaled down for a bench slot (its points rarely count); this
+    # lets the UI say so instead of leaving a small number unexplained.
+    outPlayerStarting: bool
     # True when this suggestion ranks beyond this gameweek's free transfers,
     # i.e. it would cost a -4 hit *if the list were taken in rank order*.
     # That's what decides whether it needs the higher MIN_GAIN_TO_JUSTIFY_HIT
@@ -67,6 +74,8 @@ class TransferCombinationOut(BaseModel):
     hits: int
     # totalProjectedGain minus 4 per hit.
     netProjectedGain: float
+    # netProjectedGain averaged over the horizon (what the UI shows).
+    netProjectedGainPerGameweek: float
 
 
 class SuggestionsOut(BaseModel):

@@ -3,8 +3,14 @@ counterpart to suggestions.py's per-player greedy list. Greedy picks each
 owned player's best replacement independently, so it can't see combinations
 that only work together (e.g. downgrading one player to fund an upgrade
 elsewhere), and it checks the budget and club limit one swap at a time. This
-chooses the whole set of sells and buys at once, subject to every squad rule
+chooses the whole set of transfers at once, subject to every squad rule
 jointly.
+
+The decision variables are *pairs* (this owned player out, that pool player
+in, same position), not separate sells and buys: an incoming player takes the
+outgoing player's slot, and a slot's worth depends on whether it starts (see
+OwnedOption.weight). Choosing sells and buys independently and pairing them
+afterwards can't value that, and made the pairing a cosmetic afterthought.
 
 Pure: plain data in, plain data out, no DB — so it can be tested directly
 and run off the event loop (the solve is synchronous and CPU-bound).
@@ -21,9 +27,14 @@ import pulp
 
 MAX_PER_CLUB = 3
 # A solve that hasn't finished by then returns no combination rather than
-# holding up the suggestions response — this problem size (15 owned, a few
-# hundred pool players) normally solves in well under a second.
+# holding up the suggestions response.
 SOLVER_TIME_LIMIT_SECONDS = 5
+# Per position, only the strongest and the cheapest pool players become
+# candidates: a top-projected player is the only kind worth buying for
+# points, and a cheap one is the only kind worth buying to free up money.
+# Keeps the model to a few hundred pairs instead of a few thousand.
+TOP_CANDIDATES_PER_POSITION = 40
+CHEAPEST_CANDIDATES_PER_POSITION = 10
 
 
 @dataclass(frozen=True)
@@ -33,6 +44,10 @@ class OwnedOption:
     club_id: int
     selling_price: int
     projected_points: float
+    # How much this squad slot's points actually count: 1.0 for a starter,
+    # far less on the bench (only an auto-sub brings them in). A transfer's
+    # gain is scaled by the weight of the slot the incoming player takes.
+    weight: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -51,6 +66,23 @@ class TransferSet:
     hits: int
 
 
+def pair_gain(out: OwnedOption, incoming: PoolOption) -> float:
+    """What swapping `out` for `incoming` is worth: the difference in
+    projected points, counted only as much as `out`'s slot counts."""
+    return (incoming.projected_points - out.projected_points) * out.weight
+
+
+def _candidates(pool: list[PoolOption]) -> list[PoolOption]:
+    kept: dict[int, PoolOption] = {}
+    for position in {p.position for p in pool}:
+        players = [p for p in pool if p.position == position]
+        for p in sorted(players, key=lambda p: p.projected_points, reverse=True)[:TOP_CANDIDATES_PER_POSITION]:
+            kept[p.player_id] = p
+        for p in sorted(players, key=lambda p: p.price)[:CHEAPEST_CANDIDATES_PER_POSITION]:
+            kept[p.player_id] = p
+    return list(kept.values())
+
+
 def best_transfer_set(
     owned: list[OwnedOption],
     pool: list[PoolOption],
@@ -60,48 +92,48 @@ def best_transfer_set(
     hit_cost: float,
     max_hits: int,
 ) -> TransferSet | None:
-    """The set of transfers maximizing total projected gain, where every
-    transfer must earn `transfer_margin` and every transfer beyond
-    `free_transfers` must also pay `hit_cost`. Constraints, all applied to
-    the final squad rather than swap by swap:
-    - each position sells exactly as many players as it buys, so the
-      2/5/5/3 shape the squad already has is preserved;
+    """The set of same-position transfers maximizing total gain (see
+    pair_gain), where every transfer must earn `transfer_margin` and every
+    transfer beyond `free_transfers` must also pay `hit_cost`. Constraints,
+    all applied to the final squad rather than swap by swap:
+    - each owned player leaves at most once, each pool player arrives at most
+      once, and every pair is same-position, so the 2/5/5/3 shape holds;
     - incoming prices are covered by bank plus outgoing selling prices;
     - no club ends up with more than MAX_PER_CLUB players;
     - at most `max_hits` hits, i.e. at most free_transfers + max_hits moves.
     Returns an empty TransferSet when no transfer is worth making, and None
     if the solver doesn't reach a proven optimum."""
+    candidates = _candidates(pool)
     problem = pulp.LpProblem("transfers", pulp.LpMaximize)
-    sell = {o.player_id: problem.add_variable(f"sell_{o.player_id}", cat="Binary") for o in owned}
-    buy = {p.player_id: problem.add_variable(f"buy_{p.player_id}", cat="Binary") for p in pool}
+    pairs = {
+        (o.player_id, p.player_id): (o, p, problem.add_variable(f"swap_{o.player_id}_{p.player_id}", cat="Binary"))
+        for o in owned
+        for p in candidates
+        if p.position == o.position
+    }
     hits = problem.add_variable("hits", lowBound=0, cat="Integer")
 
-    transfer_count = pulp.lpSum(sell.values())
+    transfer_count = pulp.lpSum(x for _, _, x in pairs.values())
     problem += (
-        pulp.lpSum(p.projected_points * buy[p.player_id] for p in pool)
-        - pulp.lpSum(o.projected_points * sell[o.player_id] for o in owned)
-        - transfer_margin * transfer_count
-        - hit_cost * hits
+        pulp.lpSum((pair_gain(o, p) - transfer_margin) * x for o, p, x in pairs.values()) - hit_cost * hits
     )
 
     problem += hits >= transfer_count - free_transfers
     problem += hits <= max_hits
 
-    for position in {o.position for o in owned} | {p.position for p in pool}:
-        problem += pulp.lpSum(sell[o.player_id] for o in owned if o.position == position) == pulp.lpSum(
-            buy[p.player_id] for p in pool if p.position == position
-        )
+    for o in owned:
+        problem += pulp.lpSum(x for (out_id, _), (_, _, x) in pairs.items() if out_id == o.player_id) <= 1
+    for p in candidates:
+        problem += pulp.lpSum(x for (_, in_id), (_, _, x) in pairs.items() if in_id == p.player_id) <= 1
 
-    problem += pulp.lpSum(p.price * buy[p.player_id] for p in pool) <= bank + pulp.lpSum(
-        o.selling_price * sell[o.player_id] for o in owned
-    )
+    problem += pulp.lpSum((p.price - o.selling_price) * x for o, p, x in pairs.values()) <= bank
 
-    for club_id in {o.club_id for o in owned} | {p.club_id for p in pool}:
-        owned_from_club = [o for o in owned if o.club_id == club_id]
+    for club_id in {o.club_id for o in owned} | {p.club_id for p in candidates}:
+        owned_from_club = sum(1 for o in owned if o.club_id == club_id)
         problem += (
-            len(owned_from_club)
-            - pulp.lpSum(sell[o.player_id] for o in owned_from_club)
-            + pulp.lpSum(buy[p.player_id] for p in pool if p.club_id == club_id)
+            owned_from_club
+            - pulp.lpSum(x for o, _, x in pairs.values() if o.club_id == club_id)
+            + pulp.lpSum(x for _, p, x in pairs.values() if p.club_id == club_id)
             <= MAX_PER_CLUB
         )
 
@@ -109,21 +141,5 @@ def best_transfer_set(
     if pulp.LpStatus[problem.status] != "Optimal":
         return None
 
-    sold = [o for o in owned if sell[o.player_id].value() > 0.5]
-    bought = [p for p in pool if buy[p.player_id].value() > 0.5]
-    return TransferSet(pairs=_pair_by_position(sold, bought), hits=round(hits.value()))
-
-
-def _pair_by_position(sold: list[OwnedOption], bought: list[PoolOption]) -> list[tuple[int, int]]:
-    """Budget and club limits apply to the set as a whole, so any
-    same-position pairing of the sells and buys is equally valid — this one
-    matches the weakest outgoing player with the strongest incoming one, so
-    the per-pair gains read naturally."""
-    pairs = []
-    for position in sorted({o.position for o in sold}):
-        outs = sorted((o for o in sold if o.position == position), key=lambda o: o.projected_points)
-        ins = sorted(
-            (p for p in bought if p.position == position), key=lambda p: p.projected_points, reverse=True
-        )
-        pairs.extend((o.player_id, p.player_id) for o, p in zip(outs, ins))
-    return pairs
+    chosen = [key for key, (_, _, x) in pairs.items() if x.value() > 0.5]
+    return TransferSet(pairs=chosen, hits=round(hits.value()))

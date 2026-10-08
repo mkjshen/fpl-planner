@@ -109,6 +109,7 @@ async def _seed_squad(
     bank: int,
     owned: list[tuple[Player, int, int]],
     average_fixtures: bool = True,
+    bench_ids: frozenset[int] = frozenset(),
 ) -> None:
     """`owned`: (player, purchasePrice, sellingPrice) per squad slot. Also
     seeds average fixtures for every club (see _seed_average_fixtures)
@@ -126,7 +127,7 @@ async def _seed_squad(
                 playerId=player.id,
                 purchasePrice=purchase_price,
                 sellingPrice=selling_price,
-                isStarting=True,
+                isStarting=player.id not in bench_ids,
                 squadPosition=i,
             )
         )
@@ -521,3 +522,35 @@ async def test_no_combination_is_returned_when_nothing_is_worth_doing(db_session
     result = await suggest_transfers(db_session, fpl_team, gameweek_number=1)
 
     assert result.bestCombination is None
+
+
+async def test_a_benched_players_swap_counts_only_as_much_as_the_bench_does(db_session):
+    """The same +5-a-gameweek upgrade is worth its full projection for a
+    starter but only the bench weight for a substitute — so the starter's
+    swap is suggested and the benched one, scaled below the margin, is not."""
+    fpl_team, gameweek = await _seed_team(db_session, free_transfer_cap=2)
+    clubs = [_club(i) for i in range(1, 5)]
+    db_session.add_all(clubs)
+    await db_session.flush()
+
+    starter = _player(1, clubs[0].id, Position.MID, 50, form=1.0, pointsPerGame=1.0)
+    benched = _player(2, clubs[1].id, Position.DEF, 50, form=1.0, pointsPerGame=1.0)
+    mid_upgrade = _player(3, clubs[2].id, Position.MID, 50, form=6.0, pointsPerGame=6.0)
+    def_upgrade = _player(4, clubs[3].id, Position.DEF, 50, form=6.0, pointsPerGame=6.0)
+    db_session.add_all([starter, benched, mid_upgrade, def_upgrade])
+    await db_session.flush()
+    await _seed_squad(
+        db_session, fpl_team, gameweek, bank=0, owned=[(starter, 50, 50), (benched, 50, 50)],
+        bench_ids=frozenset({benched.id}),
+    )
+
+    result = await suggest_transfers(db_session, fpl_team, gameweek_number=1)
+
+    assert [s.outPlayer.playerId for s in result.suggestions] == [starter.id]
+    suggestion = result.suggestions[0]
+    assert suggestion.outPlayerStarting is True
+    assert suggestion.projectedGain == 5.0
+    assert suggestion.projectedGainPerGameweek == 1.0  # 5.0 over the 5-gameweek horizon
+    assert result.bestCombination is None or all(
+        t.outPlayer.playerId != benched.id for t in result.bestCombination.transfers
+    )

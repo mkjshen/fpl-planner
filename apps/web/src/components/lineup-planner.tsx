@@ -23,6 +23,7 @@ import { Banner } from "@/components/feedback";
 import { Dialog } from "@/components/dialog";
 import { RovingGroup } from "@/components/roving-group";
 import { difficultyClass } from "@/lib/fdr";
+import { setNavigationGuard } from "@/lib/navigation-guard";
 
 // Tailwind's `md` breakpoint. Read in JS for the transfer picker, which is
 // a sidebar from md up and a dialog below — the dialog has to be genuinely
@@ -227,6 +228,13 @@ export function benchSlotLabel(bench: SquadPlayer[], index: number): string {
   return `substitute ${outfieldBefore + 1}`;
 }
 
+// A suggestion's gain as managers think about it: average points per
+// gameweek ("+6.5 pts/GW"), not a five-gameweek total.
+export function perGameweek(points: number): string {
+  const sign = points < 0 ? "−" : "+";
+  return `${sign}${Math.abs(points).toFixed(1)} pts/GW`;
+}
+
 // The collapsed suggestions panel's one line: the headline recommendation,
 // so the panel can stay closed without hiding what it would say.
 export function suggestionsSummary({
@@ -249,8 +257,8 @@ export function suggestionsSummary({
   if (applied) return "Best plan applied. Review it on the pitch, then save.";
   const over = horizonRange ? ` over ${horizonRange}` : "";
   if (combination) {
-    const hits = combination.hits > 0 ? ` after −${combination.hits * HIT_COST} in hits` : "";
-    return `Best plan: ${combination.transfers.length} transfers, +${combination.netProjectedGain.toFixed(1)} pts${hits}${over}.`;
+    const hits = combination.hits > 0 ? `, counting −${combination.hits * HIT_COST} in hits` : "";
+    return `Best plan: ${combination.transfers.length} transfers, ${perGameweek(combination.netProjectedGainPerGameweek)}${over}${hits}.`;
   }
   if (singleCount > 0) return `${singleCount} single transfer${singleCount === 1 ? "" : "s"} worth a look${over}.`;
   return "No standout swaps for this squad right now.";
@@ -390,6 +398,39 @@ function FixtureStrip({
   );
 }
 
+// The key to the suggestion cards' two symbol systems — price markers and
+// FPL's fixture-difficulty colours — which a manager reads at a glance but
+// a newcomer (or a reviewer) otherwise has to guess at.
+function SuggestionsLegend() {
+  return (
+    <dl className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+      <div className="flex items-center gap-1.5">
+        <dt className="flex gap-0.5">
+          <span aria-hidden="true" className="text-emerald-700 dark:text-emerald-400">▲</span>
+          <span aria-hidden="true" className="text-red-600 dark:text-red-400">▼</span>
+          <span className="sr-only">Up and down arrows</span>
+        </dt>
+        <dd>price rose / fell today</dd>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <dt className="flex gap-0.5">
+          <span className="sr-only">Coloured numbers 1 to 5</span>
+          {[1, 2, 3, 4, 5].map((d) => (
+            <span
+              key={d}
+              aria-hidden="true"
+              className={`w-4 rounded-sm text-center leading-4 font-semibold tabular-nums ${difficultyClass(d)}`}
+            >
+              {d}
+            </span>
+          ))}
+        </dt>
+        <dd>fixture difficulty, 1 easiest to 5 hardest</dd>
+      </div>
+    </dl>
+  );
+}
+
 export function LineupPlanner({
   userId,
   lineup,
@@ -452,6 +493,10 @@ export function LineupPlanner({
   const [saving, setSaving] = useState(false);
   const [resettingAll, setResettingAll] = useState(false);
   const [confirmingResetAll, setConfirmingResetAll] = useState(false);
+  // A navigation held back because the plan has unsaved changes — run if
+  // the user chooses to save or discard, dropped if they choose to stay.
+  // Wrapped in an object so React doesn't call the function as an updater.
+  const [pendingNavigation, setPendingNavigation] = useState<{ go: () => void } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageTone, setMessageTone] = useState<"success" | "error" | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestedTransfer[]>([]);
@@ -590,9 +635,70 @@ export function LineupPlanner({
       : liveBank < 0
         ? "Your bank balance is negative — sell a player or pick a cheaper replacement before saving."
         : null;
+
+  // While the plan has unsaved changes, every way out of it asks first:
+  // in-app navigation (the gameweek arrows here, plus the header's tabs and
+  // sign-out via lib/navigation-guard) opens the unsaved-changes dialog,
+  // and closing or reloading the tab gets the browser's own warning. The
+  // planner remounts per gameweek, so leaving used to drop the plan
+  // silently.
+  useEffect(() => {
+    if (!dirty) return;
+    setNavigationGuard((proceed) => {
+      setPendingNavigation({ go: proceed });
+      return true;
+    });
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => {
+      setNavigationGuard(null);
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+  }, [dirty]);
+
+  function navigateAway(go: () => void) {
+    if (dirty) setPendingNavigation({ go });
+    else go();
+  }
+
+  async function saveThenLeave() {
+    const leave = pendingNavigation;
+    if (await handleSave()) {
+      setPendingNavigation(null);
+      leave?.go();
+    } else {
+      // The save failed or was refused; stay so the message is seen.
+      setPendingNavigation(null);
+    }
+  }
+
+  function discardThenLeave() {
+    const leave = pendingNavigation;
+    setPendingNavigation(null);
+    // Unregister first so the navigation itself isn't intercepted again.
+    setNavigationGuard(null);
+    leave?.go();
+  }
   const liveTransferCost = chipIsTransferFree
     ? 0
     : Math.max(transfersMade - freeTransfers, 0) * HIT_COST;
+
+  // What Save would commit, in one line — shown in the sticky action bar
+  // and in the unsaved-changes dialog.
+  const pendingSummary = pendingChangesSummary({
+    transfersMade,
+    awaitingReplacement: transferOutIds.length,
+    transferCost: liveTransferCost,
+    bank: formatPrice(liveBank),
+    chipLabel:
+      chip === savedChip
+        ? null
+        : chip
+          ? `${CHIP_LABELS[chip]} on`
+          : savedChip && `${CHIP_LABELS[savedChip]} off`,
+  });
 
   // Players transferred out earlier in this same unsaved session — the
   // search pool only knows about the last *saved* squad, so without this
@@ -617,7 +723,9 @@ export function LineupPlanner({
   const horizonRange =
     horizonGameweeks === null
       ? null
-      : `GW${selectedGameweek}–${selectedGameweek + horizonGameweeks - 1}`;
+      : // U+2060 (word joiner) after the en dash: browsers may break a line
+        // after a dash, which split "GW6–10" across lines on phones.
+        `GW${selectedGameweek}–⁠${selectedGameweek + horizonGameweeks - 1}`;
   const canUndoCombination = appliedCombination !== null && players === appliedCombination.after;
   const combination = applicableCombination(
     bestCombination,
@@ -822,11 +930,18 @@ export function LineupPlanner({
     router.refresh();
   }
 
-  async function handleSave() {
+  // Resolves true once the plan is saved, so "Save and continue" knows it's
+  // safe to leave.
+  async function handleSave(): Promise<boolean> {
     if (error) {
       setMessage(error);
       setMessageTone("error");
-      return;
+      return false;
+    }
+    if (saveBlockedReason) {
+      setMessage(saveBlockedReason);
+      setMessageTone("error");
+      return false;
     }
     setSaving(true);
     setMessage(null);
@@ -852,10 +967,11 @@ export function LineupPlanner({
       setLaterPlansAffected(result.lineup.laterPlansAffected);
       setMessage("Saved.");
       setMessageTone("success");
-    } else {
-      setMessage(result.message);
-      setMessageTone("error");
+      return true;
     }
+    setMessage(result.message);
+    setMessageTone("error");
+    return false;
   }
 
   function toggleChip(target: Chip) {
@@ -891,7 +1007,7 @@ export function LineupPlanner({
                 type="button"
                 onClick={() =>
                   previousGameweek &&
-                  router.push(`/dashboard/planner?gameweek=${previousGameweek.number}`)
+                  navigateAway(() => router.push(`/dashboard/planner?gameweek=${previousGameweek.number}`))
                 }
                 disabled={!previousGameweek}
                 aria-label="Previous gameweek"
@@ -907,7 +1023,8 @@ export function LineupPlanner({
               <button
                 type="button"
                 onClick={() =>
-                  nextGameweek && router.push(`/dashboard/planner?gameweek=${nextGameweek.number}`)
+                  nextGameweek &&
+                  navigateAway(() => router.push(`/dashboard/planner?gameweek=${nextGameweek.number}`))
                 }
                 disabled={!nextGameweek}
                 aria-label="Next gameweek"
@@ -969,7 +1086,9 @@ export function LineupPlanner({
                     key={c}
                     type="button"
                     onClick={() => selectable && toggleChip(c)}
-                    disabled={!selectable}
+                    // aria-disabled, not disabled: an unavailable chip stays
+                    // in the Tab order so its status can still be reached.
+                    aria-disabled={!selectable || undefined}
                     title={title}
                     aria-pressed={active}
                     className={`focus-ring flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
@@ -1022,6 +1141,55 @@ export function LineupPlanner({
             inconsistent — review them, or use &ldquo;Reset all gameweeks&rsquo; plans&rdquo; at the
             bottom of the page.
           </Banner>
+        )}
+
+        {pendingNavigation && (
+          <Dialog
+            role="alertdialog"
+            labelledBy="unsaved-title"
+            onClose={() => setPendingNavigation(null)}
+            canClose={!saving}
+            className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl dark:bg-zinc-950"
+          >
+            <h2 id="unsaved-title" className="text-lg font-semibold text-black dark:text-zinc-50">
+              Save your Gameweek {selectedGameweek} plan?
+            </h2>
+            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+              {pendingSummary}. Leaving without saving discards these changes.
+            </p>
+            {saveBlockedReason && (
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                Can&apos;t save yet: {saveBlockedReason.charAt(0).toLowerCase() + saveBlockedReason.slice(1)}
+              </p>
+            )}
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={saveThenLeave}
+                disabled={saving || saveBlockedReason !== null}
+                className="focus-ring rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-600 dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
+              >
+                {saving ? "Saving…" : "Save and continue"}
+              </button>
+              <button
+                type="button"
+                onClick={discardThenLeave}
+                disabled={saving}
+                className="focus-ring rounded-full border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-40 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                Discard and continue
+              </button>
+              <button
+                type="button"
+                data-autofocus
+                onClick={() => setPendingNavigation(null)}
+                disabled={saving}
+                className="focus-ring rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
+              >
+                Stay
+              </button>
+            </div>
+          </Dialog>
         )}
 
         {confirmingResetAll && (
@@ -1184,11 +1352,14 @@ export function LineupPlanner({
               <div id="suggestions-body">
                 {/* Shown at every width — this is the caveat that makes the
                     numbers honest, so it can't be a desktop-only extra. */}
-                <p className="mt-2 max-w-[65ch] text-xs text-zinc-600 dark:text-zinc-400">
+                {/* 52ch, not 65: `ch` is the width of a "0", wider than the
+                    average letter, so 65ch measured ~86 characters a line. */}
+                <p className="mt-2 max-w-[52ch] text-xs text-zinc-600 dark:text-zinc-400">
                   {horizonRange
-                    ? `Projected points over ${horizonRange}, from form, points per game and fixture difficulty. A rough guide, not a prediction.`
-                    : "Projected from form, points per game and fixture difficulty. A rough guide, not a prediction."}
+                    ? `Average points gained per gameweek over ${horizonRange}, projected from form, points per game and fixture difficulty. Swaps for bench players count for little, since their points rarely do. A rough guide, not a prediction.`
+                    : "Average points gained per gameweek, projected from form, points per game and fixture difficulty. A rough guide, not a prediction."}
                 </p>
+                <SuggestionsLegend />
                 {loadingSuggestions ? (
                   <div className="mt-3 flex animate-pulse gap-3 overflow-hidden">
                     {Array.from({ length: 3 }).map((_, i) => (
@@ -1234,12 +1405,12 @@ export function LineupPlanner({
                             </h3>
                             <p className="text-xs text-zinc-600 dark:text-zinc-400">
                               <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                +{combination.netProjectedGain.toFixed(1)} pts
+                                {perGameweek(combination.netProjectedGainPerGameweek)}
                               </span>
-                              {combination.hits > 0
-                                ? ` after −${combination.hits * HIT_COST} in hits`
-                                : " with no hits"}
                               {horizonRange && ` over ${horizonRange}`}
+                              {combination.hits > 0
+                                ? `, counting −${combination.hits * HIT_COST} in hits`
+                                : ", with no hits"}
                             </p>
                           </div>
                           <button
@@ -1265,7 +1436,7 @@ export function LineupPlanner({
                                 {t.inPlayer.webName}
                               </span>
                               <span className="ml-auto shrink-0 tabular-nums text-emerald-700 dark:text-emerald-400">
-                                +{t.projectedGain.toFixed(1)}
+                                {perGameweek(t.projectedGainPerGameweek)}
                               </span>
                             </li>
                           ))}
@@ -1275,8 +1446,10 @@ export function LineupPlanner({
                                 {combination.hits} extra transfer{combination.hits === 1 ? "" : "s"} beyond your free
                                 ones
                               </span>
+                              {/* A hit is paid once, not every gameweek — said
+                                  outright, since the rows above are per GW. */}
                               <span className="ml-auto shrink-0 tabular-nums text-amber-700 dark:text-amber-400">
-                                −{combination.hits * HIT_COST}
+                                −{combination.hits * HIT_COST} pts once
                               </span>
                             </li>
                           )}
@@ -1288,7 +1461,7 @@ export function LineupPlanner({
                         <h3 className="text-base font-semibold text-black dark:text-zinc-50">
                           Or make just one transfer
                         </h3>
-                        <p className="max-w-[65ch] text-xs text-zinc-600 dark:text-zinc-400">
+                        <p className="max-w-[52ch] text-xs text-zinc-600 dark:text-zinc-400">
                           Each card is the best single swap on its own, so its pairing can differ from the
                           best plan, which picks its transfers together.
                         </p>
@@ -1351,15 +1524,18 @@ export function LineupPlanner({
                             <div className="flex flex-wrap items-center justify-center gap-x-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                               <span>{formatPrice(s.inPlayer.currentPrice)}</span>
                               <span
-                                title={
-                                  horizonGameweeks === null
-                                    ? "Projected points gained"
-                                    : `Projected points gained over the next ${horizonGameweeks} gameweeks`
-                                }
+                                title={`Average projected gain per gameweek${
+                                  horizonRange ? ` over ${horizonRange}` : ""
+                                } (${s.projectedGain >= 0 ? "+" : "−"}${Math.abs(s.projectedGain).toFixed(1)} pts in total)`}
                                 className="text-emerald-700 dark:text-emerald-400"
                               >
-                                +{s.projectedGain.toFixed(1)} pts
+                                {perGameweek(s.projectedGainPerGameweek)}
                               </span>
+                              {/* Says why a bench swap's number is small: its
+                                  points only count if an auto-sub brings them on. */}
+                              {!s.outPlayerStarting && (
+                                <span className="basis-full text-zinc-600 dark:text-zinc-400">bench slot</span>
+                              )}
                               {suggestionCostsHit(
                                 transferOutIdSet.has(s.outPlayer.playerId),
                                 transfersMade,
@@ -1454,20 +1630,7 @@ export function LineupPlanner({
                   dirty ? "font-medium text-black dark:text-zinc-50" : "text-zinc-600 dark:text-zinc-400"
                 }`}
               >
-                {dirty
-                  ? pendingChangesSummary({
-                      transfersMade,
-                      awaitingReplacement: transferOutIds.length,
-                      transferCost: liveTransferCost,
-                      bank: formatPrice(liveBank),
-                      chipLabel:
-                        chip === savedChip
-                          ? null
-                          : chip
-                            ? `${CHIP_LABELS[chip]} on`
-                            : savedChip && `${CHIP_LABELS[savedChip]} off`,
-                    })
-                  : "No unsaved changes"}
+                {dirty ? pendingSummary : "No unsaved changes"}
               </p>
               <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
                 <button

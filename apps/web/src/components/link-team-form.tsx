@@ -13,19 +13,25 @@ async function linkTeamAction(formData: FormData) {
   }
 
   const raw = formData.get("fplTeamId");
-  const fplTeamId = typeof raw === "string" ? Number.parseInt(raw, 10) : NaN;
+  const typed = typeof raw === "string" ? raw.trim() : "";
+  const fplTeamId = Number.parseInt(typed, 10);
+  // Errors come back as a redirect, so the ID rides along in the URL and
+  // refills the input — a typo stays fixable instead of being wiped. (A
+  // public FPL team ID, not anything sensitive.)
+  const withTyped = (error: string) =>
+    `/dashboard?error=${error}&teamId=${encodeURIComponent(typed.slice(0, 12))}`;
   if (!Number.isInteger(fplTeamId) || fplTeamId <= 0) {
-    redirect("/dashboard?error=invalid_team_id");
+    redirect(withTyped("invalid_team_id"));
   }
 
   try {
     await importFplTeam(session.user.id, fplTeamId);
   } catch (error) {
     if (error instanceof FplTeamNotFoundError) {
-      redirect("/dashboard?error=team_not_found");
+      redirect(withTyped("team_not_found"));
     }
     if (error instanceof FplPicksUnavailableError) {
-      redirect("/dashboard?error=picks_unavailable");
+      redirect(withTyped("picks_unavailable"));
     }
     throw error;
   }
@@ -33,7 +39,7 @@ async function linkTeamAction(formData: FormData) {
   redirect("/dashboard?success=linked");
 }
 
-export function LinkTeamForm({ error }: { error?: string }) {
+export function LinkTeamForm({ error, teamId }: { error?: string; teamId?: string }) {
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">Link your FPL team</h1>
@@ -75,6 +81,7 @@ export function LinkTeamForm({ error }: { error?: string }) {
             inputMode="numeric"
             placeholder="e.g. 12345"
             required
+            defaultValue={teamId}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "team-id-error" : undefined}
             className="focus-ring rounded-md border border-border px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:bg-black"

@@ -9,6 +9,7 @@ import {
   fixtureStripSummary,
   gameweekProjectionLabel,
   pendingChangesSummary,
+  perGameweek,
   priceChangeMarker,
   suggestionCostsHit,
   suggestionsSummary,
@@ -180,6 +181,8 @@ function makeSuggestion(outId: number, inId: number): SuggestedTransfer {
     inPlayer: makeListItem({ playerId: inId, webName: `In${inId}` }),
     outPlayerSellingPrice: 50,
     projectedGain: 2.5,
+    projectedGainPerGameweek: 0.5,
+    outPlayerStarting: true,
     requiresHit: false,
     outPlayerPriceDirection: "unchanged",
     inPlayerPriceDirection: "unchanged",
@@ -315,6 +318,7 @@ describe("applicableCombination", () => {
     return {
       transfers: pairs.map(([outId, inId]) => makeSuggestion(outId, inId)),
       totalProjectedGain: 10,
+      netProjectedGainPerGameweek: 2,
       hits: 0,
       netProjectedGain: 10,
     };
@@ -457,9 +461,15 @@ describe("suggestionsSummary", () => {
     expect(
       suggestionsSummary({
         ...base,
-        combination: { transfers: [makeSuggestion(1, 2), makeSuggestion(3, 4)], totalProjectedGain: 20, hits: 1, netProjectedGain: 16 },
+        combination: {
+          transfers: [makeSuggestion(1, 2), makeSuggestion(3, 4)],
+          totalProjectedGain: 20,
+          hits: 1,
+          netProjectedGain: 16,
+          netProjectedGainPerGameweek: 3.2,
+        },
       }),
-    ).toBe("Best plan: 2 transfers, +16.0 pts after −4 in hits over GW6–10.");
+    ).toBe("Best plan: 2 transfers, +3.2 pts/GW over GW6–10, counting −4 in hits.");
   });
 
   it("falls back to the single-transfer count, then to nothing found", () => {
@@ -481,5 +491,13 @@ describe("benchSlotLabel", () => {
     const labels = bench.map((_, i) => benchSlotLabel(bench, i));
     expect(labels).toContain("bench goalkeeper");
     expect(labels.filter((l) => l.startsWith("substitute"))).toEqual(["substitute 1", "substitute 2", "substitute 3"]);
+  });
+});
+
+describe("perGameweek", () => {
+  it("formats a gain as points per gameweek with an explicit sign", () => {
+    expect(perGameweek(6.48)).toBe("+6.5 pts/GW");
+    expect(perGameweek(0)).toBe("+0.0 pts/GW");
+    expect(perGameweek(-1.25)).toBe("−1.3 pts/GW");
   });
 });

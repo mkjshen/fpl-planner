@@ -10,8 +10,8 @@ HIT = 4
 MAX_HITS = 2
 
 
-def _owned(player_id, position, club_id, selling_price, points):
-    return OwnedOption(player_id, position, club_id, selling_price, points)
+def _owned(player_id, position, club_id, selling_price, points, weight=1.0):
+    return OwnedOption(player_id, position, club_id, selling_price, points, weight)
 
 
 def _pool(player_id, position, club_id, price, points):
@@ -106,11 +106,33 @@ def test_every_pair_keeps_the_same_position():
     assert sorted(result.pairs) == [(1, 5), (2, 3)]
 
 
-def test_within_a_position_the_weakest_out_is_paired_with_the_strongest_in():
-    owned = [_owned(1, "MID", 1, 50, 4.0), _owned(2, "MID", 2, 50, 1.0)]
-    pool = [_pool(3, "MID", 3, 50, 10.0), _pool(4, "MID", 4, 50, 12.0)]
+def test_the_stronger_buy_takes_the_starting_slot_not_the_bench_one():
+    """Pairs are chosen with the slot in mind: the better incoming player
+    replaces the starter, whose points count in full, rather than the bench
+    player, whose points mostly don't."""
+    owned = [
+        _owned(1, "MID", 1, 50, 2.0, weight=1.0),  # starter
+        _owned(2, "MID", 2, 50, 1.0, weight=0.15),  # bench
+    ]
+    pool = [_pool(3, "MID", 3, 50, 12.0), _pool(4, "MID", 4, 50, 6.0)]
     result = _solve(owned, pool, free_transfers=2)
-    assert result.pairs == [(2, 4), (1, 3)]
+    assert (1, 3) in result.pairs
+
+
+def test_a_bench_upgrade_alone_is_not_worth_a_transfer():
+    """+10 projected points for a bench player is worth 10 x 0.15 = 1.5
+    once scaled by the slot, under the 2.0 margin every transfer must earn."""
+    owned = [_owned(1, "GK", 1, 50, 0.0, weight=0.15)]
+    pool = [_pool(2, "GK", 2, 50, 10.0)]
+    result = _solve(owned, pool, free_transfers=1)
+    assert result.pairs == []
+
+
+def test_pair_gain_scales_the_difference_by_the_slot():
+    from app.services.transfer_optimizer import pair_gain
+
+    assert pair_gain(_owned(1, "MID", 1, 50, 2.0, weight=0.15), _pool(2, "MID", 2, 50, 12.0)) == 1.5
+    assert pair_gain(_owned(1, "MID", 1, 50, 2.0), _pool(2, "MID", 2, 50, 12.0)) == 10.0
 
 
 def test_hits_are_capped_even_when_each_would_pay_for_itself():

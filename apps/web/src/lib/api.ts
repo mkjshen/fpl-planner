@@ -243,6 +243,8 @@ export type SuggestedTransfer = {
   // this is what the Apply flow needs to preview the bank impact.
   outPlayerSellingPrice: number;
   projectedGain: number;
+  projectedGainPerGameweek: number;
+  outPlayerStarting: boolean;
   // Whether this would be a hit if the whole list were taken in rank order.
   // Not what the card shows — see suggestionCostsHit in lineup-planner.tsx,
   // which judges against the transfers actually made so far.
@@ -261,6 +263,8 @@ export type TransferCombination = {
   hits: number;
   // totalProjectedGain minus 4 per hit.
   netProjectedGain: number;
+  // netProjectedGain averaged over the horizon (what the UI shows).
+  netProjectedGainPerGameweek: number;
 };
 
 export type Suggestions = {

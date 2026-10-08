@@ -27,14 +27,14 @@ async function refreshSquadAction(userId: string, fplTeamId: number) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string }>;
+  searchParams: Promise<{ error?: string; success?: string; teamId?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) {
     redirect("/sign-in");
   }
 
-  const { error, success } = await searchParams;
+  const { error, success, teamId } = await searchParams;
   const squad = await getSquadForUser(session.user.id);
 
   return (
@@ -112,7 +112,7 @@ export default async function DashboardPage({
             </div>
           </div>
         ) : (
-          <LinkTeamForm error={error} />
+          <LinkTeamForm error={error} teamId={teamId} />
         )}
       </div>
     </div>
