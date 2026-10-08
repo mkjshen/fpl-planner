@@ -73,7 +73,7 @@ describe("PlayerCard", () => {
     const onRemove = jest.fn();
     render(<PlayerCard player={makePlayer()} onClick={onClick} onRemove={onRemove} />);
 
-    await user.click(screen.getByRole("button", { name: "Remove Saka from your team" }));
+    await user.click(screen.getByRole("button", { name: "Transfer out Saka" }));
 
     expect(onRemove).toHaveBeenCalledTimes(1);
     expect(onClick).not.toHaveBeenCalled();

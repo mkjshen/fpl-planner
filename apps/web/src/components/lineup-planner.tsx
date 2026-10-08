@@ -20,6 +20,7 @@ import { PlayerSearchResults, type SearchAction } from "@/components/player-sear
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 import { Banner } from "@/components/feedback";
 import { Dialog } from "@/components/dialog";
+import { difficultyClass } from "@/lib/fdr";
 
 // Tailwind's `md` breakpoint. Read in JS for the transfer picker, which is
 // a sidebar from md up and a dialog below — the dialog has to be genuinely
@@ -47,6 +48,9 @@ type SaveResult = { ok: true; lineup: Lineup } | { ok: false; message: string };
 // — Wildcard and Free Hit waive the -4 hit and the same-position-swap
 // restriction for this gameweek; Bench Boost and Triple Captain don't touch
 // transfers, only scoring, which this app doesn't simulate.
+// Points a transfer beyond the free allowance costs (FPL's -4 hit).
+const HIT_COST = 4;
+
 const TRANSFER_FREE_CHIPS: ReadonlySet<Chip> = new Set(["wildcard", "free_hit"]);
 
 const CHIP_LABELS: Record<Chip, string> = {
@@ -134,6 +138,56 @@ export function filterVisibleSuggestions(
   );
 }
 
+// `outPlayerId`'s slot taken over by `inPlayer` — same starting/bench
+// place, same armband — bought at today's price. The one definition of "a
+// transfer" both a single swap and a whole best-combination apply go
+// through.
+export function withTransfer(
+  players: SquadPlayer[],
+  outPlayerId: number,
+  inPlayer: PlayerListItem,
+): SquadPlayer[] {
+  return players.map((p) => {
+    if (p.playerId !== outPlayerId) return p;
+    return {
+      playerId: inPlayer.playerId,
+      webName: inPlayer.webName,
+      position: inPlayer.position,
+      club: inPlayer.club,
+      clubCode: inPlayer.clubCode,
+      currentPrice: inPlayer.currentPrice,
+      purchasePrice: inPlayer.currentPrice,
+      sellingPrice: inPlayer.currentPrice,
+      isStarting: p.isStarting,
+      squadPosition: p.squadPosition,
+      isCaptain: p.isCaptain,
+      isViceCaptain: p.isViceCaptain,
+    };
+  });
+}
+
+// One line describing what Save would commit — shown in the sticky action
+// bar so the consequence of saving is visible before pressing it.
+export function pendingChangesSummary({
+  transfersMade,
+  transferCost,
+  bank,
+  chipLabel,
+}: {
+  transfersMade: number;
+  transferCost: number;
+  bank: string;
+  chipLabel: string | null;
+}): string {
+  const parts: string[] = [];
+  if (transfersMade > 0) parts.push(`${transfersMade} transfer${transfersMade === 1 ? "" : "s"}`);
+  if (transferCost > 0) parts.push(`−${transferCost} pts`);
+  if (chipLabel) parts.push(chipLabel);
+  if (parts.length === 0) parts.push("Lineup changes");
+  parts.push(`Bank ${bank}`);
+  return parts.join(" · ");
+}
+
 // The combination only makes sense as a whole, applied to the squad it was
 // computed for: hidden once any transfer has been made or started (its
 // budget and hit count assume none have), under Wildcard/Free Hit (it was
@@ -188,28 +242,16 @@ function PriceChangeMarker({ direction }: { direction: PriceDirection }) {
   const marker = priceChangeMarker(direction);
   if (marker === null) return null;
   return (
-    <span title={marker.label} className={`shrink-0 text-[0.6rem] ${marker.className}`}>
+    <span title={marker.label} className={`shrink-0 text-xs ${marker.className}`}>
       <span aria-hidden="true">{marker.symbol}</span>
       <span className="sr-only">{marker.label}</span>
     </span>
   );
 }
 
-// FPL's own fixture difficulty (FDR) palette — the same five colours the
-// official site uses, so a manager reads the strip without a legend. Each
-// pairs a text colour that keeps the rating digit at 4.5:1 or better on
-// it, since the digit (not the colour) is what carries the meaning.
-const DIFFICULTY_CLASSES: Record<number, string> = {
-  1: "bg-[#375523] text-white",
-  2: "bg-[#01fc7a] text-[#0a0a0a]",
-  3: "bg-[#e7e7e7] text-zinc-800",
-  4: "bg-[#ff1751] text-[#0a0a0a]",
-  5: "bg-[#80072d] text-white",
-};
-
-export function difficultyClass(difficulty: number): string {
-  return DIFFICULTY_CLASSES[difficulty] ?? DIFFICULTY_CLASSES[3];
-}
+// Re-exported so the planner's tests (and anything already importing it
+// from here) keep working; the definition lives in lib/fdr.ts.
+export { difficultyClass };
 
 function describeFixtures(difficulties: number[]): string {
   if (difficulties.length === 0) return "no fixture";
@@ -349,6 +391,14 @@ export function LineupPlanner({
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [horizonGameweeks, setHorizonGameweeks] = useState<number | null>(null);
   const [bestCombination, setBestCombination] = useState<TransferCombination | null>(null);
+  // The squad either side of the last "Apply all", for a one-step Undo.
+  // Undo is only offered while the squad is still exactly `after` — once
+  // anything else changes, undoing would silently discard that too.
+  const [appliedCombination, setAppliedCombination] = useState<{
+    before: SquadPlayer[];
+    after: SquadPlayer[];
+    combination: TransferCombination;
+  } | null>(null);
 
   // One fetch per mount (this component remounts per gameweek via the
   // parent's `key={selectedGameweek}`, same pattern PlayerSearchResults
@@ -467,7 +517,7 @@ export function LineupPlanner({
         : null;
   const liveTransferCost = chipIsTransferFree
     ? 0
-    : Math.max(transfersMade - freeTransfers, 0) * 4;
+    : Math.max(transfersMade - freeTransfers, 0) * HIT_COST;
 
   // Players transferred out earlier in this same unsaved session — the
   // search pool only knows about the last *saved* squad, so without this
@@ -487,6 +537,13 @@ export function LineupPlanner({
 
   const currentPlayerIds = new Set(players.map((p) => p.playerId));
   const visibleSuggestions = filterVisibleSuggestions(suggestions, currentPlayerIds);
+  // "GW6–10": the window projectedGain covers, so every number in the
+  // suggestions panel carries its unit and horizon right beside it.
+  const horizonRange =
+    horizonGameweeks === null
+      ? null
+      : `GW${selectedGameweek}–${selectedGameweek + horizonGameweeks - 1}`;
+  const canUndoCombination = appliedCombination !== null && players === appliedCombination.after;
   const combination = applicableCombination(
     bestCombination,
     currentPlayerIds,
@@ -544,25 +601,7 @@ export function LineupPlanner({
   }
 
   function handleTransfer(outPlayerId: number, inPlayer: PlayerListItem) {
-    setPlayers((prev) =>
-      prev.map((p) => {
-        if (p.playerId !== outPlayerId) return p;
-        return {
-          playerId: inPlayer.playerId,
-          webName: inPlayer.webName,
-          position: inPlayer.position,
-          club: inPlayer.club,
-          clubCode: inPlayer.clubCode,
-          currentPrice: inPlayer.currentPrice,
-          purchasePrice: inPlayer.currentPrice,
-          sellingPrice: inPlayer.currentPrice,
-          isStarting: p.isStarting,
-          squadPosition: p.squadPosition,
-          isCaptain: p.isCaptain,
-          isViceCaptain: p.isViceCaptain,
-        };
-      }),
-    );
+    setPlayers((prev) => withTransfer(prev, outPlayerId, inPlayer));
     // If other transfers are still pending, hand the panel to the next one
     // rather than leaving it empty while blank slots are still sitting there.
     const remaining = transferOutIds.filter((id) => id !== outPlayerId);
@@ -581,12 +620,27 @@ export function LineupPlanner({
     handleTransfer(suggestion.outPlayer.playerId, suggestion.inPlayer);
   }
 
-  // Same path again, once per pair — handleTransfer's setPlayers is a
-  // functional update, so consecutive calls compose. Bank and the club
-  // limit are only checked on Save, against the final squad, so the order
-  // pairs are applied in doesn't matter.
+  // All pairs in one state update, so the whole set can be undone as one
+  // step. Bank and the club limit are only checked on Save, against the
+  // final squad, so the order pairs are applied in doesn't matter. Only
+  // offered with no transfers pending (see applicableCombination), so
+  // there's no transfer-out state to reconcile here.
   function applyCombination(toApply: TransferCombination) {
-    for (const transfer of toApply.transfers) applySuggestion(transfer);
+    const after = toApply.transfers.reduce(
+      (squad, t) => withTransfer(squad, t.outPlayer.playerId, t.inPlayer),
+      players,
+    );
+    setPlayers(after);
+    setAppliedCombination({ before: players, after, combination: toApply });
+    setSelectedId(null);
+    setMessage(null);
+    setMessageTone(null);
+  }
+
+  function undoCombination() {
+    if (!appliedCombination) return;
+    setPlayers(appliedCombination.before);
+    setAppliedCombination(null);
   }
 
   function handleTransferOutClick(playerId: number) {
@@ -755,9 +809,11 @@ export function LineupPlanner({
                 }
                 disabled={!previousGameweek}
                 aria-label="Previous gameweek"
-                className="focus-ring rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
+                className="focus-ring flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
               >
-                ‹
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M12.5 15l-5-5 5-5" />
+                </svg>
               </button>
               <span className="min-w-[7rem] text-center text-sm font-medium text-black dark:text-zinc-50">
                 {gameweekOptions[gameweekIndex]?.label ?? `Gameweek ${selectedGameweek}`}
@@ -769,9 +825,11 @@ export function LineupPlanner({
                 }
                 disabled={!nextGameweek}
                 aria-label="Next gameweek"
-                className="focus-ring rounded-full px-2 py-1 text-sm font-medium transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
+                className="focus-ring flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-black/[.06] disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-white/[.08] dark:disabled:hover:bg-transparent"
               >
-                ›
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M7.5 5l5 5-5 5" />
+                </svg>
               </button>
             </div>
           </div>
@@ -886,20 +944,11 @@ export function LineupPlanner({
           </div>
         )}
 
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={() => setConfirmingResetAll(true)}
-            disabled={resettingAll}
-            className="focus-ring rounded text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-200"
-          >
-            {resettingAll ? "Resetting…" : "Reset all plans"}
-          </button>
-        </div>
-
         {laterPlansAffected && (
           <Banner tone="info" onDismiss={() => setLaterPlansAffected(false)} className="mt-3">
             Editing gameweek {selectedGameweek} may make your later planned gameweeks
-            inconsistent — review them or use Reset all plans.
+            inconsistent — review them, or use &ldquo;Reset all gameweeks&rsquo; plans&rdquo; at the
+            bottom of the page.
           </Banner>
         )}
 
@@ -974,7 +1023,7 @@ export function LineupPlanner({
                     onClick={() => handleSellFromModal(viewingPlayer.playerId)}
                     className="focus-ring rounded-full border border-red-200 px-4 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
                   >
-                    Sell
+                    Transfer out
                   </button>
                   <button
                     type="button"
@@ -1027,17 +1076,14 @@ export function LineupPlanner({
 
         {lineup.isEditable && (
           <div className="mt-6 rounded-2xl border border-border bg-black/[.02] p-4 dark:bg-white/[.04]">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-black dark:text-zinc-50">Suggested transfers</p>
-              {!loadingSuggestions && visibleSuggestions.length > 0 && (
-                <span className="hidden shrink-0 text-xs text-zinc-500 sm:inline dark:text-zinc-400">
-                  {horizonGameweeks === null
-                    ? "Based on form, points per game and upcoming fixtures"
-                    : `Form, points per game and the next ${horizonGameweeks} gameweeks' fixtures`}{" "}
-                  — not a prediction
-                </span>
-              )}
-            </div>
+            <h2 className="text-sm font-semibold text-black dark:text-zinc-50">Suggested transfers</h2>
+            {/* Shown at every width — this is the caveat that makes the
+                numbers honest, so it can't be a desktop-only extra. */}
+            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+              {horizonRange
+                ? `Projected points over ${horizonRange}, from form, points per game and fixture difficulty. A rough guide, not a prediction.`
+                : "Projected from form, points per game and fixture difficulty. A rough guide, not a prediction."}
+            </p>
             {loadingSuggestions ? (
               <div className="mt-3 flex animate-pulse gap-3 overflow-hidden">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -1051,56 +1097,94 @@ export function LineupPlanner({
               <p className="mt-3 text-sm text-red-600 dark:text-red-400">{suggestionsError}</p>
             ) : (
               <>
+                {canUndoCombination && appliedCombination && (
+                  <div
+                    role="status"
+                    className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm text-zinc-700 dark:text-zinc-300"
+                  >
+                    <span>
+                      Applied {appliedCombination.combination.transfers.length} transfers
+                      {appliedCombination.combination.hits > 0 &&
+                        ` (−${appliedCombination.combination.hits * HIT_COST} pts in hits)`}
+                      . Review them on the pitch, then save.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={undoCombination}
+                      className="focus-ring rounded text-sm font-medium text-primary underline underline-offset-2 dark:text-accent"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                )}
                 {combination !== null && (
-                  <div className="mt-3 rounded-xl border border-primary/20 bg-white p-3 dark:border-accent/30 dark:bg-zinc-950">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                  // The one recommendation, chosen jointly by the solver —
+                  // led with, so the single-transfer cards below read as
+                  // alternatives rather than a competing answer.
+                  <section aria-labelledby="best-plan-title" className="mt-3 border-t border-border pt-3">
+                    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-black dark:text-zinc-50">
-                          Best combination: {combination.transfers.length} transfers
-                        </p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          <span className="text-emerald-700 dark:text-emerald-400">
-                            +{combination.netProjectedGain.toFixed(1)}
-                          </span>{" "}
-                          projected
-                          {combination.hits > 0 && (
-                            <>
-                              {" "}
-                              after{" "}
-                              <span className="text-amber-700 dark:text-amber-400">
-                                −{combination.hits * 4}
-                              </span>{" "}
-                              in hits
-                            </>
-                          )}
-                          {" "}· chosen together, so it can include moves that only work as a set
+                        <h3 id="best-plan-title" className="text-sm font-semibold text-black dark:text-zinc-50">
+                          Best plan: {combination.transfers.length} transfers
+                        </h3>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            +{combination.netProjectedGain.toFixed(1)} pts
+                          </span>
+                          {combination.hits > 0
+                            ? ` after −${combination.hits * HIT_COST} in hits`
+                            : " with no hits"}
+                          {horizonRange && ` over ${horizonRange}`}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => applyCombination(combination)}
-                        className="focus-ring shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-primary/90 dark:bg-accent dark:text-zinc-950 dark:hover:bg-accent/90"
+                        className="focus-ring shrink-0 rounded-full border border-primary px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 dark:border-accent dark:text-accent dark:hover:bg-accent/10"
                       >
-                        Apply all
+                        Apply all {combination.transfers.length}
                       </button>
                     </div>
-                    <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                    <ul className="mt-2 flex flex-col gap-1 text-xs">
                       {combination.transfers.map((t) => (
                         <li
                           key={`${t.outPlayer.playerId}-${t.inPlayer.playerId}`}
-                          className="flex items-center gap-1 text-zinc-600 dark:text-zinc-300"
+                          className="flex items-center gap-1.5"
                         >
-                          <span className="text-zinc-500 line-through dark:text-zinc-400">{t.outPlayer.webName}</span>
+                          <span className="truncate text-zinc-500 line-through dark:text-zinc-400">
+                            {t.outPlayer.webName}
+                          </span>
                           <span aria-hidden="true" className="text-zinc-500 dark:text-zinc-400">→</span>
                           <span className="sr-only">replaced by</span>
-                          <span className="font-medium text-black dark:text-zinc-50">{t.inPlayer.webName}</span>
+                          <span className="truncate font-medium text-black dark:text-zinc-50">
+                            {t.inPlayer.webName}
+                          </span>
+                          <span className="ml-auto shrink-0 tabular-nums text-emerald-700 dark:text-emerald-400">
+                            +{t.projectedGain.toFixed(1)}
+                          </span>
                         </li>
                       ))}
+                      {combination.hits > 0 && (
+                        <li className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+                          <span>
+                            {combination.hits} extra transfer{combination.hits === 1 ? "" : "s"} beyond your free
+                            ones
+                          </span>
+                          <span className="ml-auto shrink-0 tabular-nums text-amber-700 dark:text-amber-400">
+                            −{combination.hits * HIT_COST}
+                          </span>
+                        </li>
+                      )}
                     </ul>
-                  </div>
+                  </section>
+                )}
+                {combination !== null && visibleSuggestions.length > 0 && (
+                  <h3 className="mt-4 border-t border-border pt-3 text-sm font-semibold text-black dark:text-zinc-50">
+                    Or make just one transfer
+                  </h3>
                 )}
                 {visibleSuggestions.length === 0 ? (
-                  combination === null && (
+                  combination === null && !canUndoCombination && (
                     <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
                       No standout swaps found for this squad right now.
                     </p>
@@ -1141,7 +1225,7 @@ export function LineupPlanner({
                         </div>
                         <div className="flex w-full flex-col">
                           <span className="flex items-center justify-center gap-1">
-                            <span className="truncate text-[0.7rem] text-zinc-500 line-through dark:text-zinc-400">
+                            <span className="truncate text-xs text-zinc-500 line-through dark:text-zinc-400">
                               {s.outPlayer.webName}
                             </span>
                             <PriceChangeMarker direction={s.outPlayerPriceDirection} />
@@ -1163,7 +1247,7 @@ export function LineupPlanner({
                             }
                             className="text-emerald-700 dark:text-emerald-400"
                           >
-                            +{s.projectedGain.toFixed(1)}
+                            +{s.projectedGain.toFixed(1)} pts
                           </span>
                           {suggestionCostsHit(
                             transferOutIdSet.has(s.outPlayer.playerId),
@@ -1233,23 +1317,56 @@ export function LineupPlanner({
         </div>
 
         {lineup.isEditable && (
-          <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleSave}
-                disabled={!dirty || saving || saveBlockedReason !== null}
-                aria-describedby={saveBlockedReason ? "save-blocked-reason" : undefined}
-                className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
+          // Sticks to the bottom of the screen while there's something to
+          // save, so the commit action and what it will commit are always in
+          // reach (and in the thumb zone on a phone) instead of a long
+          // scroll below the pitch and bench.
+          <div
+            className={`mt-6 flex flex-col gap-2 border-t border-border bg-white py-3 dark:bg-zinc-950 ${
+              dirty ? "sticky bottom-0 z-20 shadow-[0_-12px_16px_-14px_rgba(0,0,0,0.3)]" : ""
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p
+                aria-live="polite"
+                className={`min-w-0 basis-full text-sm sm:flex-1 sm:basis-auto ${
+                  dirty ? "font-medium text-black dark:text-zinc-50" : "text-zinc-600 dark:text-zinc-400"
+                }`}
               >
-                {saving ? "Saving…" : "Save"}
-              </button>
-              <button
-                onClick={handleReset}
-                disabled={!dirty || saving}
-                className="focus-ring rounded-full border border-border px-5 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
-              >
-                Reset
-              </button>
+                {dirty
+                  ? pendingChangesSummary({
+                      transfersMade,
+                      transferCost: liveTransferCost,
+                      bank: formatPrice(liveBank),
+                      chipLabel:
+                        chip === savedChip
+                          ? null
+                          : chip
+                            ? `${CHIP_LABELS[chip]} on`
+                            : savedChip && `${CHIP_LABELS[savedChip]} off`,
+                    })
+                  : "No unsaved changes"}
+              </p>
+              <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+                <button
+                  onClick={handleReset}
+                  disabled={!dirty || saving}
+                  className="focus-ring rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
+                >
+                  Discard changes
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!dirty || saving || saveBlockedReason !== null}
+                  aria-describedby={saveBlockedReason ? "save-blocked-reason" : undefined}
+                  // The one filled, high-emphasis button on the page, in both
+                  // themes — plum on white, the neon accent on dark (plum on
+                  // near-black all but disappeared).
+                  className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-40 dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90"
+                >
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
             </div>
             {/* Shown as text rather than a tooltip on the disabled button:
                 a tooltip never appears on touch, and a disabled button can't
@@ -1262,6 +1379,18 @@ export function LineupPlanner({
             {message && messageTone && <Banner tone={messageTone}>{message}</Banner>}
           </div>
         )}
+
+        {/* Destructive and rarely needed, so it lives at the end of the page,
+            styled as destructive, away from the controls used every visit. */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={() => setConfirmingResetAll(true)}
+            disabled={resettingAll}
+            className="focus-ring rounded text-xs font-medium text-red-700 underline underline-offset-2 hover:text-red-800 disabled:opacity-40 dark:text-red-400 dark:hover:text-red-300"
+          >
+            {resettingAll ? "Resetting…" : "Reset all gameweeks’ plans…"}
+          </button>
+        </div>
       </div>
 
       {/* Always visible from md up (not gated behind clicking "Transfer

@@ -6,9 +6,11 @@ import {
   filterVisibleSuggestions,
   fixtureStripSummary,
   gameweekProjectionLabel,
+  pendingChangesSummary,
   priceChangeMarker,
   suggestionCostsHit,
   validationError,
+  withTransfer,
 } from "./lineup-planner";
 
 // A legal 15-player squad: 2 GK/5 DEF/5 MID/3 FWD total, 11 starting
@@ -354,5 +356,60 @@ describe("applicableCombination", () => {
 
   it("hides when there's no combination at all", () => {
     expect(applicableCombination(null, new Set([1]), false, false)).toBeNull();
+  });
+});
+
+describe("withTransfer", () => {
+  it("puts the incoming player in the outgoing player's slot, keeping place and armband", () => {
+    const squad = makeSquad();
+    const outgoing = squad.find((p) => p.isCaptain)!;
+    const result = withTransfer(squad, outgoing.playerId, makeListItem({ playerId: 99, webName: "New", currentPrice: 62 }));
+    const incoming = result.find((p) => p.playerId === 99)!;
+
+    expect(result).toHaveLength(squad.length);
+    expect(result.some((p) => p.playerId === outgoing.playerId)).toBe(false);
+    expect(incoming).toMatchObject({
+      squadPosition: outgoing.squadPosition,
+      isStarting: outgoing.isStarting,
+      isCaptain: true,
+      purchasePrice: 62,
+      sellingPrice: 62,
+    });
+  });
+
+  it("chains, so a whole combination can be applied as one update", () => {
+    const squad = makeSquad();
+    const result = [
+      [1, makeListItem({ playerId: 91 })],
+      [2, makeListItem({ playerId: 92 })],
+    ].reduce((s, [outId, inPlayer]) => withTransfer(s, outId as number, inPlayer as PlayerListItem), squad);
+    expect(result.map((p) => p.playerId)).toEqual(expect.arrayContaining([91, 92]));
+    expect(result.map((p) => p.playerId)).not.toEqual(expect.arrayContaining([1]));
+  });
+});
+
+describe("pendingChangesSummary", () => {
+  it("lists transfers, hit cost and bank", () => {
+    expect(pendingChangesSummary({ transfersMade: 4, transferCost: 8, bank: "£0.3m", chipLabel: null })).toBe(
+      "4 transfers · −8 pts · Bank £0.3m",
+    );
+  });
+
+  it("uses the singular and omits a zero cost", () => {
+    expect(pendingChangesSummary({ transfersMade: 1, transferCost: 0, bank: "£1.0m", chipLabel: null })).toBe(
+      "1 transfer · Bank £1.0m",
+    );
+  });
+
+  it("names a chip change", () => {
+    expect(pendingChangesSummary({ transfersMade: 0, transferCost: 0, bank: "£1.0m", chipLabel: "Wildcard on" })).toBe(
+      "Wildcard on · Bank £1.0m",
+    );
+  });
+
+  it("falls back to lineup changes for pure substitutions", () => {
+    expect(pendingChangesSummary({ transfersMade: 0, transferCost: 0, bank: "£1.0m", chipLabel: null })).toBe(
+      "Lineup changes · Bank £1.0m",
+    );
   });
 });

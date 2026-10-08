@@ -24,7 +24,7 @@ export function StatChip({
       title={title}
       className="rounded-lg border border-border bg-black/[.02] px-3 py-1.5 dark:bg-white/[.03]"
     >
-      <p className="text-[0.65rem] font-medium tracking-wide text-zinc-600 uppercase dark:text-zinc-400">
+      <p className="text-xs font-medium tracking-wide text-zinc-600 uppercase dark:text-zinc-400">
         {label}
       </p>
       <p
@@ -140,7 +140,7 @@ export function PlayerCard({
         >
           Empty
         </span>
-        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-[0.65rem] font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-400 xl:text-xs">
+        <span className="mt-0.5 w-full truncate rounded-md border border-black/5 bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-400">
           {activeBlank ? "Pick a player" : "Tap to fill"}
         </span>
       </button>
@@ -152,7 +152,7 @@ export function PlayerCard({
   // keyboard; plain markup when it's display-only (the squad view).
   const face = (
     <div className="flex w-full flex-col items-center overflow-hidden rounded-2xl bg-white/40 pt-1.5 backdrop-blur-sm dark:bg-black/30 xl:rounded-3xl xl:pt-2">
-      <span className="text-[0.65rem] font-semibold text-zinc-700 drop-shadow-sm dark:text-zinc-200 xl:text-xs">
+      <span className="text-xs font-semibold text-zinc-700 drop-shadow-sm dark:text-zinc-200">
         {formatPrice(player.currentPrice)}
       </span>
       {player.clubCode !== null && (
@@ -170,7 +170,9 @@ export function PlayerCard({
       )}
       <span
         title={player.webName}
-        className={`mt-1.5 w-full truncate rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs font-bold shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
+        // Wraps (at most two lines) rather than truncating, so a squeezed
+        // phone row still shows "Gibbs-White" in full instead of "Gibbs-Wh…".
+        className={`mt-1.5 line-clamp-2 w-full rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs leading-tight font-bold break-words shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
           selected
             ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
             : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
@@ -178,7 +180,7 @@ export function PlayerCard({
       >
         {player.webName}
       </span>
-      <span className="w-full truncate rounded-b-2xl border border-black/5 bg-zinc-100 px-0.5 py-0.5 text-[0.65rem] font-medium sm:px-2 text-zinc-600 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:rounded-b-3xl xl:text-xs">
+      <span className="w-full truncate rounded-b-2xl border border-black/5 bg-zinc-100 px-0.5 py-0.5 text-xs font-medium text-zinc-600 sm:px-2 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300 xl:rounded-b-3xl">
         {player.actualPoints != null
           ? `${player.actualPoints} pt${player.actualPoints === 1 ? "" : "s"}`
           : (player.opponent ?? player.club)}
@@ -199,11 +201,16 @@ export function PlayerCard({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`Remove ${player.webName} from your team`}
-          title="Remove from team"
-          // Revealed on hover from md up, and also whenever anything in the
-          // card has keyboard focus, so it's never an invisible tab stop.
-          className="focus-ring absolute -top-1.5 -left-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-black/[.15] bg-white/80 text-[0.65rem] font-bold text-zinc-500 opacity-100 shadow-sm backdrop-blur-sm transition focus:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:-top-2 xl:-left-2 xl:h-6 xl:w-6 xl:text-xs"
+          aria-label={`Transfer out ${player.webName}`}
+          title="Transfer out"
+          // Sits over the shirt's top-left corner, inside the card, like the
+          // real FPL transfer view: never clipped by the pitch's sloped edge
+          // and never colliding with a neighbouring card's badges, even on a
+          // squeezed back five. 24px visible, with a `before:` pad taking the
+          // tap area to 36px. Hidden until hover only where hover exists
+          // (pointer-fine) — on a touchscreen tablet it would otherwise never
+          // appear — and revealed whenever anything in the card has focus.
+          className="focus-ring absolute top-5 left-0 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-black/[.15] bg-white text-xs font-bold text-zinc-600 shadow-sm transition before:absolute before:-inset-1.5 before:content-[''] focus:opacity-100 pointer-fine:md:opacity-0 pointer-fine:md:group-hover:opacity-100 pointer-fine:md:group-focus-within:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:top-6"
         >
           ×
         </button>
@@ -211,7 +218,9 @@ export function PlayerCard({
       {(player.isCaptain || player.isViceCaptain) && (
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute -top-1.5 -right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[0.6rem] font-bold shadow-sm xl:-top-2 xl:-right-2 xl:h-6 xl:w-6 xl:text-xs ${
+          // The shirt's bottom-right corner: diagonal from the × so the two
+          // never touch however narrow the card gets.
+          className={`pointer-events-none absolute top-[2.375rem] right-0 z-10 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold tracking-tight shadow-sm xl:top-14 ${
             player.isCaptain
               ? "bg-accent text-accent-foreground"
               : "border border-primary/40 bg-white text-primary dark:border-accent/50 dark:bg-zinc-900 dark:text-accent"
@@ -365,7 +374,7 @@ export function Pitch({
           <div
             key={position}
             style={{ paddingInline: `${ROW_INSET_PERCENT[position]}%` }}
-            className="flex items-center justify-center gap-1 sm:gap-2 xl:gap-6"
+            className="flex items-start justify-center gap-1 sm:gap-2 xl:gap-6"
           >
             {byPosition(position).map((player) => (
               <PlayerCard

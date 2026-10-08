@@ -52,7 +52,7 @@ export default async function SignUpPage({
   const { error } = await searchParams;
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 dark:from-[#2a002e] dark:via-black dark:to-black">
+    <main className="flex flex-1 items-center justify-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-4 dark:from-[#2a002e] dark:via-black dark:to-black">
       <div className="w-full max-w-sm rounded-xl border border-border bg-white p-8 dark:bg-zinc-950">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Create an account</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -133,6 +133,6 @@ export default async function SignUpPage({
           </Link>
         </p>
       </div>
-    </div>
+    </main>
   );
 }

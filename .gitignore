@@ -6,6 +6,8 @@ apps/api/.venv
 apps/api/**/__pycache__
 *.pyc
 
+*.png
+
 # Env files
 .env
 .env.local

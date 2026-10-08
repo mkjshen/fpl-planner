@@ -1,0 +1,475 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T00:00:00Z",
+  "title": "Design System: FPL Team Planner",
+  "extensions": {
+    "colorMeta": {
+      "fpl-plum": {
+        "role": "primary",
+        "displayName": "FPL Plum",
+        "canonical": "#37003c",
+        "tonalRamp": [
+          "oklch(15% 0.13 328)",
+          "oklch(25% 0.13 328)",
+          "oklch(35% 0.13 328)",
+          "oklch(45% 0.13 328)",
+          "oklch(60% 0.13 328)",
+          "oklch(72% 0.13 328)",
+          "oklch(84% 0.13 328)",
+          "oklch(95% 0.13 328)"
+        ]
+      },
+      "fpl-plum-hover": {
+        "role": "primary",
+        "displayName": "Lifted Plum",
+        "canonical": "#4d0054",
+        "tonalRamp": [
+          "oklch(15% 0.15 328)",
+          "oklch(25% 0.15 328)",
+          "oklch(35% 0.15 328)",
+          "oklch(45% 0.15 328)",
+          "oklch(60% 0.15 328)",
+          "oklch(72% 0.15 328)",
+          "oklch(84% 0.15 328)",
+          "oklch(95% 0.15 328)"
+        ]
+      },
+      "neon-green": {
+        "role": "secondary",
+        "displayName": "Neon Green",
+        "canonical": "#00ff87",
+        "tonalRamp": [
+          "oklch(15% 0.2 156)",
+          "oklch(25% 0.2 156)",
+          "oklch(35% 0.2 156)",
+          "oklch(45% 0.2 156)",
+          "oklch(60% 0.2 156)",
+          "oklch(72% 0.2 156)",
+          "oklch(84% 0.2 156)",
+          "oklch(95% 0.2 156)"
+        ]
+      },
+      "neon-green-ink": {
+        "role": "secondary",
+        "displayName": "Pitch-Shadow Ink",
+        "canonical": "#003820",
+        "tonalRamp": [
+          "oklch(15% 0.08 158)",
+          "oklch(25% 0.08 158)",
+          "oklch(35% 0.08 158)",
+          "oklch(45% 0.08 158)",
+          "oklch(60% 0.08 158)",
+          "oklch(72% 0.08 158)",
+          "oklch(84% 0.08 158)",
+          "oklch(95% 0.08 158)"
+        ]
+      },
+      "background-light": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#ffffff"
+      },
+      "foreground-light": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#171717"
+      },
+      "background-dark": {
+        "role": "neutral",
+        "displayName": "Night",
+        "canonical": "#0a0a0a"
+      },
+      "foreground-dark": {
+        "role": "neutral",
+        "displayName": "Moon",
+        "canonical": "#ededed"
+      },
+      "border-light": {
+        "role": "neutral",
+        "displayName": "Hairline (light)",
+        "canonical": "rgb(0 0 0 / 0.08)"
+      },
+      "border-dark": {
+        "role": "neutral",
+        "displayName": "Hairline (dark)",
+        "canonical": "rgb(255 255 255 / 0.145)"
+      },
+      "ground-lilac": {
+        "role": "neutral",
+        "displayName": "Lilac Ground",
+        "canonical": "oklch(94.6% 0.033 307.174)",
+        "tonalRamp": [
+          "oklch(15% 0.06 307)",
+          "oklch(25% 0.06 307)",
+          "oklch(35% 0.06 307)",
+          "oklch(45% 0.06 307)",
+          "oklch(60% 0.06 307)",
+          "oklch(72% 0.06 307)",
+          "oklch(84% 0.06 307)",
+          "oklch(95% 0.06 307)"
+        ]
+      },
+      "ground-mist": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "oklch(98.5% 0 0)"
+      },
+      "ground-night-plum": {
+        "role": "neutral",
+        "displayName": "Night Plum",
+        "canonical": "#2a002e"
+      },
+      "panel-dark": {
+        "role": "neutral",
+        "displayName": "Panel Dark",
+        "canonical": "oklch(14.1% 0.005 285.823)",
+        "tonalRamp": [
+          "oklch(15% 0.01 286)",
+          "oklch(25% 0.01 286)",
+          "oklch(35% 0.01 286)",
+          "oklch(45% 0.01 286)",
+          "oklch(60% 0.01 286)",
+          "oklch(72% 0.01 286)",
+          "oklch(84% 0.01 286)",
+          "oklch(95% 0.01 286)"
+        ]
+      },
+      "pill-ground-light": {
+        "role": "neutral",
+        "displayName": "Pill Ground",
+        "canonical": "oklch(96.7% 0.001 286.375)"
+      },
+      "pill-ground-dark": {
+        "role": "neutral",
+        "displayName": "Pill Ground (dark)",
+        "canonical": "oklch(21% 0.006 285.885)"
+      },
+      "hover-dark": {
+        "role": "neutral",
+        "displayName": "Hover Dark",
+        "canonical": "#1a1a1a"
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Muted Text",
+        "canonical": "oklch(44.2% 0.017 285.786)"
+      },
+      "text-muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted Text (dark)",
+        "canonical": "oklch(70.5% 0.015 286.067)"
+      },
+      "pitch-stripe-dark": {
+        "role": "tertiary",
+        "displayName": "Pitch Stripe Dark",
+        "canonical": "#3d8c40",
+        "tonalRamp": [
+          "oklch(15% 0.12 143)",
+          "oklch(25% 0.12 143)",
+          "oklch(35% 0.12 143)",
+          "oklch(45% 0.12 143)",
+          "oklch(60% 0.12 143)",
+          "oklch(72% 0.12 143)",
+          "oklch(84% 0.12 143)",
+          "oklch(95% 0.12 143)"
+        ]
+      },
+      "pitch-stripe-light": {
+        "role": "tertiary",
+        "displayName": "Pitch Stripe Light",
+        "canonical": "#439648"
+      },
+      "fdr-1": {
+        "role": "tertiary",
+        "displayName": "FDR 1 (very easy)",
+        "canonical": "#375523"
+      },
+      "fdr-2": {
+        "role": "tertiary",
+        "displayName": "FDR 2 (easy)",
+        "canonical": "#01fc7a"
+      },
+      "fdr-3": {
+        "role": "tertiary",
+        "displayName": "FDR 3 (medium)",
+        "canonical": "#e7e7e7"
+      },
+      "fdr-4": {
+        "role": "tertiary",
+        "displayName": "FDR 4 (hard)",
+        "canonical": "#ff1751"
+      },
+      "fdr-5": {
+        "role": "tertiary",
+        "displayName": "FDR 5 (very hard)",
+        "canonical": "#80072d"
+      },
+      "tone-success-bg": {
+        "role": "neutral",
+        "displayName": "Success Ground",
+        "canonical": "oklch(97.9% 0.021 166.113)"
+      },
+      "tone-success-text": {
+        "role": "neutral",
+        "displayName": "Success Text",
+        "canonical": "oklch(50.8% 0.118 165.612)"
+      },
+      "tone-error-bg": {
+        "role": "neutral",
+        "displayName": "Error Ground",
+        "canonical": "oklch(97.1% 0.013 17.38)"
+      },
+      "tone-error-text": {
+        "role": "neutral",
+        "displayName": "Error Text",
+        "canonical": "oklch(50.5% 0.213 27.518)"
+      },
+      "tone-info-bg": {
+        "role": "neutral",
+        "displayName": "Info Ground",
+        "canonical": "oklch(98.7% 0.022 95.277)"
+      },
+      "tone-info-text": {
+        "role": "neutral",
+        "displayName": "Info Text",
+        "canonical": "oklch(47.3% 0.137 46.201)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing headline only; 1.875rem on phones, 3rem from sm."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page and card titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The app's working size for copy and controls."
+      },
+      "body-lead": {
+        "displayName": "Lead",
+        "purpose": "Landing explanation, 60ch measure."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase data labels: stat captions, position groups."
+      },
+      "numeric": {
+        "displayName": "Numeric",
+        "purpose": "Prices, bank and counts in tabular numerals."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Inline code only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floodlit-pitch",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.15), inset 0 40px 50px -20px rgba(0,0,0,0.25), inset 0 -50px 70px -15px rgba(0,0,0,0.45), inset 40px 0 50px -35px rgba(0,0,0,0.2), inset -40px 0 50px -35px rgba(0,0,0,0.2), 0 25px 50px -12px rgba(0,0,0,0.45)",
+        "purpose": "The pitch only: floodlight dome plus lift."
+      },
+      {
+        "name": "shirt-stand",
+        "value": "drop-shadow(0 2px 3px rgba(0,0,0,0.4))",
+        "purpose": "Kit images standing on the pitch (filter)."
+      },
+      {
+        "name": "save-bar-lift",
+        "value": "0 -12px 16px -14px rgba(0,0,0,0.3)",
+        "purpose": "Sticky save bar while a plan is dirty."
+      },
+      {
+        "name": "overlay",
+        "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        "purpose": "Dialog panels (shadow-xl)."
+      },
+      {
+        "name": "floating-control",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "Corner theme toggle (shadow-lg)."
+      },
+      {
+        "name": "pill",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Name plates, badges, transfer-out control (shadow-sm)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-transition",
+        "value": "color, background-color, border-color 150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Tailwind transition-colors on every hover; the only motion in the system besides the loading pulse."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ],
+    "focusRing": {
+      "value": "outline: 2px solid #37003c; outline-offset: 2px (dark: #00ff87), :focus-visible only",
+      "source": "globals.css @utility focus-ring"
+    },
+    "backdrop": {
+      "value": "background: rgb(0 0 0 / 0.4); backdrop-filter: blur(8px)",
+      "purpose": "Dialog overlay."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one commit action per view: Import your team, Save plan, Sign in.",
+      "html": "<button class=\"ds-btn-primary\">Save plan</button>",
+      "css": ".ds-btn-primary{background:#37003c;color:#fff;border:none;border-radius:9999px;padding:8px 20px;font:600 0.875rem/1.25rem Geist,Arial,sans-serif;cursor:pointer;transition:background-color .15s}.ds-btn-primary:hover{background:#4d0054}.ds-btn-primary:focus-visible{outline:2px solid var(--color-primary,#37003c);outline-offset:2px;}.ds-btn-primary:disabled{opacity:.4}"
+    },
+    {
+      "name": "Primary Button (dark)",
+      "kind": "button",
+      "refersTo": "button-primary-dark",
+      "description": "The same action in dark mode: neon green with ink text.",
+      "html": "<button class=\"ds-btn-primary-dark\">Save plan</button>",
+      "css": ".ds-btn-primary-dark{background:#00ff87;color:#003820;border:none;border-radius:9999px;padding:8px 20px;font:600 0.875rem/1.25rem Geist,Arial,sans-serif;cursor:pointer;transition:background-color .15s}.ds-btn-primary-dark:hover{background:rgb(0 255 135 / .9)}.ds-btn-primary-dark:focus-visible{outline:2px solid #00ff87;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined plum pill for the second path (See the sample squad, Use suggestion).",
+      "html": "<a href=\"#\" class=\"ds-btn-secondary\">See the sample squad</a>",
+      "css": ".ds-btn-secondary{display:inline-block;border:1px solid rgb(55 0 60 / .4);color:#37003c;background:transparent;border-radius:9999px;padding:12px 24px;font:600 0.875rem/1.25rem Geist,Arial,sans-serif;text-decoration:none;transition:background-color .15s}.ds-btn-secondary:hover{background:rgb(55 0 60 / .06)}.ds-btn-secondary:focus-visible{outline:2px solid var(--color-primary,#37003c);outline-offset:2px;}"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Neutral hairline pill for Cancel, Close and Reset.",
+      "html": "<button class=\"ds-btn-quiet\">Cancel</button>",
+      "css": ".ds-btn-quiet{border:1px solid var(--border,rgb(0 0 0 / .08));background:transparent;color:#171717;border-radius:9999px;padding:6px 16px;font:500 0.875rem/1.25rem Geist,Arial,sans-serif;cursor:pointer;transition:background-color .15s}.ds-btn-quiet:hover{background:rgb(0 0 0 / .04)}.ds-btn-quiet:focus-visible{outline:2px solid var(--color-primary,#37003c);outline-offset:2px;}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Auth and team-ID fields.",
+      "html": "<label class=\"ds-label\">Email<input class=\"ds-input\" type=\"email\"></label>",
+      "css": ".ds-label{display:flex;flex-direction:column;gap:4px;font:500 0.875rem/1.25rem Geist,Arial,sans-serif;color:oklch(37% 0.013 285.805)}.ds-input{border:1px solid var(--border,rgb(0 0 0 / .08));border-radius:6px;padding:8px 12px;font:400 0.875rem/1.25rem Geist,Arial,sans-serif;outline:none;transition:border-color .15s}.ds-input:focus{border-color:#37003c}.ds-input:focus-visible{outline:2px solid var(--color-primary,#37003c);outline-offset:2px;}"
+    },
+    {
+      "name": "Dashboard Tabs",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Squad / Planner tabs with a 2px underline on the active one.",
+      "html": "<nav class=\"ds-tabs\"><a href=\"#\" class=\"ds-tab ds-tab-active\">Squad</a><a href=\"#\" class=\"ds-tab\">Planner</a></nav>",
+      "css": ".ds-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border,rgb(0 0 0 / .08))}.ds-tab{border-bottom:2px solid transparent;padding:8px 12px;font:500 0.875rem/1.25rem Geist,Arial,sans-serif;color:oklch(55.2% 0.016 285.938);text-decoration:none;transition:color .15s}.ds-tab:hover{color:oklch(37% 0.013 285.805)}.ds-tab-active{border-color:#37003c;color:#37003c}.ds-tab:focus-visible{outline:2px solid var(--color-primary,#37003c);outline-offset:2px;}"
+    },
+    {
+      "name": "Stat Chip",
+      "kind": "chip",
+      "refersTo": "stat-chip",
+      "description": "Label-over-value header stat: Bank, Value, Free transfers, Cost.",
+      "html": "<div class=\"ds-stat\"><p class=\"ds-stat-l\">Bank</p><p class=\"ds-stat-v\">£1.5m</p></div>",
+      "css": ".ds-stat{display:inline-block;border:1px solid var(--border,rgb(0 0 0 / .08));background:rgb(0 0 0 / .02);border-radius:8px;padding:6px 12px;font-family:Geist,Arial,sans-serif}.ds-stat p{margin:0}.ds-stat-l{font-size:.75rem;line-height:1rem;font-weight:500;letter-spacing:.025em;text-transform:uppercase;color:oklch(44.2% 0.017 285.786)}.ds-stat-v{font-size:.875rem;font-weight:600;color:#000;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "FDR Fixture Strip",
+      "kind": "chip",
+      "refersTo": "fdr-chip",
+      "description": "FPL's five difficulty colours with contrast-paired digits.",
+      "html": "<div class=\"ds-fdr\"><span class=\"d1\">1</span><span class=\"d2\">2</span><span class=\"d3\">3</span><span class=\"d4\">4</span><span class=\"d5\">5</span></div>",
+      "css": ".ds-fdr{display:flex;gap:2px;width:200px;font:600 .75rem/20px Geist,Arial,sans-serif;font-variant-numeric:tabular-nums;text-align:center}.ds-fdr span{flex:1;height:20px;border-radius:4px}.d1{background:#375523;color:#fff}.d2{background:#01fc7a;color:#0a0a0a}.d3{background:#e7e7e7;color:oklch(27.4% 0.006 286.033)}.d4{background:#ff1751;color:#0a0a0a}.d5{background:#80072d;color:#fff}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat bordered white panel on the lilac-to-mist page ground.",
+      "html": "<div class=\"ds-ground\"><div class=\"ds-panel\"><h3>Team sheet</h3><p>Flat, bordered, no shadow.</p></div></div>",
+      "css": ".ds-ground{padding:24px;background:linear-gradient(to bottom,oklch(94.6% 0.033 307.174),oklch(98.5% 0 0),oklch(98.5% 0 0))}.ds-panel{background:#fff;border:1px solid var(--border,rgb(0 0 0 / .08));border-radius:12px;padding:32px;font-family:Geist,Arial,sans-serif}.ds-panel h3{margin:0;font-size:1rem;font-weight:600;color:#000}.ds-panel p{margin:8px 0 0;font-size:.875rem;color:oklch(44.2% 0.017 285.786)}"
+    },
+    {
+      "name": "Player Card on Pitch",
+      "kind": "custom",
+      "refersTo": "name-plate",
+      "description": "Signature: shirt slot, price, name plate over fixture pill, captain badge, on a striped pitch.",
+      "html": "<div class=\"ds-pitch\"><div class=\"ds-card\"><span class=\"ds-cap\">C</span><div class=\"ds-face\"><span class=\"ds-price\">£14.5m</span><svg class=\"ds-shirt\" viewBox=\"0 0 24 24\" width=\"40\" height=\"40\"><path d=\"M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3c0 2-2 3-4 3S8 5 8 3Z\" fill=\"#6cabdd\"/></svg><span class=\"ds-plate\">Haaland</span><span class=\"ds-pill\">BUR (H)</span></div></div></div>",
+      "css": ".ds-pitch{padding:32px 16px;display:flex;justify-content:center;background:repeating-linear-gradient(180deg,#3d8c40 0,#3d8c40 12.5%,#439648 12.5%,#439648 25%);clip-path:polygon(12% 0,88% 0,100% 100%,0 100%);font-family:Geist,Arial,sans-serif}.ds-card{position:relative;width:80px;text-align:center}.ds-face{display:flex;flex-direction:column;align-items:center;overflow:hidden;border-radius:16px;background:rgb(255 255 255 / .4);backdrop-filter:blur(4px);padding-top:6px}.ds-price{font-size:.75rem;font-weight:600;color:oklch(37% 0.013 285.805)}.ds-shirt{filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}.ds-plate{margin-top:6px;width:100%;box-sizing:border-box;background:#fff;color:oklch(21% 0.006 285.885);border:1px solid rgb(0 0 0 / .1);border-bottom:0;border-radius:6px 6px 0 0;padding:2px 8px;font-size:.75rem;font-weight:700;box-shadow:0 1px 2px rgb(0 0 0 / .05)}.ds-pill{width:100%;box-sizing:border-box;background:oklch(96.7% 0.001 286.375);color:oklch(44.2% 0.017 285.786);border:1px solid rgb(0 0 0 / .05);border-radius:0 0 16px 16px;padding:2px 8px;font-size:.75rem;font-weight:500}.ds-cap{position:absolute;top:38px;right:0;z-index:1;width:24px;height:24px;border-radius:9999px;background:#00ff87;color:#003820;font-size:.75rem;font-weight:700;line-height:24px;box-shadow:0 1px 2px rgb(0 0 0 / .05)}.ds-card:hover .ds-plate{background:#37003c;color:#fff;border-color:#37003c}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Matchday Programme",
+    "overview": "**Creative North Star: \"The Matchday Programme\"**\n\nThe app wears Fantasy Premier League's own matchday livery: FPL plum and neon green, the striped green pitch with real kit shirts standing on it, and FPL's own fixture-difficulty colours, so a manager reads it without a legend. Around that one vivid object, everything is quiet: white bordered panels on a soft lilac-to-mist page ground, Geist at small, dense sizes, hairline borders, and tabular money. The pitch is the only lit, three-dimensional thing on the page; the rest is printed paper.\n\nDensity is that of a planning tool, not a marketing site. Body copy sits at 14px, labels at 12px, and the type ramp only opens up on the landing page's headline. Light and dark are both first-class: light mode speaks in plum, dark mode speaks in neon green, and every emphasis state swaps between them rather than tinting.",
+    "keyCharacteristics": [
+      "FPL plum (light) and neon green (dark) as the single emphasis voice, swapped per theme.",
+      "A soft vertical page ground (lilac to mist, or night plum to black) under flat white panels.",
+      "One lit object: the trapezoid, floodlit, striped pitch with shirts and stacked name/fixture pills.",
+      "FPL's five fixture-difficulty colours used verbatim.",
+      "Geist throughout; prices and counts in tabular numerals, formatted £x.xm.",
+      "Pills and rounded-full controls; hairline adaptive borders everywhere."
+    ],
+    "rules": [
+      {
+        "name": "The Theme Flip Rule",
+        "body": "Emphasis is plum in light mode and neon green in dark mode, never both at once and never a third accent. Any new selected, active, focused or primary state ships both halves.",
+        "section": "colors"
+      },
+      {
+        "name": "The FPL's Own Colours Rule",
+        "body": "Fixture difficulty uses the five FDR values exactly as FPL does, each with its contrast-paired digit. The digit carries the meaning; do not re-tint, blend or reuse these colours for anything else.",
+        "section": "colors"
+      },
+      {
+        "name": "The Green Armband Rule",
+        "body": "The captain is a filled neon-green badge with ink text; the vice-captain is an outlined plum (dark: green) badge on white. Nothing else wears filled neon green as a badge.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Every price, bank figure and count renders in tabular numerals through `formatPrice`, so columns of money line up.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Lit Object Rule",
+        "body": "The pitch is the only surface with lighting. Panels stay flat and bordered; shadow elsewhere means \"this floats above the page.\"",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** ship both theme halves for every emphasis state: plum (#37003c) in light, neon green (#00ff87) with ink (#003820) in dark.",
+      "**Do** use the shared `focus-ring` utility on every interactive element and the `--border` token for every hairline.",
+      "**Do** render fixture difficulty only through `difficultyClass`, with the rating digit visible.",
+      "**Do** keep panels white (dark: Panel Dark), bordered and flat on the lilac-to-mist (dark: night-plum-to-black) ground.",
+      "**Do** format money with `formatPrice` in tabular numerals.",
+      "**Do** reuse the real `Pitch` and `PlayerCard` wherever a squad is shown, including illustrative samples."
+    ],
+    "donts": [
+      "**Don't** introduce a third accent colour or re-tint the FDR palette.",
+      "**Don't** put white text on neon green; use the ink colour.",
+      "**Don't** give the pitch a CSS border or a 3D perspective transform; the clip-path trapezoid keeps cards upright and legible.",
+      "**Don't** add shadows to resting panels; shadow means floating or the lit pitch.",
+      "**Don't** use uppercase tracked labels as eyebrows above headlines; they label data (stat captions, position groups) only.",
+      "**Don't** fall back to the browser's default blue selection or focus outline."
+    ]
+  }
+}

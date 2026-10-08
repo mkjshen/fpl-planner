@@ -44,9 +44,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
-        {/* The one main landmark for every page, so screen-reader users can
-            jump straight past the chrome. The theme toggle floats outside it. */}
-        <main className="flex flex-1 flex-col">{children}</main>
+        {/* Each page or section layout marks its own <main>, so headers and
+            footers stay outside it and keep their banner/contentinfo roles. */}
+        {children}
         <ThemeToggle />
       </body>
     </html>

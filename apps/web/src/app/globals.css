@@ -41,6 +41,18 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Selected text in the product's own colours rather than the browser's
+   default blue: plum on light, neon green on dark. */
+::selection {
+  background: var(--color-primary);
+  color: white;
+}
+
+.dark ::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+
 /* One shared keyboard-focus indicator — outline is suppressed by default
    (most interactive elements here sit on custom-colored backgrounds where
    the browser default is often invisible) and only drawn for real keyboard
