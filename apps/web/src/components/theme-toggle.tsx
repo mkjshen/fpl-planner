@@ -106,7 +106,7 @@ export function ThemeToggle({ variant = "floating" }: { variant?: "floating" | "
       className={
         variant === "inline"
           ? "focus-ring flex h-9 w-9 items-center justify-center rounded-full border border-border text-zinc-600 transition-colors hover:bg-black/[.04] hover:text-black dark:text-zinc-400 dark:hover:bg-[#1a1a1a] dark:hover:text-zinc-50"
-          : "focus-ring fixed right-6 bottom-6 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-zinc-700 shadow-lg transition-colors hover:bg-black/[.04] dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-white/[.08]"
+          : "focus-ring fixed right-6 bottom-6 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-white text-zinc-700 shadow-lg transition-colors hover:bg-black/[.04] dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-[#1a1a1a]"
       }
     >
       {theme === "dark" ? (

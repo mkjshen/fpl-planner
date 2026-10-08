@@ -36,6 +36,7 @@ async function linkTeamAction(formData: FormData) {
 export function LinkTeamForm({ error }: { error?: string }) {
   return (
     <div>
+      <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">Link your FPL team</h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
         Enter your FPL team ID to import your squad. Find it in the URL when
         viewing your team on the official FPL site (
@@ -46,18 +47,18 @@ export function LinkTeamForm({ error }: { error?: string }) {
       </p>
 
       {error === "team_not_found" && (
-        <Banner tone="error" className="mt-4">
+        <Banner tone="error" className="mt-4" id="team-id-error">
           Couldn&apos;t find an FPL team with that ID.
         </Banner>
       )}
       {error === "picks_unavailable" && (
-        <Banner tone="error" className="mt-4">
+        <Banner tone="error" className="mt-4" id="team-id-error">
           Found that team, but it has no squad picks published for the
           current gameweek yet. Try again after the gameweek deadline.
         </Banner>
       )}
       {error === "invalid_team_id" && (
-        <Banner tone="error" className="mt-4">
+        <Banner tone="error" className="mt-4" id="team-id-error">
           Enter a valid numeric team ID.
         </Banner>
       )}
@@ -74,12 +75,14 @@ export function LinkTeamForm({ error }: { error?: string }) {
             inputMode="numeric"
             placeholder="e.g. 12345"
             required
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "team-id-error" : undefined}
             className="focus-ring rounded-md border border-border px-3 py-2 text-sm transition-colors focus:border-primary dark:focus:border-accent dark:bg-black"
           />
         </div>
         <SubmitButton
           pendingLabel="Importing…"
-          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
+          className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60 dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90"
         >
           Import
         </SubmitButton>

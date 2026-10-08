@@ -86,6 +86,9 @@ export type PlayerListItem = {
   ictIndex?: number;
   valueSeason?: number;
   selectedByPercent?: number;
+  // This player's fixture in the gameweek being planned ("LIV (A)"), so a
+  // player brought in keeps it on the pitch instead of showing their club.
+  opponent?: string | null;
 };
 
 // What the player search can sort by — must match SORT_COLUMNS in the

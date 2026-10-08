@@ -5,7 +5,12 @@
 export default function DashboardLoading() {
   return (
     <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-2 py-4 sm:px-4 sm:py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
-      <div className="w-full max-w-5xl animate-pulse rounded-xl border border-border bg-white p-4 sm:p-8 dark:bg-zinc-950">
+      <div className="w-full max-w-5xl rounded-xl border border-border bg-white p-4 sm:p-8 dark:bg-zinc-950">
+        {/* Real text, outside the pulsing shapes, so the wait says what it's for. */}
+        <p role="status" className="mb-4 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          Loading your squad…
+        </p>
+        <div className="animate-pulse">
         <div className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col gap-2">
@@ -13,9 +18,9 @@ export default function DashboardLoading() {
               <div className="h-4 w-28 rounded bg-black/[.06] dark:bg-white/[.08]" />
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <div className="h-12 w-24 rounded-lg bg-black/[.06] dark:bg-white/[.08]" />
-            <div className="h-12 w-24 rounded-lg bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="mt-3 flex gap-5">
+            <div className="h-4 w-24 rounded bg-black/[.06] dark:bg-white/[.08]" />
+            <div className="h-4 w-28 rounded bg-black/[.06] dark:bg-white/[.08]" />
           </div>
         </div>
 
@@ -25,6 +30,7 @@ export default function DashboardLoading() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-24 w-20 rounded-2xl bg-black/[.06] xl:w-32 dark:bg-white/[.08]" />
           ))}
+        </div>
         </div>
       </div>
     </div>

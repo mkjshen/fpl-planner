@@ -29,7 +29,7 @@ export default async function Home() {
           <ThemeToggle variant="inline" />
           <Link
             href={signedIn ? "/dashboard" : "/sign-in"}
-            className="focus-ring rounded-full px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/[.05] hover:text-black dark:text-zinc-300 dark:hover:bg-white/[.08] dark:hover:text-zinc-50"
+            className="focus-ring rounded-full px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-black/[.04] hover:text-black dark:text-zinc-300 dark:hover:bg-[#1a1a1a] dark:hover:text-zinc-50"
           >
             {signedIn ? "Your dashboard" : "Sign in"}
           </Link>
@@ -92,8 +92,10 @@ export default async function Home() {
 
       <footer className="mt-auto border-t border-border">
         <p className="mx-auto max-w-6xl px-4 py-6 text-sm text-zinc-600 sm:px-6 dark:text-zinc-400">
+          <span className="block max-w-[65ch]">
           An independent planner for classic Fantasy Premier League. Not affiliated with the Premier
           League or Fantasy Premier League.
+          </span>
         </p>
       </footer>
     </div>

@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Club, FplTeam, Gameweek, Player, Position
 from app.schemas.players import PlayerListItemOut, PlayerListOut, PlayerProfileOut
 from app.services.lineup import GameweekNotFoundError, _find_effective_plan, _latest_snapshot_slots, _plan_slots
+from app.services.squad import _opponent_strings
 
 # What "sort by" values the search endpoint accepts, mapped to the column
 # they order on — all descending (highest first), which is what every one
@@ -84,7 +85,8 @@ async def search_players(
         .offset(offset)
         .limit(limit)
     )
-    result = await db.execute(query)
+    rows = (await db.execute(query)).all()
+    opponents, _ = await _opponent_strings(db, gameweek.id, {player.clubId for player, _ in rows})
 
     players = [
         PlayerListItemOut(
@@ -101,8 +103,9 @@ async def search_players(
             ictIndex=player.ictIndex,
             valueSeason=player.valueSeason,
             selectedByPercent=player.selectedByPercent,
+            opponent=opponents.get(player.clubId),
         )
-        for player, club in result.all()
+        for player, club in rows
     ]
     return PlayerListOut(total=total, players=players)
 

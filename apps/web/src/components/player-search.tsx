@@ -325,6 +325,15 @@ export function PlayerSearchResults({
           </p>
         ) : (
           <>
+            {/* Browsing with nothing transferred out: say how to start a
+                transfer, instead of showing the whole list faded out (which
+                read as low-contrast text, not as "not yet"). */}
+            {requiredPosition === null && (
+              <p className="mb-2 text-xs text-zinc-600 dark:text-zinc-400">
+                To bring someone in, transfer a player out first: tap × on their card, or open them
+                and choose Transfer out.
+              </p>
+            )}
             <ul className="flex flex-col gap-1">
               {displayedPlayers.map((player) => {
                 const selectable =
@@ -374,9 +383,16 @@ export function PlayerSearchResults({
                       className={`focus-ring flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${
                         selectable
                           ? "cursor-pointer hover:bg-black/[.04] dark:hover:bg-[#1a1a1a]"
-                          : "cursor-not-allowed opacity-40"
+                          : requiredPosition === null
+                            ? "cursor-default"
+                            : "cursor-not-allowed opacity-40"
                       }`}
                     >
+                      {!selectable && requiredPosition !== null && (
+                        <span className="sr-only">
+                          Not available: same-position swaps only, needs a {requiredPosition}.
+                        </span>
+                      )}
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="truncate font-medium text-black dark:text-zinc-50">
                           {player.webName}

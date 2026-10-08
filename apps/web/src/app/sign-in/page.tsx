@@ -68,16 +68,16 @@ export default async function SignInPage({
           </div>
           <SubmitButton
             pendingLabel="Signing in…"
-            className="mt-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
+            className="focus-ring mt-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60 dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90"
           >
             Sign in
           </SubmitButton>
         </form>
 
         <div className="mt-6 flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+          <div className="h-px flex-1 bg-border" />
           or
-          <div className="h-px flex-1 bg-black/[.08] dark:bg-white/[.145]" />
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         <div className="mt-6">

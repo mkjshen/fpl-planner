@@ -30,6 +30,7 @@ from app.services.lineup import (
 )
 from app.services.fixtures import upcoming_difficulty
 from app.services.price_trends import price_direction
+from app.services.squad import _opponent_strings
 from app.services.transfer_optimizer import OwnedOption, PoolOption, TransferSet, best_transfer_set
 
 FORM_WEIGHT = 0.6
@@ -138,7 +139,7 @@ async def _owned_slots_and_bank(
     return slots, snapshot.bank
 
 
-def _to_list_item(player: Player, club: Club) -> PlayerListItemOut:
+def _to_list_item(player: Player, club: Club, opponent: str | None = None) -> PlayerListItemOut:
     return PlayerListItemOut(
         playerId=player.id,
         webName=player.webName,
@@ -153,6 +154,7 @@ def _to_list_item(player: Player, club: Club) -> PlayerListItemOut:
         ictIndex=player.ictIndex,
         valueSeason=player.valueSeason,
         selectedByPercent=player.selectedByPercent,
+        opponent=opponent,
     )
 
 
@@ -196,6 +198,7 @@ async def suggest_transfers(
         player.clubId for candidates in pool_by_position.values() for player, _ in candidates
     }
     difficulties_by_club = await upcoming_difficulty(db, club_ids, gameweek_number, HORIZON_GAMEWEEKS)
+    opponents, _ = await _opponent_strings(db, gameweek.id, club_ids)
 
     # Computed once per player up front — both the greedy list and the
     # combination solve below read every player's projection repeatedly.
@@ -210,8 +213,8 @@ async def suggest_transfers(
     def to_suggestion(out_player: Player, out_club: Club, in_player: Player, in_club: Club) -> SuggestedTransferOut:
         out_projection, in_projection = projections[out_player.id], projections[in_player.id]
         return SuggestedTransferOut(
-            outPlayer=_to_list_item(out_player, out_club),
-            inPlayer=_to_list_item(in_player, in_club),
+            outPlayer=_to_list_item(out_player, out_club, opponents.get(out_player.clubId)),
+            inPlayer=_to_list_item(in_player, in_club, opponents.get(in_player.clubId)),
             outPlayerSellingPrice=selling_price_by_id[out_player.id],
             projectedGain=round(sum(in_projection) - sum(out_projection), 2),
             requiresHit=False,  # set by the caller, once ranked

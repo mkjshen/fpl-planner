@@ -29,6 +29,7 @@ export function Banner({
   children,
   onDismiss,
   className = "",
+  id,
 }: {
   tone: FeedbackTone;
   children: ReactNode;
@@ -37,9 +38,12 @@ export function Banner({
   // banner has nothing to dismiss to, it just won't be there on next load.
   onDismiss?: () => void;
   className?: string;
+  // Lets a form field point at this banner with aria-describedby.
+  id?: string;
 }) {
   return (
     <div
+      id={id}
       className={`flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm ${TONE_STYLES[tone]} ${className}`}
     >
       <span>{children}</span>

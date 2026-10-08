@@ -1,7 +1,9 @@
 import type { PlayerListItem, SquadPlayer, SuggestedTransfer, TransferCombination } from "@/lib/api";
 import {
   applicableCombination,
+  benchSlotLabel,
   canSwap,
+  chipStatus,
   difficultyClass,
   filterVisibleSuggestions,
   fixtureStripSummary,
@@ -9,6 +11,7 @@ import {
   pendingChangesSummary,
   priceChangeMarker,
   suggestionCostsHit,
+  suggestionsSummary,
   validationError,
   withTransfer,
 } from "./lineup-planner";
@@ -407,9 +410,76 @@ describe("pendingChangesSummary", () => {
     );
   });
 
+  it("says when a transferred-out player still needs a replacement", () => {
+    expect(
+      pendingChangesSummary({ transfersMade: 1, awaitingReplacement: 1, transferCost: 0, bank: "£6.2m", chipLabel: null }),
+    ).toBe("1 transfer · 1 needs a replacement · Bank £6.2m");
+  });
+
   it("falls back to lineup changes for pure substitutions", () => {
     expect(pendingChangesSummary({ transfersMade: 0, transferCost: 0, bank: "£1.0m", chipLabel: null })).toBe(
       "Lineup changes · Bank £1.0m",
     );
+  });
+});
+
+describe("chipStatus", () => {
+  const windows = [
+    { startEvent: 2, stopEvent: 19, status: "used" as const },
+    { startEvent: 20, stopEvent: 38, status: "available" as const },
+  ];
+
+  it("says when a spent chip comes back", () => {
+    expect(chipStatus("wildcard", null, windows, 6)).toBe("from GW20");
+  });
+
+  it("says available inside an unspent window", () => {
+    expect(chipStatus("wildcard", null, windows, 25)).toBe("available");
+  });
+
+  it("says on while active", () => {
+    expect(chipStatus("wildcard", "wildcard", windows, 6)).toBe("on");
+  });
+
+  it("says none left once every window is spent or lapsed", () => {
+    expect(chipStatus("free_hit", null, [{ startEvent: 2, stopEvent: 19, status: "expired" }], 25)).toBe("none left");
+  });
+
+  it("says when a chip isn't offered at all", () => {
+    expect(chipStatus("bench_boost", null, [], 6)).toBe("not this season");
+  });
+});
+
+describe("suggestionsSummary", () => {
+  const base = { loading: false, failed: false, applied: false, combination: null, singleCount: 0, horizonRange: "GW6–10" };
+
+  it("leads with the best plan when there is one", () => {
+    expect(
+      suggestionsSummary({
+        ...base,
+        combination: { transfers: [makeSuggestion(1, 2), makeSuggestion(3, 4)], totalProjectedGain: 20, hits: 1, netProjectedGain: 16 },
+      }),
+    ).toBe("Best plan: 2 transfers, +16.0 pts after −4 in hits over GW6–10.");
+  });
+
+  it("falls back to the single-transfer count, then to nothing found", () => {
+    expect(suggestionsSummary({ ...base, singleCount: 3 })).toBe("3 single transfers worth a look over GW6–10.");
+    expect(suggestionsSummary(base)).toBe("No standout swaps for this squad right now.");
+  });
+
+  it("reports loading and failure", () => {
+    expect(suggestionsSummary({ ...base, loading: true })).toBe("Finding suggestions for this squad…");
+    expect(suggestionsSummary({ ...base, failed: true })).toBe("Couldn't load suggestions.");
+  });
+});
+
+describe("benchSlotLabel", () => {
+  it("names the bench goalkeeper and numbers outfield subs in bench order", () => {
+    const bench = makeSquad()
+      .filter((p) => !p.isStarting)
+      .sort((a, b) => a.squadPosition - b.squadPosition);
+    const labels = bench.map((_, i) => benchSlotLabel(bench, i));
+    expect(labels).toContain("bench goalkeeper");
+    expect(labels.filter((l) => l.startsWith("substitute"))).toEqual(["substitute 1", "substitute 2", "substitute 3"]);
   });
 });

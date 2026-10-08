@@ -13,18 +13,23 @@ export function StatChip({
   value,
   negative,
   title,
+  keepCase,
 }: {
   label: string;
   value: string;
   negative?: boolean;
   title?: string;
+  // For labels whose casing is meaningful (FPL writes xG, not XG).
+  keepCase?: boolean;
 }) {
   return (
     <div
       title={title}
       className="rounded-lg border border-border bg-black/[.02] px-3 py-1.5 dark:bg-white/[.03]"
     >
-      <p className="text-xs font-medium tracking-wide text-zinc-600 uppercase dark:text-zinc-400">
+      <p
+        className={`text-xs font-medium tracking-wide text-zinc-600 dark:text-zinc-400 ${keepCase ? "" : "uppercase"}`}
+      >
         {label}
       </p>
       <p
@@ -35,6 +40,37 @@ export function StatChip({
         {value}
       </p>
     </div>
+  );
+}
+
+// The squad headers' figures (Bank, Value, Free transfers, Cost) as one
+// inline row of label/value pairs — the same form as the landing page's
+// team sheet — rather than a row of bordered tiles inside the page card.
+// `hint` is the explanation a tooltip used to carry alone; it renders as
+// screen-reader text and the native tooltip both.
+export function StatList({
+  items,
+  className = "",
+}: {
+  items: { label: string; value: string; negative?: boolean; hint?: string }[];
+  className?: string;
+}) {
+  return (
+    <dl className={`flex flex-wrap gap-x-5 gap-y-1 text-sm ${className}`}>
+      {items.map((item) => (
+        <div key={item.label} className="flex gap-1.5" title={item.hint}>
+          <dt className="text-zinc-600 dark:text-zinc-400">{item.label}</dt>
+          <dd
+            className={`font-semibold tabular-nums ${
+              item.negative ? "text-red-600 dark:text-red-400" : "text-black dark:text-zinc-50"
+            }`}
+          >
+            {item.value}
+            {item.hint && <span className="sr-only"> ({item.hint})</span>}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -66,9 +102,10 @@ const POSITION_NAMES: Record<Position, string> = {
 // plate, a faded card) don't reach assistive tech on their own.
 export function playerCardLabel(
   player: SquadPlayer,
-  { selected, disabled }: { selected?: boolean; disabled?: boolean } = {},
+  { selected, disabled, benchSlot }: { selected?: boolean; disabled?: boolean; benchSlot?: string } = {},
 ): string {
   const parts = [player.webName, POSITION_NAMES[player.position], formatPrice(player.currentPrice)];
+  if (benchSlot) parts.push(benchSlot);
   if (player.actualPoints != null) {
     parts.push(`${player.actualPoints} point${player.actualPoints === 1 ? "" : "s"} this gameweek`);
   } else if (player.opponent) {
@@ -91,6 +128,8 @@ export function PlayerCard({
   onClick,
   onRemove,
   onActivate,
+  roving,
+  benchSlot,
 }: {
   player: SquadPlayer;
   muted?: boolean;
@@ -110,6 +149,13 @@ export function PlayerCard({
   // Only used when `blank`: clicking an inactive blank slot switches the
   // transfer-in panel to search a replacement for this one instead.
   onActivate?: () => void;
+  // Part of a RovingGroup (the planner's squad): the card joins the arrow-key
+  // group, and its × leaves the Tab order — keyboard users transfer out via
+  // the card's profile ("Transfer out"), so the squad is one Tab stop, not 30.
+  roving?: boolean;
+  // Where a bench player sits in FPL's auto-sub order ("substitute 1"),
+  // spoken in the card's label.
+  benchSlot?: string;
 }) {
   // Styled after the official FPL pitch view: no big bordered card box —
   // just a shirt "standing" on the pitch with a couple of small pill labels
@@ -122,6 +168,8 @@ export function PlayerCard({
       <button
         type="button"
         onClick={onActivate}
+        data-roving-item={roving || undefined}
+        data-roving-id={roving ? player.playerId : undefined}
         className={`focus-ring flex min-w-0 max-w-20 flex-1 flex-col items-center text-center xl:max-w-32 ${
           onActivate ? "cursor-pointer" : ""
         }`}
@@ -170,9 +218,13 @@ export function PlayerCard({
       )}
       <span
         title={player.webName}
-        // Wraps (at most two lines) rather than truncating, so a squeezed
-        // phone row still shows "Gibbs-White" in full instead of "Gibbs-Wh…".
-        className={`mt-1.5 line-clamp-2 w-full rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs leading-tight font-bold break-words shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
+        // A name with a natural break (hyphen or space) may wrap to two
+        // lines, so a squeezed phone row shows "Gibbs-White" in full; a
+        // single long word truncates with an ellipsis rather than splitting
+        // mid-word ("Donnarumm/a").
+        className={`mt-1.5 w-full rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs leading-tight font-bold shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
+          /[\s-]/.test(player.webName) ? "line-clamp-2" : "truncate"
+        } ${
           selected
             ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
             : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
@@ -193,14 +245,17 @@ export function PlayerCard({
       // Shrinks to share its row (a full back five on a phone) instead of
       // wrapping, capped at the size it has always had, like the real FPL
       // app's pitch.
+      // Disabled (can't swap with the selected player) must read as dimmed
+      // even on the bench, whose own muting would otherwise override it.
       className={`group relative flex min-w-0 max-w-20 flex-1 flex-col items-center text-center xl:max-w-32 ${
-        muted ? "opacity-80" : ""
-      } ${disabled ? "opacity-40" : ""}`}
+        disabled ? "opacity-40" : muted ? "opacity-80" : ""
+      }`}
     >
       {onRemove && (
         <button
           type="button"
           onClick={onRemove}
+          tabIndex={roving ? -1 : undefined}
           aria-label={`Transfer out ${player.webName}`}
           title="Transfer out"
           // Sits over the shirt's top-left corner, inside the card, like the
@@ -212,7 +267,9 @@ export function PlayerCard({
           // appear — and revealed whenever anything in the card has focus.
           className="focus-ring absolute top-5 left-0 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-black/[.15] bg-white text-xs font-bold text-zinc-600 shadow-sm transition before:absolute before:-inset-1.5 before:content-[''] focus:opacity-100 pointer-fine:md:opacity-0 pointer-fine:md:group-hover:opacity-100 pointer-fine:md:group-focus-within:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:top-6"
         >
-          ×
+          <svg aria-hidden="true" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="h-2.5 w-2.5">
+            <path d="M3 3l6 6M9 3l-6 6" />
+          </svg>
         </button>
       )}
       {(player.isCaptain || player.isViceCaptain) && (
@@ -236,7 +293,9 @@ export function PlayerCard({
           // drops out of the tab order, and then a keyboard user can't
           // reach it to hear *why* it can't be swapped right now.
           aria-disabled={disabled || undefined}
-          aria-label={playerCardLabel(player, { selected, disabled })}
+          aria-label={playerCardLabel(player, { selected, disabled, benchSlot })}
+          data-roving-item={roving || undefined}
+          data-roving-id={roving ? player.playerId : undefined}
           onClick={disabled ? undefined : onClick}
           className={`focus-ring w-full rounded-2xl xl:rounded-3xl ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
         >
@@ -300,6 +359,7 @@ export function Pitch({
   onPlayerClick,
   onPlayerRemove,
   onBlankActivate,
+  roving,
 }: {
   starting: SquadPlayer[];
   selectedPlayerId?: number | null;
@@ -309,6 +369,7 @@ export function Pitch({
   onPlayerClick?: (player: SquadPlayer) => void;
   onPlayerRemove?: (player: SquadPlayer) => void;
   onBlankActivate?: (player: SquadPlayer) => void;
+  roving?: boolean;
 }) {
   const byPosition = (position: Position) =>
     starting.filter((p) => p.position === position).sort((a, b) => a.squadPosition - b.squadPosition);
@@ -387,6 +448,7 @@ export function Pitch({
                 onClick={onPlayerClick ? () => onPlayerClick(player) : undefined}
                 onRemove={onPlayerRemove ? () => onPlayerRemove(player) : undefined}
                 onActivate={onBlankActivate ? () => onBlankActivate(player) : undefined}
+                roving={roving}
               />
             ))}
           </div>

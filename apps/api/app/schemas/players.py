@@ -19,6 +19,11 @@ class PlayerListItemOut(BaseModel):
     ictIndex: float
     valueSeason: float
     selectedByPercent: float
+    # Who this player's club faces in the gameweek being planned ("LIV (A)",
+    # a double as "LIV (A), MCI (H)", or "No fixture"), the same string the
+    # squad view shows — so a player bought from search or a suggestion
+    # keeps their fixture on the pitch instead of falling back to the club.
+    opponent: str | None = None
 
 
 class PlayerListOut(BaseModel):

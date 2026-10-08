@@ -32,7 +32,9 @@ test("suggested transfers panel loads for a real imported squad", async ({ page 
   await page.getByRole("link", { name: "Planner" }).click();
   await expect(page).toHaveURL(/\/dashboard\/planner/);
 
-  await expect(page.getByText("Suggested transfers")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Suggested transfers" })).toBeVisible();
+  // The panel starts collapsed to a one-line summary; open it to see the cards.
+  await page.getByRole("button", { name: "Show suggested transfers" }).click();
 
   // Whatever real data produced, the panel must land on exactly one of:
   // at least one suggestion card (an "Apply" button), or the explicit

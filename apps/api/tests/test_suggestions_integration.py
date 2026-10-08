@@ -154,6 +154,10 @@ async def test_injured_owned_player_gets_a_free_suggested_replacement(db_session
     assert suggestion.inPlayer.playerId == replacement.id
     assert suggestion.requiresHit is False
     assert suggestion.projectedGain > 0
+    # Both sides carry their fixture for the planned gameweek, so a player
+    # applied from a suggestion keeps "OPP (H)" on the pitch.
+    assert suggestion.inPlayer.opponent == "C1001 (H)"
+    assert suggestion.outPlayer.opponent == "C1001 (H)"
 
 
 async def test_a_standout_pool_player_is_only_suggested_once(db_session):

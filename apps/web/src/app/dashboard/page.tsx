@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { FplPicksUnavailableError, FplTeamNotFoundError, getSquadForUser, importFplTeam } from "@/lib/api";
 import { LinkTeamForm } from "@/components/link-team-form";
-import { formatPrice, Pitch, PlayerCard, StatChip } from "@/components/pitch";
+import { formatPrice, Pitch, PlayerCard, StatList } from "@/components/pitch";
 import { Banner } from "@/components/feedback";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -66,7 +66,7 @@ export default async function DashboardPage({
             <div className="border-b border-border pb-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h1 className="text-lg font-semibold text-black dark:text-zinc-50">
+                  <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
                     {squad.teamName}
                   </h1>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">{squad.managerName}</p>
@@ -76,18 +76,21 @@ export default async function DashboardPage({
                 </p>
               </div>
 
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <StatChip label="Bank" value={formatPrice(squad.bank)} />
-                <StatChip label="Value" value={formatPrice(squad.teamValue)} />
-              </div>
+              <StatList
+                className="mt-3"
+                items={[
+                  { label: "Bank", value: formatPrice(squad.bank) },
+                  { label: "Value", value: formatPrice(squad.teamValue) },
+                ]}
+              />
             </div>
 
-            <div className="mt-4 flex justify-center">
+            <div className="mt-4">
               <form action={refreshSquadAction.bind(null, session.user.id, squad.fplTeamId)}>
                 <SubmitButton
                   pendingLabel="Refreshing…"
                   title="Re-pull your squad, prices, and bank from the FPL API"
-                  className="rounded text-xs font-medium text-zinc-500 underline decoration-dotted hover:text-zinc-700 disabled:opacity-60 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  className="focus-ring rounded-full border border-border px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-60 dark:hover:bg-[#1a1a1a]"
                 >
                   Refresh squad
                 </SubmitButton>
@@ -98,7 +101,8 @@ export default async function DashboardPage({
               <Pitch starting={squad.players.filter((p) => p.isStarting)} />
             </div>
 
-            <div className="mt-6 flex justify-center gap-1 rounded-2xl border border-border bg-black/[.03] p-3 sm:gap-2 sm:p-4 xl:gap-6 dark:bg-white/[.04]">
+            <h2 className="mt-6 text-lg font-semibold text-black dark:text-zinc-50">Bench</h2>
+            <div className="mt-2 flex justify-center gap-1 rounded-2xl border border-border bg-black/[.03] p-3 sm:gap-2 sm:p-4 xl:gap-6 dark:bg-white/[.04]">
               {squad.players
                 .filter((p) => !p.isStarting)
                 .sort((a, b) => a.squadPosition - b.squadPosition)

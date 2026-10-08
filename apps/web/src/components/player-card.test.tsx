@@ -35,6 +35,12 @@ describe("playerCardLabel", () => {
     );
   });
 
+  it("includes the bench slot when given", () => {
+    expect(playerCardLabel(makePlayer({ isStarting: false }), { benchSlot: "substitute 1" })).toBe(
+      "Saka, midfielder, £9.6m, substitute 1, next fixture LEE (H)",
+    );
+  });
+
   it("includes the substitution state", () => {
     expect(playerCardLabel(makePlayer(), { selected: true })).toContain("selected to substitute");
     expect(playerCardLabel(makePlayer(), { disabled: true })).toContain("can't swap with the selected player");
@@ -42,6 +48,20 @@ describe("playerCardLabel", () => {
 });
 
 describe("PlayerCard", () => {
+  it("joins a roving group and drops its × from the Tab order", () => {
+    render(<PlayerCard player={makePlayer()} onClick={() => {}} onRemove={() => {}} roving />);
+    expect(screen.getByRole("button", { name: /^Saka, midfielder/ })).toHaveAttribute("data-roving-item");
+    expect(screen.getByRole("button", { name: "Transfer out Saka" })).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("truncates a single long name but lets a hyphenated one wrap", () => {
+    const { unmount } = render(<PlayerCard player={makePlayer({ webName: "Donnarumma" })} muted />);
+    expect(screen.getByText("Donnarumma")).toHaveClass("truncate");
+    unmount();
+    render(<PlayerCard player={makePlayer({ webName: "Gibbs-White" })} muted />);
+    expect(screen.getByText("Gibbs-White")).toHaveClass("line-clamp-2");
+  });
+
   it("is a keyboard-operable button when it has an action", async () => {
     const user = userEvent.setup();
     const onClick = jest.fn();

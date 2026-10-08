@@ -188,6 +188,11 @@ export function PlayerProfileModal({
             </button>
           </div>
 
+          {/* Squad actions sit right under the name: they're why the card
+              was opened from the pitch, so they shouldn't wait below three
+              panels of stats. */}
+          {actions && <div className="mt-4">{actions(profile)}</div>}
+
           {availabilityNote && (
             <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
               {STATUS_LABELS[profile.status] && (
@@ -219,7 +224,7 @@ export function PlayerProfileModal({
                 title="FPL's own Influence/Creativity/Threat index — a composite score of how involved a player is in their team's attacking play, built specifically to help judge fantasy value"
               />
               <StatChip
-                label="Value"
+                label="Pts per £m"
                 value={profile.valueSeason.toFixed(1)}
                 title="Total points per £1m spent — higher means better return on price"
               />
@@ -245,22 +250,19 @@ export function PlayerProfileModal({
             <StatSection title="Underlying stats">
               <StatChip
                 label="xG"
+                keepCase
                 value={profile.expectedGoals.toFixed(2)}
                 title="Expected goals — how many goals their shots would be expected to produce on average. Well above actual goals scored suggests they're due more; well below suggests recent goals were fortunate"
               />
               <StatChip
                 label="xA"
+                keepCase
                 value={profile.expectedAssists.toFixed(2)}
                 title="Expected assists — the same idea as xG, for chances created that led (or should lead) to a goal"
               />
             </StatSection>
           </div>
 
-          {actions && (
-            <div className="mt-5 border-t border-border pt-4">
-              {actions(profile)}
-            </div>
-          )}
         </div>
       )}
     </Dialog>
