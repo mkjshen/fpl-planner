@@ -36,7 +36,9 @@ async function linkTeamAction(formData: FormData) {
     throw error;
   }
 
-  redirect("/dashboard?success=linked");
+  // Straight to the planner's current gameweek: the imported squad, read-only,
+  // with the next gameweek one click away.
+  redirect("/dashboard/planner?gameweek=current&success=linked");
 }
 
 export function LinkTeamForm({ error, teamId }: { error?: string; teamId?: string }) {

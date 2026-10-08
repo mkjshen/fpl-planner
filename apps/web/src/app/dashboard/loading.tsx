@@ -1,36 +1,18 @@
-// Shown automatically by Next.js while this segment's server component
-// awaits its data (initial load, or a refresh-squad round trip) — echoes
-// the real layout's shape (header, stat chips, pitch, bench row) instead
-// of a blank screen or plain "Loading…" text.
+// Shown by Next.js while /dashboard decides where you belong: the link-team
+// form for a new account, or a redirect into the planner once a team is
+// linked. Kept to the form's shape — the squad itself now loads inside the
+// planner, which has its own skeleton (planner/loading.tsx).
 export default function DashboardLoading() {
   return (
     <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 px-2 py-4 sm:px-4 sm:py-16 dark:from-[#2a002e] dark:via-black dark:to-black">
       <div className="w-full max-w-5xl rounded-xl border border-border bg-white p-4 sm:p-8 dark:bg-zinc-950">
-        {/* Real text, outside the pulsing shapes, so the wait says what it's for. */}
-        <p role="status" className="mb-4 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          Loading your squad…
+        <p role="status" className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          Loading…
         </p>
-        <div className="animate-pulse">
-        <div className="border-b border-border pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-2">
-              <div className="h-5 w-40 rounded bg-black/[.06] dark:bg-white/[.08]" />
-              <div className="h-4 w-28 rounded bg-black/[.06] dark:bg-white/[.08]" />
-            </div>
-          </div>
-          <div className="mt-3 flex gap-5">
-            <div className="h-4 w-24 rounded bg-black/[.06] dark:bg-white/[.08]" />
-            <div className="h-4 w-28 rounded bg-black/[.06] dark:bg-white/[.08]" />
-          </div>
-        </div>
-
-        <div className="mt-6 h-[420px] rounded-2xl bg-black/[.06] dark:bg-white/[.08]" />
-
-        <div className="mt-6 flex flex-wrap justify-center gap-2 rounded-2xl border border-border bg-black/[.03] p-4 xl:gap-6 dark:bg-white/[.04]">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 w-20 rounded-2xl bg-black/[.06] xl:w-32 dark:bg-white/[.08]" />
-          ))}
-        </div>
+        <div className="mt-4 flex animate-pulse flex-col gap-3">
+          <div className="h-7 w-56 rounded bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="h-4 w-full max-w-md rounded bg-black/[.06] dark:bg-white/[.08]" />
+          <div className="mt-3 h-10 w-full max-w-sm rounded-md bg-black/[.06] dark:bg-white/[.08]" />
         </div>
       </div>
     </div>

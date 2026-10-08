@@ -27,10 +27,13 @@ test("suggested transfers panel loads for a real imported squad", async ({ page 
   await page.getByRole("button", { name: "Import" }).click();
   // Hits the real FPL API — slower and less predictable than the rest of
   // this suite, hence the longer timeout.
+  // Importing lands on the planner's current gameweek: the real squad,
+  // read-only, with planning one click away.
   await expect(page.getByText("Team linked")).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard\/planner\?gameweek=current/);
 
-  await page.getByRole("link", { name: "Planner" }).click();
-  await expect(page).toHaveURL(/\/dashboard\/planner/);
+  await page.getByRole("button", { name: /^Plan Gameweek \d+/ }).click();
+  await expect(page).toHaveURL(/\/dashboard\/planner\?gameweek=\d+/);
 
   await expect(page.getByRole("heading", { name: "Suggested transfers" })).toBeVisible();
   // The panel starts collapsed to a one-line summary; open it to see the cards.

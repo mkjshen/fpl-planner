@@ -1,6 +1,10 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import {
+  FplPicksUnavailableError,
+  FplTeamNotFoundError,
+  importFplTeam,
   type Chip,
   getLineup,
   getPlayerProfile,
@@ -64,4 +68,22 @@ export async function getSuggestedTransfersAction(
   gameweekNumber: number,
 ): Promise<Suggestions | null> {
   return getSuggestedTransfers(userId, gameweekNumber);
+}
+
+// Re-pulls the squad, prices and bank from the FPL API, then returns to the
+// planner's current-gameweek view (where this lives since the separate Squad
+// page was folded into the planner) with the outcome as a banner.
+export async function refreshSquadAction(userId: string, fplTeamId: number): Promise<void> {
+  try {
+    await importFplTeam(userId, fplTeamId);
+  } catch (error) {
+    if (error instanceof FplTeamNotFoundError) {
+      redirect("/dashboard/planner?gameweek=current&error=team_not_found");
+    }
+    if (error instanceof FplPicksUnavailableError) {
+      redirect("/dashboard/planner?gameweek=current&error=picks_unavailable");
+    }
+    throw error;
+  }
+  redirect("/dashboard/planner?gameweek=current&success=refreshed");
 }

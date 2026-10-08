@@ -20,6 +20,7 @@ import { formatPrice, Pitch, PlayerCard, shirtUrl, StatList } from "@/components
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 import { Banner } from "@/components/feedback";
+import { SubmitButton } from "@/components/submit-button";
 import { Dialog } from "@/components/dialog";
 import { RovingGroup } from "@/components/roving-group";
 import { difficultyClass } from "@/lib/fdr";
@@ -431,11 +432,19 @@ function SuggestionsLegend() {
   );
 }
 
+// A banner the page asks the planner to show on arrival — the outcome of
+// linking or refreshing the team, which come back as a redirect.
+export type PlannerNotice = { tone: "success" | "error"; message: string };
+
 export function LineupPlanner({
   userId,
   lineup,
   selectedGameweek,
+  currentGameweek,
+  nextPlannableGameweek,
   gameweekOptions,
+  notice,
+  refreshAction,
   saveAction,
   resetAllAction,
   searchAction,
@@ -445,7 +454,13 @@ export function LineupPlanner({
   userId: string;
   lineup: Lineup;
   selectedGameweek: number;
+  // The live gameweek (shown read-only, as the real imported squad) and the
+  // first one that can be planned, for the "Plan Gameweek N" step between.
+  currentGameweek: number | null;
+  nextPlannableGameweek: number | null;
   gameweekOptions: { number: number; label: string }[];
+  notice: PlannerNotice | null;
+  refreshAction: () => Promise<void>;
   saveAction: (
     userId: string,
     gameweekNumber: number,
@@ -637,7 +652,7 @@ export function LineupPlanner({
         : null;
 
   // While the plan has unsaved changes, every way out of it asks first:
-  // in-app navigation (the gameweek arrows here, plus the header's tabs and
+  // in-app navigation (the gameweek arrows here, plus the header's wordmark and
   // sign-out via lib/navigation-guard) opens the unsaved-changes dialog,
   // and closing or reloading the tab gets the browser's own warning. The
   // planner remounts per gameweek, so leaving used to drop the plan
@@ -1132,6 +1147,44 @@ export function LineupPlanner({
               "Bench Boost active — your bench's points will count this gameweek too (scoring isn't simulated here, this is just a record of the choice)."}
             {chip === "triple_captain" &&
               "Triple Captain active — your captain's points will be tripled instead of doubled this gameweek (scoring isn't simulated here, this is just a record of the choice)."}
+          </div>
+        )}
+
+        {notice && (
+          <Banner tone={notice.tone} className="mt-3">
+            {notice.message}
+          </Banner>
+        )}
+
+        {/* The live gameweek is read-only: it's the real squad as last
+            imported. Planning starts at the next one, so that's the
+            primary action here, with refreshing the import beside it. */}
+        {!lineup.isEditable && selectedGameweek === currentGameweek && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-border pb-4">
+            <p className="max-w-[52ch] text-sm text-zinc-700 dark:text-zinc-300">
+              Gameweek {currentGameweek} is underway, so this is your real FPL squad as last imported.
+              {nextPlannableGameweek !== null && " Plan your transfers from the next gameweek."}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <form action={refreshAction}>
+                <SubmitButton
+                  pendingLabel="Refreshing…"
+                  title="Re-pull your squad, prices and bank from the FPL API"
+                  className="rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-60 dark:hover:bg-[#1a1a1a]"
+                >
+                  Refresh squad
+                </SubmitButton>
+              </form>
+              {nextPlannableGameweek !== null && (
+                <button
+                  type="button"
+                  onClick={() => router.push(`/dashboard/planner?gameweek=${nextPlannableGameweek}`)}
+                  className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90"
+                >
+                  Plan Gameweek {nextPlannableGameweek} →
+                </button>
+              )}
+            </div>
           </div>
         )}
 

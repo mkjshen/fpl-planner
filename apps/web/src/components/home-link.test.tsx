@@ -1,32 +1,31 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setNavigationGuard } from "@/lib/navigation-guard";
-import { Tabs } from "./tabs";
+import { HomeLink } from "./home-link";
 
 const push = jest.fn();
 jest.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard/planner",
   useRouter: () => ({ push }),
 }));
 
-describe("Tabs", () => {
+describe("HomeLink", () => {
   afterEach(() => {
     setNavigationGuard(null);
     push.mockClear();
   });
 
-  it("marks the current tab", () => {
-    render(<Tabs />);
-    expect(screen.getByRole("link", { name: "Planner" })).toHaveAttribute("aria-current", "page");
+  it("links to the planner", () => {
+    render(<HomeLink />);
+    expect(screen.getByRole("link", { name: "FPL Team Planner" })).toHaveAttribute("href", "/dashboard/planner");
   });
 
   it("asks the unsaved-changes guard before leaving, and holds the navigation", async () => {
     const user = userEvent.setup();
     const guard = jest.fn(() => true);
     setNavigationGuard(guard);
-    render(<Tabs />);
+    render(<HomeLink />);
 
-    await user.click(screen.getByRole("link", { name: "Squad" }));
+    await user.click(screen.getByRole("link", { name: "FPL Team Planner" }));
 
     expect(guard).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
@@ -38,10 +37,10 @@ describe("Tabs", () => {
       proceed();
       return true;
     });
-    render(<Tabs />);
+    render(<HomeLink />);
 
-    await user.click(screen.getByRole("link", { name: "Squad" }));
+    await user.click(screen.getByRole("link", { name: "FPL Team Planner" }));
 
-    expect(push).toHaveBeenCalledWith("/dashboard");
+    expect(push).toHaveBeenCalledWith("/dashboard/planner");
   });
 });
