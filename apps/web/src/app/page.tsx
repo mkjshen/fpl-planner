@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
-import { Pitch } from "@/components/pitch";
+import { benchTags, Pitch, PlayerCard } from "@/components/pitch";
 import { TeamSheet } from "@/components/team-sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -20,6 +20,7 @@ import {
 export default async function Home() {
   const session = await auth();
   const signedIn = Boolean(session?.user);
+  const sampleBench = SAMPLE_SQUAD.filter((p) => !p.isStarting).sort((a, b) => a.squadPosition - b.squadPosition);
 
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-b from-purple-100 via-zinc-50 to-zinc-50 dark:from-[#2a002e] dark:via-black dark:to-black">
@@ -76,6 +77,14 @@ export default async function Home() {
           <div className="mt-3 grid gap-6 lg:grid-cols-12">
             <div className="lg:col-span-7">
               <Pitch starting={SAMPLE_SQUAD.filter((p) => p.isStarting)} />
+              {/* The sample's bench, in auto-sub order, as in the planner —
+                  the team sheet lists it, so the pitch shouldn't drop it. */}
+              <h3 className="mt-5 text-base font-semibold text-black dark:text-zinc-50">Bench</h3>
+              <div className="mt-2 flex justify-center gap-1 rounded-2xl border border-border bg-black/[.03] p-3 sm:gap-2 sm:p-4 xl:gap-6 dark:bg-white/[.04]">
+                {sampleBench.map((player, index) => (
+                  <PlayerCard key={player.playerId} player={player} muted benchTag={benchTags(sampleBench)[index]} />
+                ))}
+              </div>
             </div>
             <div className="lg:col-span-5">
               <TeamSheet

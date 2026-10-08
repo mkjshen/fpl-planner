@@ -5,15 +5,16 @@ export function formatPrice(tenthsOfMillion: number): string {
   return `£${(tenthsOfMillion / 10).toFixed(1)}m`;
 }
 
-// A single bordered "label over value" stat card — used for Bank/Value/Free
-// Transfers/Cost on both the Squad and Planner headers, so the two stay
-// visually consistent.
+// A single bordered "label over value" stat card — the player profile's
+// stat grid. `emphasis` marks the figures a transfer decision turns on
+// (form, points per game), so the grid isn't nine numbers of equal weight.
 export function StatChip({
   label,
   value,
   negative,
   title,
   keepCase,
+  emphasis,
 }: {
   label: string;
   value: string;
@@ -21,11 +22,16 @@ export function StatChip({
   title?: string;
   // For labels whose casing is meaningful (FPL writes xG, not XG).
   keepCase?: boolean;
+  emphasis?: boolean;
 }) {
   return (
     <div
       title={title}
-      className="rounded-lg border border-border bg-black/[.02] px-3 py-1.5 dark:bg-white/[.03]"
+      className={`rounded-lg border px-3 py-1.5 ${
+        emphasis
+          ? "border-primary/30 bg-primary/[.05] dark:border-accent/30 dark:bg-accent/[.06]"
+          : "border-border bg-black/[.02] dark:bg-white/[.03]"
+      }`}
     >
       <p
         className={`text-xs font-medium tracking-wide text-zinc-600 dark:text-zinc-400 ${keepCase ? "" : "uppercase"}`}
@@ -33,7 +39,7 @@ export function StatChip({
         {label}
       </p>
       <p
-        className={`text-sm font-semibold ${
+        className={`${emphasis ? "text-xl" : "text-sm"} font-semibold tabular-nums ${
           negative ? "text-red-600 dark:text-red-400" : "text-black dark:text-zinc-50"
         }`}
       >
@@ -130,6 +136,7 @@ export function PlayerCard({
   onActivate,
   roving,
   benchSlot,
+  benchTag,
 }: {
   player: SquadPlayer;
   muted?: boolean;
@@ -156,6 +163,9 @@ export function PlayerCard({
   // Where a bench player sits in FPL's auto-sub order ("substitute 1"),
   // spoken in the card's label.
   benchSlot?: string;
+  // The same slot printed under the card ("GK", "1", "2", "3") — bench
+  // order decides auto-subs, so it's shown, not just spoken.
+  benchTag?: string;
 }) {
   // Styled after the official FPL pitch view: no big bordered card box —
   // just a shirt "standing" on the pitch with a couple of small pill labels
@@ -305,8 +315,25 @@ export function PlayerCard({
       ) : (
         face
       )}
+      {benchTag && (
+        // An interactive card already speaks its slot in its own label.
+        <span
+          aria-hidden={onClick ? true : undefined}
+          className="mt-1 text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-400"
+        >
+          {benchTag}
+        </span>
+      )}
     </div>
   );
+}
+
+// Each bench player's visible slot in FPL's auto-sub order: the bench
+// goalkeeper, then outfield substitutes 1-3 in bench (squadPosition) order.
+// `bench` must already be in bench order.
+export function benchTags(bench: SquadPlayer[]): string[] {
+  let outfield = 0;
+  return bench.map((p) => (p.position === "GK" ? "GK" : String(++outfield)));
 }
 
 const PITCH_ROWS: Position[] = ["GK", "DEF", "MID", "FWD"];

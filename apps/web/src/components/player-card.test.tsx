@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { SquadPlayer } from "@/lib/api";
-import { PlayerCard, playerCardLabel } from "./pitch";
+import { benchTags, PlayerCard, playerCardLabel } from "./pitch";
 
 function makePlayer(overrides: Partial<SquadPlayer> = {}): SquadPlayer {
   return {
@@ -110,5 +110,22 @@ describe("PlayerCard", () => {
   it("renders no button at all when display-only", () => {
     render(<PlayerCard player={makePlayer()} muted />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+describe("benchTags", () => {
+  it("labels the bench goalkeeper GK and numbers outfield subs in bench order", () => {
+    const bench = [
+      makePlayer({ playerId: 12, position: "GK", isStarting: false, squadPosition: 12 }),
+      makePlayer({ playerId: 13, position: "MID", isStarting: false, squadPosition: 13 }),
+      makePlayer({ playerId: 14, position: "DEF", isStarting: false, squadPosition: 14 }),
+      makePlayer({ playerId: 15, position: "FWD", isStarting: false, squadPosition: 15 }),
+    ];
+    expect(benchTags(bench)).toEqual(["GK", "1", "2", "3"]);
+  });
+
+  it("prints a bench card's slot under it", () => {
+    render(<PlayerCard player={makePlayer({ isStarting: false })} muted benchTag="2" />);
+    expect(screen.getByText("2")).toBeInTheDocument();
   });
 });

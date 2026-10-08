@@ -211,17 +211,21 @@ export function PlayerProfileModal({
 
           <div className="mt-5 flex flex-col gap-4">
             <StatSection title="Season">
-              <StatChip label="Points" value={String(profile.totalPoints)} />
+              {/* The two figures suggestions are built from lead, emphasised;
+                  the rest are context. */}
               <StatChip
-                label="Pts/game"
-                value={profile.pointsPerGame.toFixed(1)}
-                title="Average points per gameweek started or on the pitch"
-              />
-              <StatChip
+                emphasis
                 label="Form"
                 value={profile.form.toFixed(1)}
                 title="Average points over the last few gameweeks — a better read on current momentum than the season total"
               />
+              <StatChip
+                emphasis
+                label="Pts/game"
+                value={profile.pointsPerGame.toFixed(1)}
+                title="Average points per gameweek started or on the pitch"
+              />
+              <StatChip label="Points" value={String(profile.totalPoints)} />
               <StatChip
                 label="ICT"
                 value={profile.ictIndex.toFixed(1)}

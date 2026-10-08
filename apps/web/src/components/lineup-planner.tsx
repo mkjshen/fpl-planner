@@ -16,7 +16,7 @@ import type {
   Suggestions,
   TransferCombination,
 } from "@/lib/api";
-import { formatPrice, Pitch, PlayerCard, shirtUrl, StatList } from "@/components/pitch";
+import { benchTags, formatPrice, Pitch, PlayerCard, shirtUrl, StatList } from "@/components/pitch";
 import { PlayerSearchResults, type SearchAction } from "@/components/player-search";
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 import { Banner } from "@/components/feedback";
@@ -639,7 +639,11 @@ export function LineupPlanner({
     if (effectiveCurrentIds.has(sp.playerId)) continue;
     transfersMade += 1;
     proceeds += sp.sellingPrice;
-    valueChange -= sp.currentPrice;
+    // Squad value only moves once a replacement is in: an empty slot made
+    // "Value" plunge mid-transfer (e.g. £101.1m → £93.1m), which read as a
+    // loss. The bank does move straight away — it's the money available to
+    // spend on that replacement.
+    if (!transferOutIdSet.has(sp.playerId)) valueChange -= sp.currentPrice;
     freedPlayerIds.add(sp.playerId);
   }
   const liveBank = savedBank + proceeds - spend;
@@ -1652,6 +1656,7 @@ export function LineupPlanner({
                 muted
                 roving={lineup.isEditable}
                 benchSlot={benchSlotLabel(bench, index)}
+                benchTag={benchTags(bench)[index]}
                 selected={lineup.isEditable && player.playerId === selectedId}
                 disabled={disabledPlayerIds.has(player.playerId)}
                 blank={transferOutIdSet.has(player.playerId)}
