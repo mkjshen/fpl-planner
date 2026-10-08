@@ -218,13 +218,12 @@ export function PlayerCard({
       )}
       <span
         title={player.webName}
-        // A name with a natural break (hyphen or space) may wrap to two
-        // lines, so a squeezed phone row shows "Gibbs-White" in full; a
-        // single long word truncates with an ellipsis rather than splitting
-        // mid-word ("Donnarumm/a").
-        className={`mt-1.5 w-full rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs leading-tight font-bold shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
-          /[\s-]/.test(player.webName) ? "line-clamp-2" : "truncate"
-        } ${
+        // Always one line, ellipsis when squeezed, like the FPL app: names
+        // wrapping onto two lines ("Gibbs-/White") gave cards in the same row
+        // different heights. The full name is never lost — it's in this
+        // title, the card's spoken label, and the action sheet's header (and
+        // on the landing page, the team sheet beside the pitch).
+        className={`mt-1.5 w-full truncate rounded-t-md border border-b-0 px-0.5 py-0.5 text-xs leading-tight font-bold shadow-sm sm:px-2 xl:px-2.5 xl:py-1 xl:text-sm ${
           selected
             ? "border-primary bg-primary text-white dark:border-accent dark:bg-accent dark:text-accent-foreground"
             : "border-black/10 bg-white text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-50"
@@ -262,10 +261,12 @@ export function PlayerCard({
           // real FPL transfer view: never clipped by the pitch's sloped edge
           // and never colliding with a neighbouring card's badges, even on a
           // squeezed back five. 24px visible, with a `before:` pad taking the
-          // tap area to 36px. Hidden until hover only where hover exists
-          // (pointer-fine) — on a touchscreen tablet it would otherwise never
-          // appear — and revealed whenever anything in the card has focus.
-          className="focus-ring absolute top-5 left-0 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-black/[.15] bg-white text-xs font-bold text-zinc-600 shadow-sm transition before:absolute before:-inset-1.5 before:content-[''] focus:opacity-100 pointer-fine:md:opacity-0 pointer-fine:md:group-hover:opacity-100 pointer-fine:md:group-focus-within:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:top-6"
+          // tap area to 36px. With a mouse (pointer-fine) it's hidden until
+          // hover or focus. On touch (pointer-coarse) it isn't rendered at
+          // all: fifteen always-on × buttons under a thumb invited
+          // accidental transfers, and tapping the card already opens the
+          // action sheet, which has Transfer out.
+          className="focus-ring absolute top-5 left-0 z-10 flex h-6 w-6 pointer-coarse:hidden items-center justify-center rounded-full border border-black/[.15] bg-white text-xs font-bold text-zinc-600 shadow-sm transition before:absolute before:-inset-1.5 before:content-[''] focus:opacity-100 pointer-fine:md:opacity-0 pointer-fine:md:group-hover:opacity-100 pointer-fine:md:group-focus-within:opacity-100 hover:border-red-600 hover:bg-red-600 hover:text-white dark:border-white/[.2] dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-red-600 dark:hover:bg-red-600 dark:hover:text-white xl:top-6"
         >
           <svg aria-hidden="true" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="h-2.5 w-2.5">
             <path d="M3 3l6 6M9 3l-6 6" />

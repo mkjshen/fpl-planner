@@ -54,12 +54,20 @@ describe("PlayerCard", () => {
     expect(screen.getByRole("button", { name: "Transfer out Saka" })).toHaveAttribute("tabindex", "-1");
   });
 
-  it("truncates a single long name but lets a hyphenated one wrap", () => {
-    const { unmount } = render(<PlayerCard player={makePlayer({ webName: "Donnarumma" })} muted />);
-    expect(screen.getByText("Donnarumma")).toHaveClass("truncate");
-    unmount();
-    render(<PlayerCard player={makePlayer({ webName: "Gibbs-White" })} muted />);
-    expect(screen.getByText("Gibbs-White")).toHaveClass("line-clamp-2");
+  it("keeps every name on one line, with the full name in its title", () => {
+    for (const webName of ["Donnarumma", "Gibbs-White"]) {
+      const { unmount } = render(<PlayerCard player={makePlayer({ webName })} muted />);
+      const name = screen.getByText(webName);
+      expect(name).toHaveClass("truncate");
+      expect(name).not.toHaveClass("line-clamp-2");
+      expect(name).toHaveAttribute("title", webName);
+      unmount();
+    }
+  });
+
+  it("hides the transfer-out × on touch screens, where tapping the card opens the action sheet", () => {
+    render(<PlayerCard player={makePlayer()} onClick={() => {}} onRemove={() => {}} />);
+    expect(screen.getByRole("button", { name: "Transfer out Saka" })).toHaveClass("pointer-coarse:hidden");
   });
 
   it("is a keyboard-operable button when it has an action", async () => {

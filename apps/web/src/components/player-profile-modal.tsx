@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { type ReactNode, useEffect, useState } from "react";
 import type { PlayerProfile } from "@/lib/api";
-import { Dialog } from "@/components/dialog";
+import { BOTTOM_SHEET_OVERLAY, BOTTOM_SHEET_PANEL, Dialog } from "@/components/dialog";
 import { formatPrice, playerPhotoUrl, StatChip } from "@/components/pitch";
 
 export type ProfileAction = (playerId: number) => Promise<PlayerProfile>;
@@ -43,7 +43,7 @@ function Badge({ children }: { children: ReactNode }) {
 // sections) instead of plain "Loading…" text.
 function ProfileSkeleton() {
   return (
-    <div className="animate-pulse p-8">
+    <div className="animate-pulse p-5 sm:p-8">
       <div className="flex items-center gap-4">
         <div className="h-24 w-[75px] shrink-0 rounded-lg bg-black/[.06] dark:bg-white/[.08]" />
         <div className="flex flex-col gap-2">
@@ -133,10 +133,14 @@ export function PlayerProfileModal({
       (profile.chanceOfPlayingNextRound !== null && profile.chanceOfPlayingNextRound < 100));
 
   return (
+    // A bottom sheet on phones: tapping a squad card opens this, and its
+    // actions (captain, substitute, transfer out) sit right under the name,
+    // in thumb reach — it replaced the per-card × on touch screens.
     <Dialog
       onClose={onClose}
       label={profile ? `${profile.webName}'s profile` : "Player profile"}
-      className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-white shadow-xl dark:bg-zinc-950"
+      overlayClassName={BOTTOM_SHEET_OVERLAY}
+      className={`flex max-h-[85vh] max-w-2xl flex-col overflow-hidden border border-border bg-white shadow-xl dark:bg-zinc-950 ${BOTTOM_SHEET_PANEL}`}
     >
       {loading && <ProfileSkeleton />}
       {error && (
@@ -154,7 +158,7 @@ export function PlayerProfileModal({
         </div>
       )}
       {profile && (
-        <div className="flex min-h-0 flex-col overflow-y-auto p-8">
+        <div className="flex min-h-0 flex-col overflow-y-auto p-5 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               {profile.photoCode !== null && (

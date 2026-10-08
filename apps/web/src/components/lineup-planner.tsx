@@ -21,7 +21,7 @@ import { PlayerSearchResults, type SearchAction } from "@/components/player-sear
 import { PlayerProfileModal, type ProfileAction } from "@/components/player-profile-modal";
 import { Banner } from "@/components/feedback";
 import { SubmitButton } from "@/components/submit-button";
-import { Dialog } from "@/components/dialog";
+import { BOTTOM_SHEET_OVERLAY, BOTTOM_SHEET_PANEL, Dialog } from "@/components/dialog";
 import { RovingGroup } from "@/components/roving-group";
 import { difficultyClass } from "@/lib/fdr";
 import { setNavigationGuard } from "@/lib/navigation-guard";
@@ -1336,8 +1336,8 @@ export function LineupPlanner({
           <Dialog
             label={transferPanelTitle(transferOutPlayer)}
             onClose={handleClearActiveTransferOut}
-            overlayClassName="items-end"
-            className="flex max-h-[80vh] w-full max-w-md flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-xl dark:bg-zinc-950"
+            overlayClassName={BOTTOM_SHEET_OVERLAY}
+            className={`flex max-h-[80vh] max-w-md flex-col gap-4 border border-border bg-white p-6 shadow-xl dark:bg-zinc-950 ${BOTTOM_SHEET_PANEL}`}
           >
             <div className="flex items-center justify-between gap-4 border-b border-border pb-3">
               <p className="text-base font-semibold text-black dark:text-zinc-50">
@@ -1685,11 +1685,14 @@ export function LineupPlanner({
               >
                 {dirty ? pendingSummary : "No unsaved changes"}
               </p>
-              <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+              {/* Save leads (filled, and the full row on phones); Discard is a
+                  quiet text action beside it, so the two never read as an
+                  equal choice. */}
+              <div className="flex flex-1 items-center justify-end gap-4 sm:flex-none">
                 <button
                   onClick={handleReset}
                   disabled={!dirty || saving}
-                  className="focus-ring rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-40 dark:hover:bg-[#1a1a1a]"
+                  className="focus-ring shrink-0 rounded px-1 py-2 text-sm font-medium text-zinc-600 underline underline-offset-2 transition-colors hover:text-black disabled:no-underline disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-50"
                 >
                   Discard changes
                 </button>
@@ -1700,7 +1703,7 @@ export function LineupPlanner({
                   // The one filled, high-emphasis button on the page, in both
                   // themes — plum on white, the neon accent on dark (plum on
                   // near-black all but disappeared).
-                  className="focus-ring rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
+                  className="focus-ring flex-1 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-600 sm:flex-none dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent/90 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-400"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>

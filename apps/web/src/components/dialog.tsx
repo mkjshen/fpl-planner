@@ -43,13 +43,21 @@ function isTopmost(id: symbol): boolean {
 // planner's `md:sticky` sidebar would otherwise sit in that sticky
 // ancestor's stacking context and could paint behind unrelated content no
 // matter how high its z-index.
+// The phone presentation of a dialog: flush to the bottom edge, in thumb
+// reach, with rounded top corners and room for the home indicator — then a
+// normal centred dialog from `sm` up. The overlay half goes in
+// `overlayClassName`, the panel half into the dialog's own `className`.
+export const BOTTOM_SHEET_OVERLAY = "items-end sm:items-center sm:p-4";
+export const BOTTOM_SHEET_PANEL =
+  "w-full rounded-t-2xl border-b-0 pb-[env(safe-area-inset-bottom)] sm:rounded-xl sm:border-b sm:pb-0";
+
 export function Dialog({
   onClose,
   canClose = true,
   role = "dialog",
   label,
   labelledBy,
-  overlayClassName = "items-center",
+  overlayClassName = "items-center p-4",
   className,
   children,
 }: {
@@ -60,7 +68,9 @@ export function Dialog({
   role?: "dialog" | "alertdialog";
   label?: string;
   labelledBy?: string;
-  // Positioning of the panel within the backdrop (e.g. bottom sheet).
+  // Positioning and inset of the panel within the backdrop. The default is
+  // a centred dialog with a 16px margin; BOTTOM_SHEET (below) anchors it
+  // flush to the bottom edge on phones instead.
   overlayClassName?: string;
   className?: string;
   children: ReactNode;
@@ -154,7 +164,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[60] flex justify-center bg-black/40 p-4 backdrop-blur-sm ${overlayClassName}`}
+      className={`fixed inset-0 z-[60] flex justify-center bg-black/40 backdrop-blur-sm ${overlayClassName}`}
       onClick={() => canClose && onClose()}
     >
       <div
